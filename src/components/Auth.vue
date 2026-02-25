@@ -91,6 +91,7 @@ async function handleAuth() {
             isLogin ? "Não tem conta? Registe-se" : "Já tem conta? Fazer Login"
           }}
         </button>
+        <h6>versão beta</h6>
       </div>
     </div>
   </div>
