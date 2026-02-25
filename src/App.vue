@@ -10,8 +10,8 @@ import ExecucaoServico from "./components/ExecucaoServico.vue";
 import AdminArea from "./components/AdminArea.vue";
 import HistoricoServicos from "./components/HistoricoServicos.vue";
 import Paywall from "./components/Paywall.vue"; // NOVO IMPORT
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/vue";
+import { Analytics } from "@vercel/analytics/vue";
 
 const session = ref(null);
 
@@ -428,6 +428,8 @@ function formatarLinkZap(telefone) {
       </div>
     </div>
   </div>
+  <SpeedInsights />
+  <Analytics />
 </template>
 
 <style>
