@@ -7,6 +7,8 @@ import Configuracoes from "./Configuracoes.vue";
 import RelatoriosDashboard from "./RelatoriosDashboard.vue";
 import MinhaConta from "./MinhaConta.vue";
 import GerenciarSaaS from "./GerenciarSaaS.vue";
+import ConfigChecklist from "./ConfigChecklist.vue";
+import LimpezaBanco from "./LimpezaBanco.vue";
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
@@ -104,6 +106,22 @@ onMounted(async () => {
         </button>
 
         <button
+          class="btn-tab"
+          :class="{ active: abaAtual === 'checklist' }"
+          @click="abaAtual = 'checklist'"
+        >
+          📋 Checklist
+        </button>
+        <button
+          class="btn-tab"
+          :class="{ active: abaAtual === 'limpeza' }"
+          @click="abaAtual = 'limpeza'"
+          style="color: #ef4444"
+        >
+          🚨 Zona de Perigo
+        </button>
+
+        <button
           v-if="isSuperAdmin"
           class="btn-tab"
           :class="{ active: abaAtual === 'saas' }"
@@ -129,6 +147,8 @@ onMounted(async () => {
       <Configuracoes v-if="abaAtual === 'config'" />
       <MinhaConta v-if="abaAtual === 'conta'" />
       <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
+      <ConfigChecklist v-if="abaAtual === 'checklist'" />
+      <LimpezaBanco v-if="abaAtual === 'limpeza'" />
     </div>
   </div>
 </template>
