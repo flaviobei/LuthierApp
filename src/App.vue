@@ -9,35 +9,84 @@ import DashboardAtividades from "./components/DashboardAtividades.vue";
 import ExecucaoServico from "./components/ExecucaoServico.vue";
 import AdminArea from "./components/AdminArea.vue";
 import HistoricoServicos from "./components/HistoricoServicos.vue";
-import Paywall from "./components/Paywall.vue"; // NOVO IMPORT
+import Paywall from "./components/Paywall.vue";
 import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { Analytics } from "@vercel/analytics/vue";
+import ScannerQR from "./components/ScannerQR.vue"; // Adicione no topo
 
+// --- ESTADOS GERAIS ---
 const session = ref(null);
+const aVerificarAcesso = ref(true);
+const clientes = ref([]);
+const clienteSelecionado = ref(null);
+const instrumentoSelecionado = ref(null);
+const mostrarClientes = ref(false);
+const modoAtual = ref("bancada");
+const clienteEditandoId = ref(null);
+const clienteEditado = ref({});
+const servicoDireto = ref(null); // Esta é a variável que controla a abertura da O.S.
+const mostrarScanner = ref(false); // Adicione nos refs
+
+const configLuthieria = ref({
+  nome_luthieria: "Gestão Luthieria",
+  logo_url: "",
+});
 
 // --- ESTADO DA ASSINATURA (SAAS) ---
 const assinatura = ref(null);
 const diasTrialRestantes = ref(0);
-const aVerificarAcesso = ref(true);
 
-onMounted(() => {
-  supabase.auth.getSession().then(({ data }) => {
-    session.value = data.session;
-    if (session.value) inicializarApp();
-    else aVerificarAcesso.value = false;
-  });
+// --- FUNÇÕES DE LOGICA ---
 
-  supabase.auth.onAuthStateChange((_event, _session) => {
-    session.value = _session;
-    if (_session) inicializarApp();
-    else aVerificarAcesso.value = false;
-  });
-});
+async function processarLeituraQR(textoLido) {
+  mostrarScanner.value = false;
+
+  try {
+    // O link gerado na etiqueta é: https://seusite.com/?os=ID_DA_OS
+    const url = new URL(textoLido);
+    const osId = url.searchParams.get("os");
+
+    if (osId) {
+      aVerificarAcesso.value = true;
+      const { data, error } = await supabase
+        .from("servicos")
+        .select(`*, instrumentos (*, cliente:clientes (*))`)
+        .eq("id", osId)
+        .single();
+
+      if (data && !error) {
+        servicoDireto.value = data;
+      } else {
+        alert("O.S. não encontrada ou acesso negado.");
+      }
+      aVerificarAcesso.value = false;
+    }
+  } catch (e) {
+    alert(
+      "QR Code inválido. Certifique-se de escanear uma etiqueta gerada pelo sistema.",
+    );
+  }
+}
+
+async function carregarAssinatura() {
+  const { data } = await supabase.from("assinaturas").select("*").maybeSingle();
+  if (data) {
+    assinatura.value = data;
+    if (data.status === "trial") {
+      const hoje = new Date();
+      const fim = new Date(data.data_fim_trial);
+      const diffTime = fim - hoje;
+      diasTrialRestantes.value = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diasTrialRestantes.value <= 0) {
+        assinatura.value.status = "expirado";
+      }
+    }
+  }
+}
 
 async function inicializarApp() {
   aVerificarAcesso.value = true;
-  await carregarAssinatura(); // Verifica se pode entrar primeiro!
-
+  await carregarAssinatura();
   if (
     assinatura.value?.status === "ativo" ||
     (assinatura.value?.status === "trial" && diasTrialRestantes.value > 0)
@@ -48,54 +97,16 @@ async function inicializarApp() {
   aVerificarAcesso.value = false;
 }
 
-// Lógica de verificação do plano do Luthier
-async function carregarAssinatura() {
-  const { data } = await supabase.from("assinaturas").select("*").maybeSingle();
-  if (data) {
-    assinatura.value = data;
-
-    // Se estiver em modo teste, calcula os dias que faltam
-    if (data.status === "trial") {
-      const hoje = new Date();
-      const fim = new Date(data.data_fim_trial);
-      const diffTime = fim - hoje;
-      diasTrialRestantes.value = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      // Se passou da data, força o status para expirado no frontend para bloquear o ecrã
-      if (diasTrialRestantes.value <= 0) {
-        assinatura.value.status = "expirado";
-      }
-    }
-  }
-}
-
 async function fazerLogout() {
   await supabase.auth.signOut();
   clientes.value = [];
   configLuthieria.value = { nome_luthieria: "Gestão Luthieria", logo_url: "" };
   assinatura.value = null;
+  session.value = null;
+  // Reset de estilos
   document.documentElement.style.setProperty("--primary", "#2c3e50");
   document.documentElement.style.setProperty("--accent", "#d35400");
-  document.documentElement.style.setProperty("--bg-body", "#f4f6f8");
-  document.body.style.fontFamily = "'Inter', sans-serif";
 }
-
-// -------------------------------------
-// ESTADO DA BANCADA E NAVEGAÇÃO
-// -------------------------------------
-const clientes = ref([]);
-const clienteSelecionado = ref(null);
-const instrumentoSelecionado = ref(null);
-const mostrarClientes = ref(false);
-const modoAtual = ref("bancada");
-const clienteEditandoId = ref(null);
-const clienteEditado = ref({});
-const servicoDireto = ref(null);
-
-const configLuthieria = ref({
-  nome_luthieria: "Gestão Luthieria",
-  logo_url: "",
-});
 
 async function carregarConfiguracoes() {
   const { data } = await supabase
@@ -106,7 +117,6 @@ async function carregarConfiguracoes() {
     configLuthieria.value.nome_luthieria =
       data.nome_luthieria || "Gestão Luthieria";
     configLuthieria.value.logo_url = data.logo_url || "";
-
     if (data.cor_primaria)
       document.documentElement.style.setProperty(
         "--primary",
@@ -124,16 +134,51 @@ async function carregarConfiguracoes() {
   }
 }
 
-function fecharTelasSecundarias() {
-  modoAtual.value = "bancada";
-  carregarConfiguracoes();
-}
 async function buscarClientes() {
   const { data } = await supabase
     .from("clientes")
     .select("*")
     .order("created_at", { ascending: false });
   clientes.value = data || [];
+}
+
+// --- CICLO DE VIDA (onMounted) ---
+onMounted(async () => {
+  // 1. Lógica do QR Code
+  const urlParams = new URLSearchParams(window.location.search);
+  const osIdDoQrCode = urlParams.get("os");
+
+  if (osIdDoQrCode) {
+    const { data, error } = await supabase
+      .from("servicos")
+      .select(`*, instrumentos (*, cliente:clientes (*))`)
+      .eq("id", osIdDoQrCode)
+      .single();
+
+    if (data && !error) {
+      servicoDireto.value = data; // Correção: Agora usa a variável correta
+      window.history.replaceState({}, document.title, "/");
+    }
+  }
+
+  // 2. Controle de Sessão
+  supabase.auth.getSession().then(({ data }) => {
+    session.value = data.session;
+    if (session.value) inicializarApp();
+    else aVerificarAcesso.value = false;
+  });
+
+  supabase.auth.onAuthStateChange((_event, _session) => {
+    session.value = _session;
+    if (_session) inicializarApp();
+    else aVerificarAcesso.value = false;
+  });
+});
+
+// --- FUNÇÕES AUXILIARES PARA O TEMPLATE ---
+function fecharTelasSecundarias() {
+  modoAtual.value = "bancada";
+  carregarConfiguracoes();
 }
 function selecionarCliente(c) {
   clienteSelecionado.value = c;
@@ -156,6 +201,7 @@ function cancelarEdicaoCliente() {
   clienteEditandoId.value = null;
   clienteEditado.value = {};
 }
+
 async function salvarEdicaoCliente() {
   if (!clienteEditado.value.nome)
     return alert("O nome não pode ficar em branco.");
@@ -173,6 +219,7 @@ async function salvarEdicaoCliente() {
     cancelarEdicaoCliente();
   } else alert("Erro: " + error.message);
 }
+
 function formatarLinkZap(telefone) {
   if (!telefone) return "";
   const apenasNumeros = telefone.replace(/\D/g, "");
@@ -182,16 +229,10 @@ function formatarLinkZap(telefone) {
 
 <template>
   <div class="app-container">
-    <div
-      v-if="aVerificarAcesso"
-      style="
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-muted);
-      "
-    >
+    <SpeedInsights />
+    <Analytics />
+
+    <div v-if="aVerificarAcesso" class="loader-container">
       <h2>A preparar a sua oficina...</h2>
     </div>
 
@@ -207,8 +248,7 @@ function formatarLinkZap(telefone) {
 
     <div v-else>
       <div v-if="assinatura?.status === 'trial'" class="banner-trial">
-        ⚠️ <strong>Modo de Teste:</strong> Faltam {{ diasTrialRestantes }} dias
-        para o fim do seu teste grátis.
+        ⚠️ <strong>Modo de Teste:</strong> Faltam {{ diasTrialRestantes }} dias.
         <button class="btn-trial" @click="assinatura.status = 'expirado'">
           Ver Planos
         </button>
@@ -219,35 +259,34 @@ function formatarLinkZap(telefone) {
           <img
             v-if="configLuthieria.logo_url"
             :src="configLuthieria.logo_url"
-            alt="Logo"
             style="max-height: 55px; border-radius: 4px; object-fit: contain"
           />
           <span v-else style="font-size: 2.5rem">🎸</span>
-          <h1 class="logo-title" style="margin: 0; font-size: 1.6rem">
-            {{ configLuthieria.nome_luthieria }}
-          </h1>
+          <h1 class="logo-title">{{ configLuthieria.nome_luthieria }}</h1>
         </div>
 
+        <button
+          @click="mostrarScanner = true"
+          class="btn-primary"
+          style="background: var(--accent); border: none"
+        >
+          📷 Escanear
+        </button>
+
+        <ScannerQR
+          v-if="mostrarScanner"
+          @detectado="processarLeituraQR"
+          @fechar="mostrarScanner = false"
+        />
+
         <div class="header-buttons">
-          <button
-            @click="modoAtual = 'historico'"
-            class="btn-outline"
-            style="border-color: var(--primary)"
-          >
+          <button @click="modoAtual = 'historico'" class="btn-outline">
             📦 Arquivo / Histórico
           </button>
-          <button
-            @click="modoAtual = 'admin'"
-            class="btn-primary"
-            style="background: var(--primary)"
-          >
+          <button @click="modoAtual = 'admin'" class="btn-primary">
             ⚙️ Administração
           </button>
-          <button
-            @click="fazerLogout"
-            class="btn-outline text-danger"
-            style="border-color: var(--danger)"
-          >
+          <button @click="fazerLogout" class="btn-outline text-danger">
             🚪 Sair
           </button>
         </div>
@@ -256,6 +295,7 @@ function formatarLinkZap(telefone) {
       <div v-if="modoAtual === 'admin'">
         <AdminArea @voltar="fecharTelasSecundarias" />
       </div>
+
       <div v-else-if="modoAtual === 'historico'">
         <div v-if="servicoDireto">
           <ExecucaoServico
@@ -278,6 +318,7 @@ function formatarLinkZap(telefone) {
             @voltar="fecharServicoDireto"
           />
         </div>
+
         <div v-else>
           <div v-if="instrumentoSelecionado">
             <ServicoManager
@@ -285,24 +326,25 @@ function formatarLinkZap(telefone) {
               @voltar="instrumentoSelecionado = null"
             />
           </div>
+
           <div v-else-if="clienteSelecionado">
             <button
               @click="clienteSelecionado = null"
               class="btn-outline"
               style="margin-bottom: 15px"
             >
-              &larr; Voltar ao Início
+              &larr; Voltar
             </button>
             <InstrumentoManager
               :clienteId="clienteSelecionado.id"
               :clienteNome="clienteSelecionado.nome"
-              @fechar="clienteSelecionado = null"
               @selecionarInstrumento="selecionarInstrumento"
             />
           </div>
 
           <div v-else>
             <DashboardAtividades @abrirOS="abrirServicoPeloDashboard" />
+
             <div class="controle-clientes">
               <button
                 class="btn-toggle-clientes"
@@ -310,11 +352,12 @@ function formatarLinkZap(telefone) {
               >
                 {{
                   mostrarClientes
-                    ? "⬆️ Ocultar Área de Clientes"
-                    : "👥 Gerenciar Base de Clientes"
+                    ? "⬆️ Ocultar Clientes"
+                    : "👥 Gerenciar Clientes"
                 }}
               </button>
             </div>
+
             <div v-show="mostrarClientes" class="clientes-grid">
               <div class="col-form">
                 <ClienteForm @clienteSalvo="buscarClientes" />
@@ -325,23 +368,17 @@ function formatarLinkZap(telefone) {
                   <table class="tabela-padrao">
                     <thead>
                       <tr>
-                        <th>Nome do Cliente</th>
+                        <th>Nome</th>
                         <th>Contato</th>
                         <th style="text-align: center">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-if="clientes.length === 0">
-                        <td colspan="3" align="center" class="text-muted">
-                          Nenhum cliente cadastrado.
-                        </td>
-                      </tr>
                       <tr v-for="cliente in clientes" :key="cliente.id">
                         <template v-if="clienteEditandoId === cliente.id">
                           <td>
                             <input
                               v-model="clienteEditado.nome"
-                              placeholder="Nome"
                               class="mb-1"
                             /><input
                               v-model="clienteEditado.cpf_cnpj"
@@ -351,7 +388,6 @@ function formatarLinkZap(telefone) {
                           <td>
                             <input
                               v-model="clienteEditado.telefone"
-                              placeholder="WhatsApp"
                               class="mb-1"
                             /><input
                               v-model="clienteEditado.email"
@@ -363,8 +399,9 @@ function formatarLinkZap(telefone) {
                               @click="salvarEdicaoCliente"
                               class="btn-icon text-success"
                             >
-                              💾</button
-                            ><button
+                              💾
+                            </button>
+                            <button
                               @click="cancelarEdicaoCliente"
                               class="btn-icon text-danger"
                             >
@@ -375,9 +412,6 @@ function formatarLinkZap(telefone) {
                         <template v-else>
                           <td>
                             <strong>{{ cliente.nome }}</strong>
-                            <div v-if="cliente.cpf_cnpj" class="text-muted">
-                              <small>Doc: {{ cliente.cpf_cnpj }}</small>
-                            </div>
                           </td>
                           <td>
                             <a
@@ -388,30 +422,19 @@ function formatarLinkZap(telefone) {
                               "
                               target="_blank"
                               class="badge-zap"
-                              >📱 {{ cliente.telefone }}</a
+                              >📱 WhatsApp</a
                             >
-                            <span v-else class="text-muted"
-                              ><small>S/ Telefone</small></span
-                            >
-                            <div
-                              v-if="cliente.email"
-                              class="text-muted"
-                              style="margin-top: 4px"
-                            >
-                              <small>✉️ {{ cliente.email }}</small>
-                            </div>
                           </td>
-                          <td align="center" style="white-space: nowrap">
+                          <td align="center">
                             <button
-                              class="btn-icon bg-light"
+                              class="btn-icon"
                               @click="selecionarCliente(cliente)"
-                              title="Ver Instrumentos"
                             >
-                              🎸</button
-                            ><button
-                              class="btn-icon bg-light"
+                              🎸
+                            </button>
+                            <button
+                              class="btn-icon"
                               @click="iniciarEdicaoCliente(cliente)"
-                              title="Editar Cliente"
                             >
                               ✏️
                             </button>

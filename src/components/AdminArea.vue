@@ -66,20 +66,6 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div
-        style="
-          background: #ffeeba;
-          color: #856404;
-          padding: 10px;
-          margin-bottom: 15px;
-          border-radius: 4px;
-          font-family: monospace;
-          font-size: 0.95rem;
-        "
-      >
-        <strong>Diagnóstico de Segurança:</strong> {{ logDebug }}
-      </div>
-
       <div class="admin-tabs">
         <button
           class="btn-tab"

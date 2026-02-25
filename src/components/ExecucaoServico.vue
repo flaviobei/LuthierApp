@@ -39,8 +39,103 @@ async function buscarDadosCompletos() {
 }
 
 const isFinalizado = computed(() => servicoLocal.value?.status === "Entregue");
-const abaAtual = ref("orcamento");
+const abaAtual = ref("diario");
 const mostrarRecibo = ref(false);
+
+// === NOVO: VARIÁVEIS DA ETIQUETA (BLINDADAS) ===
+const mostrarEtiqueta = ref(false);
+
+const qrCodeUrl = computed(() => {
+  if (!servicoLocal.value?.id) return "";
+
+  // Captura o endereço onde o seu site está rodando (Localhost ou Vercel)
+  const baseAppUrl = window.location.origin;
+
+  // Cria um link real: https://seusite.com/?os=ID_DA_OS
+  const linkRastreio = `${baseAppUrl}/?os=${servicoLocal.value.id}`;
+
+  const textoQr = encodeURIComponent(linkRastreio);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${textoQr}`;
+});
+
+function imprimirEtiqueta() {
+  // Pega os dados atuais da O.S. de forma segura
+  const os = servicoLocal.value.numero_os || "---";
+  const instru = `${servicoLocal.value.instrumentos?.marca || ""} ${servicoLocal.value.instrumentos?.modelo || ""}`;
+  const cliente = servicoLocal.value.instrumentos?.cliente?.nome || "Avulso";
+
+  let dataEntrada = "";
+  if (servicoLocal.value.data_entrada) {
+    dataEntrada = `<p style="margin: 5px 0; font-size: 0.9rem;"><strong>📥 Entrada:</strong> ${new Date(servicoLocal.value.data_entrada).toLocaleDateString("pt-BR")}</p>`;
+  }
+
+  const luthieria = configLuthieria.value.nome_luthieria || "Oficina";
+  const qr = qrCodeUrl.value
+    ? `<img src="${qrCodeUrl.value}" style="width: 140px; height: 140px; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd;" />`
+    : "";
+
+  // Cria a janela virtual
+  const janela = window.open("", "", "width=600,height=600");
+  janela.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Imprimir Etiqueta OS #${os}</title>
+        <style>
+          /* Estilos isolados para garantir que a impressão sai sempre perfeita */
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: white; 
+            color: black;
+          }
+          .etiqueta { 
+            width: 320px; /* Tamanho ideal para etiquetas padrão */
+            border: 2px dashed black; 
+            padding: 20px; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin: 0 auto;
+          }
+          .box { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 6px; 
+            margin: 15px 0; 
+            text-align: left; 
+            border: 1px solid #dee2e6;
+          }
+          h1 { margin: 0; font-size: 4rem; line-height: 1; }
+          h3 { margin: 5px 0 15px 0; font-size: 1.1rem; text-transform: uppercase; color: #333; }
+        </style>
+      </head>
+      <body>
+        <div class="etiqueta">
+          <h1>#${os}</h1>
+          <h3>${instru}</h3>
+          <div class="box">
+            <p style="margin: 5px 0; font-size: 0.95rem;"><strong>👤 Cliente:</strong> ${cliente}</p>
+            ${dataEntrada}
+          </div>
+          ${qr}
+          <p style="font-size: 0.8rem; color: #666; margin-top: 15px; font-weight: bold;">${luthieria}</p>
+        </div>
+        
+        <script>
+          // Espera a imagem do QR Code carregar, abre a impressão e fecha a aba depois!
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.close();
+            }, 300);
+          }
+        <\/script>
+      </body>
+    </html>
+  `);
+  janela.document.close();
+}
 
 const fotoAmpliada = ref(null);
 const mostrarModalFoto = ref(false);
@@ -381,19 +476,17 @@ function abrirFechamento() {
 async function registrarPagamento() {
   const v = Number(dadosPagamento.value.valorPago);
   if (v <= 0) return alert("Valor inválido");
-  await supabase
-    .from("transacoes")
-    .insert([
-      {
-        servico_id: servicoLocal.value.id,
-        tipo: "Entrada",
-        categoria: "Servico",
-        descricao: `Recebimento O.S. #${servicoLocal.value.numero_os}`,
-        valor_bruto: v,
-        forma_pagamento: dadosPagamento.value.forma,
-        data_pagamento: new Date(),
-      },
-    ]);
+  await supabase.from("transacoes").insert([
+    {
+      servico_id: servicoLocal.value.id,
+      tipo: "Entrada",
+      categoria: "Servico",
+      descricao: `Recebimento O.S. #${servicoLocal.value.numero_os}`,
+      valor_bruto: v,
+      forma_pagamento: dadosPagamento.value.forma,
+      data_pagamento: new Date(),
+    },
+  ]);
   totalJaPago.value += v;
   if (saldoDevedor.value <= 0.02) {
     await supabase
@@ -424,7 +517,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="card">
+  <div class="card tela-nao-imprimivel">
     <div
       style="
         display: flex;
@@ -439,9 +532,19 @@ onMounted(() => {
         O.S. #{{ servicoLocal.numero_os }} -
         {{ servicoLocal.fase_projeto || "Em Andamento" }}
       </h3>
-      <button class="btn-outline" @click="$emit('voltar')">
-        &larr; Voltar
-      </button>
+
+      <div style="display: flex; gap: 10px">
+        <button
+          class="btn-outline"
+          @click="mostrarEtiqueta = true"
+          style="border-color: var(--accent); color: var(--accent)"
+        >
+          🏷️ Etiqueta
+        </button>
+        <button class="btn-outline" @click="$emit('voltar')">
+          &larr; Voltar
+        </button>
+      </div>
     </div>
 
     <div style="display: flex; gap: 10px; margin-bottom: 20px">
@@ -913,8 +1016,87 @@ onMounted(() => {
   </div>
 
   <div
+    v-if="mostrarEtiqueta"
+    class="modal-overlay tela-nao-imprimivel"
+    @click.self="mostrarEtiqueta = false"
+  >
+    <div class="modal-content" style="max-width: 400px; text-align: center">
+      <div id="area-da-etiqueta" class="etiqueta-print card-etiqueta">
+        <h1 style="margin: 0; font-size: 3rem; color: #000; line-height: 1">
+          #{{ servicoLocal.numero_os || "---" }}
+        </h1>
+        <p
+          style="
+            margin: 5px 0 15px 0;
+            font-size: 1rem;
+            color: #444;
+            font-weight: bold;
+            text-transform: uppercase;
+          "
+        >
+          {{ servicoLocal.instrumentos?.marca || "" }}
+          {{ servicoLocal.instrumentos?.modelo || "" }}
+        </p>
+
+        <div
+          style="
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: left;
+          "
+        >
+          <p style="margin: 3px 0; font-size: 0.9rem">
+            <strong>👤 Cliente:</strong>
+            {{ servicoLocal.instrumentos?.cliente?.nome || "Avulso" }}
+          </p>
+          <p
+            v-if="servicoLocal.data_entrada"
+            style="margin: 3px 0; font-size: 0.9rem"
+          >
+            <strong>📥 Entrada:</strong>
+            {{
+              new Date(servicoLocal.data_entrada).toLocaleDateString("pt-BR")
+            }}
+          </p>
+        </div>
+
+        <img
+          v-if="qrCodeUrl"
+          :src="qrCodeUrl"
+          alt="QR Code"
+          style="
+            width: 120px;
+            height: 120px;
+            border: 4px solid #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+          "
+        />
+        <p style="font-size: 0.75rem; color: #777; margin-top: 10px">
+          {{ configLuthieria.nome_luthieria }}
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px">
+        <button class="btn-success" @click="imprimirEtiqueta" style="flex: 1">
+          🖨️ Imprimir
+        </button>
+        <button
+          class="btn-outline"
+          @click="mostrarEtiqueta = false"
+          style="flex: 1"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
     v-if="mostrarRecibo"
-    class="modal-overlay"
+    class="modal-overlay tela-nao-imprimivel"
     @click.self="mostrarRecibo = false"
   >
     <div class="modal-content">
@@ -1048,7 +1230,7 @@ onMounted(() => {
 
   <div
     v-if="mostrarModalFoto"
-    class="modal-overlay"
+    class="modal-overlay tela-nao-imprimivel"
     @click.self="fecharModalFoto"
     style="z-index: 9999"
   >
@@ -1060,6 +1242,42 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* NOVO: ESTILOS DE ETIQUETA E IMPRESSÃO */
+.card-etiqueta {
+  background: white;
+  border: 2px dashed #000;
+  padding: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+}
+
+@media print {
+  .tela-nao-imprimivel {
+    display: none !important;
+  }
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  .etiqueta-print {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    border: none;
+    display: block !important;
+    visibility: visible !important;
+  }
+}
+/* FIM DOS NOVOS ESTILOS */
+
 .btn-tab {
   flex: 1;
   padding: 10px;
