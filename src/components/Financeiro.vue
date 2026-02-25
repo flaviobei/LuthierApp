@@ -1,4 +1,25 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        Financeiro.vue
+ * @description Módulo de gestão financeira. Permite o acompanhamento de
+ * entradas (serviços) e saídas (despesas), oferecendo uma visão analítica
+ * através de gráficos e resumos de saldo líquido.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - chart.js: Utilizado para a renderização do gráfico de linha temporal.
+ * - supabaseClient: Acede à tabela 'transacoes'.
+ * * @functions
+ * - carregarDados(): Procura todas as movimentações financeiras do utilizador.
+ * - renderizarGrafico(): Constrói o gráfico comparativo de Entradas vs Saídas.
+ * - salvarDespesa(): Regista saídas manuais (aluguer, luz, ferramentas) no banco.
+ * * @notes
+ * - Inclui filtros de data dinâmicos que atualizam os cálculos e o gráfico em tempo real.
+ * - Possui suporte a impressão de relatórios formatados via CSS @media print.
+ * ============================================================================
+ */
+
 import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import Chart from "chart.js/auto";

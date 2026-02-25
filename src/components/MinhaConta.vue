@@ -1,4 +1,19 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        MinhaConta.vue
+ * @description Perfil do utilizador. Permite gerir as credenciais de acesso,
+ * alteração de senha e visualização do plano atual.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - supabaseClient: Métodos auth.updateUser e auth.signOut.
+ * * @functions
+ * - atualizarSenha(): Permite ao luthier trocar a sua credencial de acesso.
+ * - logout(): Finaliza a sessão do utilizador e limpa os tokens de segurança.
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

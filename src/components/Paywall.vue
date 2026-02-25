@@ -1,4 +1,28 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        Paywall.vue
+ * @description Componente de controle de acesso e monetização (SaaS).
+ * Monitora os limites de uso do luthier (ex: limite de O.S. mensais ou fotos)
+ * e bloqueia funcionalidades avançadas caso o plano atual não as suporte.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: ref, computed.
+ * - supabaseClient: Verificação do status da assinatura na tabela 'perfis_luthier'.
+ * * @functions
+ * - verificarAssinatura(): Consulta o banco de dados para validar o plano ativo
+ * e a data de expiração.
+ * - processarUpgrade(): Redireciona o usuário para o checkout de novos planos
+ * (Basic, Pro ou Premium).
+ * - mostrarBloqueio(): Ativa a interface de restrição quando um limite é atingido.
+ * * @notes
+ * - Atua como um guardião entre a interface gratuita e as funções "Pro".
+ * - Utiliza estados reativos para esconder ou desativar botões de salvamento
+ * quando o usuário excede a cota permitida.
+ * ============================================================================
+ */
+
 import { supabase } from "../lib/supabaseClient";
 
 const emit = defineEmits(["sair"]);

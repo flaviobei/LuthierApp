@@ -1,4 +1,21 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        GerenciarSaaS.vue
+ * @description Painel de controle do administrador master. Permite gerenciar
+ * os utilizadores do sistema, planos de subscrição e limites de conta.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - supabaseClient: Acesso a tabelas globais de usuários e planos.
+ * * @functions
+ * - carregarUsuarios(): Lista todos os luthiers cadastrados na plataforma.
+ * - alterarPlano(): Modifica o nível de acesso (Basic/Pro) de um utilizador.
+ * * @notes
+ * - Protegido por verificação de e-mail na tabela 'super_admins'.
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

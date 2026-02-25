@@ -1,4 +1,21 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        DashboardAtividades.vue
+ * @description Painel principal de indicadores (KPIs). Oferece uma visão
+ * rápida sobre o volume de serviços em aberto, entregues e faturamento mensal.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: ref, onMounted.
+ * - supabaseClient: Consultas agregadas na tabela 'servicos'.
+ * * @functions
+ * - carregarEstatisticas(): Calcula os totais e status das Ordens de Serviço.
+ * * @notes
+ * - Primeira tela visualizada pelo luthier ao entrar no sistema.
+ * ============================================================================
+ */
+
 import { ref, computed, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { abrirWhatsapp } from "../lib/whatsappUtils";

@@ -2,6 +2,16 @@
 import { ref, onMounted, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
 
+/**
+ * ============================================================================
+ * @file        HistoricoServicos.vue
+ * @description Módulo de arquivo e CRM. Gerencia o histórico de todas as O.S.
+ * e fornece um relatório consolidado de clientes com o total investido,
+ * permitindo a geração de PDFs profissionais com a marca da luthieria.
+ * @project     LuthierApp
+ * ============================================================================
+ */
+
 const emit = defineEmits(["voltar", "abrirOS"]);
 
 const listaServicos = ref([]);
@@ -10,10 +20,31 @@ const abaHistorico = ref("relatorio");
 const filtroBusca = ref("");
 
 const ordenarPor = ref("totalGasto");
-const direcaoOrdem = ref("desc");
+const direcaoOrdem = ref("asc");
+
+// --- ESTADO DA LUTHIERIA (PARA O RELATÓRIO) ---
+const configLuthieria = ref({
+  nome_luthieria: "Minha Luthieria",
+  telefone: "",
+  endereco: "",
+  logo_url: "",
+});
+
+async function carregarTudo() {
+  carregando.value = true;
+  await Promise.all([carregarHistorico(), carregarConfig()]);
+  carregando.value = false;
+}
+
+async function carregarConfig() {
+  const { data } = await supabase
+    .from("configuracoes")
+    .select("*")
+    .maybeSingle();
+  if (data) configLuthieria.value = data;
+}
 
 async function carregarHistorico() {
-  carregando.value = true;
   const { data } = await supabase
     .from("servicos")
     .select(
@@ -22,7 +53,6 @@ async function carregarHistorico() {
     .order("data_entrada", { ascending: false });
 
   if (data) listaServicos.value = data;
-  carregando.value = false;
 }
 
 const relatorioClientes = computed(() => {
@@ -79,43 +109,86 @@ function inverterOrdem(campo) {
   }
 }
 
+// ==========================================
+// GERAÇÃO DO PDF FORMATADO (DINÂMICO)
+// ==========================================
 function gerarRelatorioPDF() {
   const janela = window.open("", "", "width=1000,height=700");
-  const conteudoTabela = relatorioClientes.value
-    .map(
-      (c) => `
-    <tr>
-      <td style="text-align: left;">${c.nome}</td>
-      <td style="text-align: left;">${c.telefone}</td>
-      <td style="text-align: left;">R$ ${c.totalGasto.toFixed(2)}</td>
-      <td style="text-align: left;">${new Date(c.ultimaData + "T12:00:00").toLocaleDateString("pt-BR")}</td>
-      <td style="text-align: left;">${c.ultimoStatus}</td>
-    </tr>
-  `,
-    )
-    .join("");
+  const config = configLuthieria.value;
+  const isCRM = abaHistorico.value === "relatorio";
+
+  const tituloDocumento = isCRM
+    ? "Relatório Consolidado de Clientes (CRM)"
+    : "Histórico Geral de Ordens de Serviço";
+
+  let cabecalhoTabela = "";
+  let corpoTabela = "";
+
+  if (isCRM) {
+    cabecalhoTabela = `<tr><th>Cliente</th><th>Contato</th><th style="text-align: center;">Serviços</th><th style="text-align: right;">Total Investido</th><th style="text-align: right;">Última Visita</th></tr>`;
+    corpoTabela = relatorioClientes.value
+      .map(
+        (c) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>${c.nome}</strong></td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${c.telefone}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${c.totalOS}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">R$ ${c.totalGasto.toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${new Date(c.ultimaData + "T12:00:00").toLocaleDateString("pt-BR")}</td>
+      </tr>
+    `,
+      )
+      .join("");
+  } else {
+    cabecalhoTabela = `<tr><th>O.S.</th><th>Cliente</th><th>Instrumento</th><th>Data Entrada</th><th>Status Atual</th></tr>`;
+    corpoTabela = listaServicos.value
+      .map(
+        (os) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>#${os.numero_os}</strong></td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${os.instrumentos?.cliente?.nome || "--"}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${os.instrumentos?.marca} ${os.instrumentos?.modelo}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${new Date(os.data_entrada + "T12:00:00").toLocaleDateString("pt-BR")}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${os.status}</td>
+      </tr>
+    `,
+      )
+      .join("");
+  }
+
+  const logoHTML = config.logo_url
+    ? `<img src="${config.logo_url}" style="max-height: 70px; object-fit: contain;" />`
+    : `<h2 style="margin:0; color: #2c3e50;">${config.nome_luthieria}</h2>`;
 
   janela.document.write(`
     <html>
       <head>
-        <title>Relatório CRM - Luthieria</title>
+        <title>${tituloDocumento}</title>
         <style>
-          body { font-family: sans-serif; padding: 20px; text-align: left; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; margin: 0; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; margin-bottom: 30px; }
+          .dados-oficina { text-align: right; font-size: 0.9em; color: #555; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background: #f4f4f4; padding: 10px; text-align: left; border-bottom: 2px solid #ddd; font-size: 12px; }
-          td { padding: 10px; border-bottom: 1px solid #eee; font-size: 12px; text-align: left; }
-          h2 { color: #2c3e50; margin: 0 0 10px 0; text-align: left; }
+          th { background: #f0f4f8; padding: 12px; border-bottom: 2px solid #cbd5e1; text-transform: uppercase; font-size: 0.75em; color: #475569; text-align: left; }
+          .footer { margin-top: 50px; text-align: center; font-size: 0.8em; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
         </style>
       </head>
       <body>
-        <h2>Relatório de Clientes</h2>
-        <p>Extraído em: ${new Date().toLocaleDateString("pt-BR")}</p>
+        <div class="header">
+          <div>${logoHTML}</div>
+          <div class="dados-oficina">
+            <strong style="font-size: 1.1em; color: #2c3e50;">${config.nome_luthieria}</strong><br>
+            ${config.telefone ? "Tel/WhatsApp: " + config.telefone + "<br>" : ""}
+            ${config.endereco ? config.endereco : ""}
+          </div>
+        </div>
+        <h3 style="margin-top: 0; color: #2c3e50;">${tituloDocumento}</h3>
+        <p style="font-size: 0.9em; color: #666;">Documento gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}</p>
         <table>
-          <thead>
-            <tr><th>Cliente</th><th>Contato</th><th>Total Investido</th><th>Última Visita</th><th>Status</th></tr>
-          </thead>
-          <tbody>${conteudoTabela}</tbody>
+          <thead>${cabecalhoTabela}</thead>
+          <tbody>${corpoTabela}</tbody>
         </table>
+        <div class="footer"><p>Relatório gerado automaticamente pelo LuthierApp.</p></div>
         <script>window.onload = function() { window.print(); window.close(); }<\/script>
       </body>
     </html>
@@ -128,7 +201,7 @@ function formatarLinkZap(tel) {
   return num.length <= 11 ? `55${num}` : num;
 }
 
-onMounted(carregarHistorico);
+onMounted(carregarTudo);
 </script>
 
 <template>
@@ -142,7 +215,10 @@ onMounted(carregarHistorico);
       "
     >
       <h2 style="margin: 0; font-weight: 300; text-align: left">
-        Arquivo / <span style="font-weight: 700">CRM</span>
+        Arquivo /
+        <span style="font-weight: 700">{{
+          abaHistorico === "relatorio" ? "CRM" : "Histórico"
+        }}</span>
       </h2>
       <div style="display: flex; gap: 10px">
         <button class="btn-clean-outline" @click="gerarRelatorioPDF">
@@ -240,7 +316,11 @@ onMounted(carregarHistorico);
               </td>
               <td>{{ os.instrumentos?.cliente?.nome }}</td>
               <td>{{ os.instrumentos?.modelo }}</td>
-              <td>{{ new Date(os.data_entrada).toLocaleDateString() }}</td>
+              <td>
+                {{
+                  new Date(os.data_entrada + "T12:00:00").toLocaleDateString()
+                }}
+              </td>
               <td>
                 <span class="status-pill-info" :class="os.status">{{
                   os.status
@@ -260,11 +340,10 @@ onMounted(carregarHistorico);
 </template>
 
 <style scoped>
-/* ALINHAMENTO GLOBAL À ESQUERDA */
+/* O CSS permanece idêntico ao original para manter a consistência visual da tela */
 .historico-wrapper {
   text-align: left;
 }
-
 .tabs-minimal {
   display: flex;
   border-bottom: 2px solid #eee;
@@ -292,7 +371,6 @@ onMounted(carregarHistorico);
   height: 2px;
   background: var(--accent);
 }
-
 .input-minimal {
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -302,7 +380,6 @@ onMounted(carregarHistorico);
   box-sizing: border-box;
   text-align: left;
 }
-
 .tabela-clean {
   width: 100%;
   border-collapse: collapse;
@@ -322,7 +399,6 @@ onMounted(carregarHistorico);
   font-size: 0.9rem;
   text-align: left;
 }
-
 .nome-cliente {
   font-weight: 600;
   color: var(--primary);
@@ -337,7 +413,6 @@ onMounted(carregarHistorico);
   font-weight: 700;
   color: #2c3e50;
 }
-
 .link-zap {
   color: #25d366;
   text-decoration: none;
@@ -352,7 +427,6 @@ onMounted(carregarHistorico);
   background: #25d366;
   color: white;
 }
-
 .status-pill-info {
   padding: 3px 8px;
   border-radius: 4px;
@@ -374,7 +448,6 @@ onMounted(carregarHistorico);
   background: #fff3cd;
   color: #856404;
 }
-
 .btn-clean-outline {
   background: white;
   border: 1px solid #ddd;

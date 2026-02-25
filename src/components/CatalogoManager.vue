@@ -1,4 +1,26 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        CatalogoManager.vue
+ * @description Gestor global de itens da oficina. Centraliza o cadastro de
+ * serviços (mão de obra), peças e insumos, permitindo o controle de estoque
+ * e definição de preços padrão para o orçamento.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: ref, onMounted, computed.
+ * - supabaseClient: Acesso à tabela 'catalogo'.
+ * * @functions
+ * - carregarCatalogo(): Procura todos os itens cadastrados no banco de dados.
+ * - salvarItem(): Executa o Insert ou Update do produto/serviço no catálogo.
+ * - excluirItem(): Remove permanentemente um item do catálogo após confirmação.
+ * - iniciarEdicao(): Preenche o formulário com os dados de um item existente.
+ * * @notes
+ * - Implementa lógica condicional para controle de estoque (apenas para peças/insumos).
+ * - Utiliza filtros reativos (computed) para separar visualmente as categorias.
+ * ============================================================================
+ */
+
 import { ref, onMounted, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

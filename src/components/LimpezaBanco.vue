@@ -1,4 +1,24 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        LimpezaBanco.vue
+ * @description Módulo de segurança ("Zona de Perigo") para eliminação de dados
+ * em massa. Permite que o luthier limpe testes ou recomece a base de dados.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - supabaseClient: Executa comandos DELETE filtrados por ID.
+ * * @functions
+ * - apagarTabela(): Função genérica que busca IDs do utilizador logado e os remove,
+ * respeitando as políticas de segurança (RLS).
+ * - apagarDados(): Orquestra a limpeza por categorias (Só O.S., Só Financeiro ou Tudo).
+ * * @notes
+ * - Segurança: Exige que o utilizador escreva a palavra "LIMPAR" para ativar os botões.
+ * - Integridade: Apaga os dados numa ordem específica para não quebrar chaves estrangeiras.
+ * - Multi-tabela: Tenta limpar variações de nomes de tabelas (ex: financeiro/transacoes).
+ * ============================================================================
+ */
+
 import { ref, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

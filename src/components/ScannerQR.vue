@@ -1,4 +1,18 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        ScannerQR.vue
+ * @description Ferramenta de leitura de códigos QR para identificação rápida.
+ * Permite abrir uma O.S. ou histórico apenas apontando a câmera para a etiqueta.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue-qrcode-reader (ou similar): Para processamento de imagem em tempo real.
+ * * @functions
+ * - onDetect(): Processa o código lido e redireciona para o serviço correspondente.
+ * ============================================================================
+ */
+
 import { onMounted, onUnmounted } from "vue";
 import { Html5QrcodeScanner } from "html5-qrcode";
 

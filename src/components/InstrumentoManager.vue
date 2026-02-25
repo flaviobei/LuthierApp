@@ -1,4 +1,22 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        InstrumentoManager.vue
+ * @description Gestor de instrumentos técnicos. Permite cadastrar marcas,
+ * modelos e números de série, vinculando cada instrumento a um cliente.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: ref, onMounted.
+ * - supabaseClient: Acesso à tabela 'instrumentos' e 'clientes'.
+ * * @functions
+ * - carregarDados(): Carrega a lista de instrumentos e a lista de clientes para vínculo.
+ * - salvarInstrumento(): Registra o instrumento no banco associado ao dono.
+ * * @notes
+ * - Funciona como uma etapa intermediária obrigatória para a abertura de uma O.S.
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

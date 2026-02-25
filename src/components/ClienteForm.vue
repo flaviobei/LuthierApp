@@ -1,4 +1,22 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        ClienteForm.vue
+ * @description Componente de gestão de clientes. Responsável pelo cadastro,
+ * edição e listagem dos proprietários dos instrumentos.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: ref, onMounted.
+ * - supabaseClient: Acesso à tabela 'clientes'.
+ * * @functions
+ * - salvarCliente(): Registra um novo cliente ou atualiza os dados de contato.
+ * - buscarClientes(): Realiza a consulta de clientes para exibição na listagem.
+ * * @notes
+ * - Essencial para o vínculo de instrumentos e envio de mensagens via WhatsApp.
+ * ============================================================================
+ */
+
 import { ref } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

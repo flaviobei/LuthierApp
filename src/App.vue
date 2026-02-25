@@ -1,4 +1,33 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        App.vue
+ * @description Componente raiz e orquestrador principal do LuthierApp.
+ * Gerencia autenticação, estado global (clientes, assinaturas),
+ * aplicação de temas (UI) e a navegação principal baseada em
+ * estado (bancada, admin, histórico, etc).
+ * @author      Flávio Bei
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: Controle de reatividade e ciclo de vida (ref, onMounted).
+ * - supabaseClient: Gerenciamento de banco de dados e autenticação.
+ * - @vercel/... : Métricas e analytics de performance.
+ * - Componentes Internos: Auth, ClienteForm, InstrumentoManager, ServicoManager, etc.
+ * * @functions
+ * - processarLeituraQR(): Lê o link do QR Code e carrega a OS correspondente.
+ * - carregarAssinatura(): Verifica o status do SaaS (ativo, trial, expirado).
+ * - inicializarApp(): Bootstrapper principal acionado após verificação de login.
+ * - fazerLogout(): Limpa todos os estados locais e encerra a sessão no Supabase.
+ * - carregarConfiguracoes(): Aplica cores e logotipo personalizados no CSS global.
+ * - buscarClientes(): Carrega a lista de clientes vinculada ao usuário logado.
+ * * @notes
+ * - O app não utiliza Vue Router tradicional para as telas internas,
+ * dependendo da variável reativa `modoAtual` para alternar os painéis.
+ * - O controle de acesso e Paywall bloqueia o uso caso o SaaS expire.
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "./lib/supabaseClient";
 import Auth from "./components/Auth.vue";
@@ -12,7 +41,8 @@ import HistoricoServicos from "./components/HistoricoServicos.vue";
 import Paywall from "./components/Paywall.vue";
 import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { Analytics } from "@vercel/analytics/vue";
-import ScannerQR from "./components/ScannerQR.vue"; // Adicione no topo
+import ScannerQR from "./components/ScannerQR.vue";
+import CalendarioEntregas from "./components/CalendarioEntregas.vue";
 
 // --- ESTADOS GERAIS ---
 const session = ref(null);
@@ -24,8 +54,8 @@ const mostrarClientes = ref(false);
 const modoAtual = ref("bancada");
 const clienteEditandoId = ref(null);
 const clienteEditado = ref({});
-const servicoDireto = ref(null); // Esta é a variável que controla a abertura da O.S.
-const mostrarScanner = ref(false); // Adicione nos refs
+const servicoDireto = ref(null); // Controla a abertura direta da O.S. (ex: via QR Code)
+const mostrarScanner = ref(false);
 
 const configLuthieria = ref({
   nome_luthieria: "Gestão Luthieria",
@@ -36,13 +66,17 @@ const configLuthieria = ref({
 const assinatura = ref(null);
 const diasTrialRestantes = ref(0);
 
-// --- FUNÇÕES DE LOGICA ---
+// --- FUNÇÕES DE LÓGICA ---
 
+/**
+ * Processa a URL lida pelo Scanner QR Code.
+ * @param {string} textoLido - A URL completa obtida da câmera.
+ */
 async function processarLeituraQR(textoLido) {
   mostrarScanner.value = false;
 
   try {
-    // O link gerado na etiqueta é: https://seusite.com/?os=ID_DA_OS
+    // Extrai o parâmetro "os" da URL gerada na etiqueta
     const url = new URL(textoLido);
     const osId = url.searchParams.get("os");
 
@@ -68,6 +102,10 @@ async function processarLeituraQR(textoLido) {
   }
 }
 
+/**
+ * Verifica o plano atual do usuário no banco de dados.
+ * Calcula dias restantes caso esteja em período de Trial.
+ */
 async function carregarAssinatura() {
   const { data } = await supabase.from("assinaturas").select("*").maybeSingle();
   if (data) {
@@ -84,6 +122,10 @@ async function carregarAssinatura() {
   }
 }
 
+/**
+ * Bootstrapper disparado após confirmação de login.
+ * Só carrega os dados (clientes e config) se a assinatura for válida.
+ */
 async function inicializarApp() {
   aVerificarAcesso.value = true;
   await carregarAssinatura();
@@ -97,17 +139,25 @@ async function inicializarApp() {
   aVerificarAcesso.value = false;
 }
 
+/**
+ * Encerra a sessão atual e limpa variáveis de estado para evitar vazamento
+ * visual caso um novo usuário faça login no mesmo dispositivo.
+ */
 async function fazerLogout() {
   await supabase.auth.signOut();
   clientes.value = [];
   configLuthieria.value = { nome_luthieria: "Gestão Luthieria", logo_url: "" };
   assinatura.value = null;
   session.value = null;
-  // Reset de estilos
+
+  // Reset de estilos CSS globais para o padrão
   document.documentElement.style.setProperty("--primary", "#2c3e50");
   document.documentElement.style.setProperty("--accent", "#d35400");
 }
 
+/**
+ * Busca e aplica as customizações visuais (Whitelabel) do Luthier logado.
+ */
 async function carregarConfiguracoes() {
   const { data } = await supabase
     .from("configuracoes")
@@ -134,6 +184,9 @@ async function carregarConfiguracoes() {
   }
 }
 
+/**
+ * Busca a lista inicial de clientes vinculados à conta.
+ */
 async function buscarClientes() {
   const { data } = await supabase
     .from("clientes")
@@ -144,7 +197,7 @@ async function buscarClientes() {
 
 // --- CICLO DE VIDA (onMounted) ---
 onMounted(async () => {
-  // 1. Lógica do QR Code
+  // 1. Verifica se existe requisição externa (QR Code ou Link) antes do Login
   const urlParams = new URLSearchParams(window.location.search);
   const osIdDoQrCode = urlParams.get("os");
 
@@ -156,12 +209,13 @@ onMounted(async () => {
       .single();
 
     if (data && !error) {
-      servicoDireto.value = data; // Correção: Agora usa a variável correta
+      servicoDireto.value = data;
+      // Limpa a URL para evitar reabertura acidental no reload
       window.history.replaceState({}, document.title, "/");
     }
   }
 
-  // 2. Controle de Sessão
+  // 2. Controle de Sessão no Supabase
   supabase.auth.getSession().then(({ data }) => {
     session.value = data.session;
     if (session.value) inicializarApp();
@@ -176,35 +230,46 @@ onMounted(async () => {
 });
 
 // --- FUNÇÕES AUXILIARES PARA O TEMPLATE ---
+
 function fecharTelasSecundarias() {
   modoAtual.value = "bancada";
   carregarConfiguracoes();
 }
+
 function selecionarCliente(c) {
   clienteSelecionado.value = c;
 }
+
 function selecionarInstrumento(i) {
   instrumentoSelecionado.value = i;
 }
+
 function abrirServicoPeloDashboard(osCompleta) {
   servicoDireto.value = osCompleta;
 }
+
 function fecharServicoDireto() {
   servicoDireto.value = null;
   buscarClientes();
 }
+
 function iniciarEdicaoCliente(cliente) {
   clienteEditandoId.value = cliente.id;
   clienteEditado.value = { ...cliente };
 }
+
 function cancelarEdicaoCliente() {
   clienteEditandoId.value = null;
   clienteEditado.value = {};
 }
 
+/**
+ * Salva a alteração inline (na tabela) dos dados cadastrais do cliente.
+ */
 async function salvarEdicaoCliente() {
   if (!clienteEditado.value.nome)
     return alert("O nome não pode ficar em branco.");
+
   const { error } = await supabase
     .from("clientes")
     .update({
@@ -214,15 +279,21 @@ async function salvarEdicaoCliente() {
       cpf_cnpj: clienteEditado.value.cpf_cnpj,
     })
     .eq("id", clienteEditandoId.value);
+
   if (!error) {
     buscarClientes();
     cancelarEdicaoCliente();
   } else alert("Erro: " + error.message);
 }
 
+/**
+ * Normaliza o telefone do cliente para o formato exigido pela API do WhatsApp (wa.me)
+ * @param {string} telefone
+ */
 function formatarLinkZap(telefone) {
   if (!telefone) return "";
   const apenasNumeros = telefone.replace(/\D/g, "");
+  // Adiciona o DDI do Brasil caso o usuário tenha esquecido de inserir
   return apenasNumeros.length <= 11 ? `55${apenasNumeros}` : apenasNumeros;
 }
 </script>

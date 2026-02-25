@@ -1,4 +1,29 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        ServicoManager.vue
+ * @description Central de controle das Ordens de Serviço (O.S.). Este componente
+ * gerencia o fluxo de entrada de instrumentos, permitindo a criação de novas
+ * ordens, filtragem por status (Em Aberto, Finalizado, etc.) e a navegação
+ * para o módulo de execução técnica.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: ref, onMounted, computed.
+ * - supabaseClient: CRUD da tabela 'servicos' com joins em 'instrumentos'.
+ * * @functions
+ * - carregarServicos(): Busca todas as O.S. ativas e concluídas do luthier.
+ * - salvarServico(): Registra uma nova O.S., gerando automaticamente o número
+ * sequencial da ordem.
+ * - abrirExecucao(): Seleciona uma O.S. específica e emite um evento para
+ * carregar o componente de execução detalhada.
+ * - deletarServico(): Remove uma O.S. do sistema após confirmação do usuário.
+ * * @notes
+ * - Implementa um sistema de busca em tempo real por número de O.S. ou marca.
+ * - Faz o vínculo obrigatório entre Cliente -> Instrumento -> Ordem de Serviço.
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import ExecucaoServico from "./ExecucaoServico.vue";

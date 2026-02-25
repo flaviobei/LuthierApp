@@ -1,4 +1,29 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        ExecucaoServico.vue
+ * @description O coração operacional do sistema. Gere o ciclo de vida de uma
+ * Ordem de Serviço (O.S.), incluindo Diário de Bordo, Inspeção Técnica
+ * (Checklist dinâmico de Chegada/Saída), Galeria de Fotos e Orçamentação.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - vue: computed, ref, onMounted.
+ * - supabaseClient: CRUD das tabelas de diário, checklists e itens.
+ * - whatsappUtils / window.open: Para comunicação externa e impressão.
+ * * @functions
+ * - carregarTudo(): Orquestra o carregamento simultâneo de todas as dependências da O.S.
+ * - carregarChecklist(): Gera dinamicamente os itens de inspeção baseados no padrão
+ * definido na administração, caso a O.S. seja nova.
+ * - enviarOrcamentoWhatsApp(): Formata e envia a proposta via API do WhatsApp.
+ * - imprimirOrcamento(): Gera um documento HTML formatado com logo para PDF/Impressão.
+ * - atualizarStatusChecklist(): Altera o estado (Boa/Ruim, Sim/Não) dos itens técnicos.
+ * * @notes
+ * - Implementa proteção contra 'NaN' em cálculos financeiros.
+ * - Utiliza uma função de data "blindada" para evitar erros de fuso horário (T12:00:00).
+ * ============================================================================
+ */
+
 import { ref, computed, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

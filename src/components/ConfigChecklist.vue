@@ -1,4 +1,22 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        ConfigChecklist.vue
+ * @description Gestor de configurações de inspeção. Permite personalizar os
+ * itens que aparecerão nos checklists de Chegada e Saída de todas as novas O.S.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - supabaseClient: CRUD da tabela 'checklist_padrao'.
+ * * @functions
+ * - adicionarItem(): Regista um novo requisito técnico no padrão da oficina.
+ * - removerItem(): Exclui um requisito do padrão (sem afetar históricos antigos).
+ * * @notes
+ * - Divide visualmente os itens entre "Inspeção de Chegada" e "Qualidade de Saída".
+ * - Estes dados são consumidos pelo ExecucaoServico.vue no momento da criação da O.S.
+ * ============================================================================
+ */
+
 import { ref, onMounted, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

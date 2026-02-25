@@ -1,4 +1,23 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        AdminArea.vue
+ * @description Contentor principal da área administrativa. Gere a navegação
+ * entre módulos de configuração, catálogo, financeiro e segurança do sistema.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - Componentes internos: CatalogoManager, Financeiro, ConfigChecklist, LimpezaBanco, etc.
+ * - supabaseClient: Verificação de privilégios de SuperAdmin.
+ * * @functions
+ * - onMounted: Verifica se o utilizador logado possui o e-mail na tabela
+ * 'super_admins' para desbloquear funções de gestão do SaaS.
+ * * @notes
+ * - Centraliza o design de "Tabs" (Abas) para uma experiência de utilizador limpa.
+ * - Atua como um guardião de acesso para funcionalidades sensíveis (Zona de Perigo).
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import CatalogoManager from "./CatalogoManager.vue";

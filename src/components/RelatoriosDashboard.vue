@@ -1,4 +1,17 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        RelatoriosDashboard.vue
+ * @description Dashboard analítico avançado. Focado em métricas de performance
+ * financeira e operacional para auxílio na tomada de decisão.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - chart.js: Renderização de gráficos de barras e pizzas.
+ * - supabaseClient: Agrupamento de dados financeiros.
+ * ============================================================================
+ */
+
 import { ref, computed, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 

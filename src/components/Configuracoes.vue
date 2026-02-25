@@ -1,4 +1,22 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        Configuracoes.vue
+ * @description Central de identidade visual e dados fiscais da oficina.
+ * Define o logo, endereço e termos de garantia que aparecem nos documentos.
+ * @project     LuthierApp
+ * ============================================================================
+ * @dependencies
+ * - supabaseClient: CRUD da tabela 'configuracoes' e acesso ao Storage.
+ * * @functions
+ * - carregarConfig(): Recupera as definições salvas da luthieria.
+ * - salvarConfig(): Atualiza os dados cadastrais da oficina.
+ * - uploadLogo(): Faz o upload da imagem da marca para o bucket de fotos.
+ * * @notes
+ * - Os dados aqui configurados são globais e impactam a geração de PDFs e recibos.
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 
