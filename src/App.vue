@@ -8,46 +8,87 @@ import ServicoManager from "./components/ServicoManager.vue";
 import DashboardAtividades from "./components/DashboardAtividades.vue";
 import ExecucaoServico from "./components/ExecucaoServico.vue";
 import AdminArea from "./components/AdminArea.vue";
-import HistoricoServicos from "./components/HistoricoServicos.vue"; // NOVO IMPORT
+import HistoricoServicos from "./components/HistoricoServicos.vue";
+import Paywall from "./components/Paywall.vue"; // NOVO IMPORT
 
 const session = ref(null);
+
+// --- ESTADO DA ASSINATURA (SAAS) ---
+const assinatura = ref(null);
+const diasTrialRestantes = ref(0);
+const aVerificarAcesso = ref(true);
 
 onMounted(() => {
   supabase.auth.getSession().then(({ data }) => {
     session.value = data.session;
     if (session.value) inicializarApp();
+    else aVerificarAcesso.value = false;
   });
 
   supabase.auth.onAuthStateChange((_event, _session) => {
     session.value = _session;
     if (_session) inicializarApp();
+    else aVerificarAcesso.value = false;
   });
 });
+
+async function inicializarApp() {
+  aVerificarAcesso.value = true;
+  await carregarAssinatura(); // Verifica se pode entrar primeiro!
+
+  if (
+    assinatura.value?.status === "ativo" ||
+    (assinatura.value?.status === "trial" && diasTrialRestantes.value > 0)
+  ) {
+    buscarClientes();
+    carregarConfiguracoes();
+  }
+  aVerificarAcesso.value = false;
+}
+
+// Lógica de verificação do plano do Luthier
+async function carregarAssinatura() {
+  const { data } = await supabase.from("assinaturas").select("*").maybeSingle();
+  if (data) {
+    assinatura.value = data;
+
+    // Se estiver em modo teste, calcula os dias que faltam
+    if (data.status === "trial") {
+      const hoje = new Date();
+      const fim = new Date(data.data_fim_trial);
+      const diffTime = fim - hoje;
+      diasTrialRestantes.value = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Se passou da data, força o status para expirado no frontend para bloquear o ecrã
+      if (diasTrialRestantes.value <= 0) {
+        assinatura.value.status = "expirado";
+      }
+    }
+  }
+}
 
 async function fazerLogout() {
   await supabase.auth.signOut();
   clientes.value = [];
   configLuthieria.value = { nome_luthieria: "Gestão Luthieria", logo_url: "" };
+  assinatura.value = null;
   document.documentElement.style.setProperty("--primary", "#2c3e50");
   document.documentElement.style.setProperty("--accent", "#d35400");
   document.documentElement.style.setProperty("--bg-body", "#f4f6f8");
   document.body.style.fontFamily = "'Inter', sans-serif";
 }
 
-function inicializarApp() {
-  buscarClientes();
-  carregarConfiguracoes();
-}
-
+// -------------------------------------
+// ESTADO DA BANCADA E NAVEGAÇÃO
+// -------------------------------------
 const clientes = ref([]);
 const clienteSelecionado = ref(null);
 const instrumentoSelecionado = ref(null);
 const mostrarClientes = ref(false);
-
-// CONTROLO DE NAVEGAÇÃO: 'bancada', 'admin' ou 'historico'
 const modoAtual = ref("bancada");
 const clienteEditandoId = ref(null);
 const clienteEditado = ref({});
+const servicoDireto = ref(null);
 
 const configLuthieria = ref({
   nome_luthieria: "Gestão Luthieria",
@@ -85,7 +126,6 @@ function fecharTelasSecundarias() {
   modoAtual.value = "bancada";
   carregarConfiguracoes();
 }
-
 async function buscarClientes() {
   const { data } = await supabase
     .from("clientes")
@@ -93,15 +133,12 @@ async function buscarClientes() {
     .order("created_at", { ascending: false });
   clientes.value = data || [];
 }
-
 function selecionarCliente(c) {
   clienteSelecionado.value = c;
 }
 function selecionarInstrumento(i) {
   instrumentoSelecionado.value = i;
 }
-
-const servicoDireto = ref(null);
 function abrirServicoPeloDashboard(osCompleta) {
   servicoDireto.value = osCompleta;
 }
@@ -109,7 +146,6 @@ function fecharServicoDireto() {
   servicoDireto.value = null;
   buscarClientes();
 }
-
 function iniciarEdicaoCliente(cliente) {
   clienteEditandoId.value = cliente.id;
   clienteEditado.value = { ...cliente };
@@ -135,7 +171,6 @@ async function salvarEdicaoCliente() {
     cancelarEdicaoCliente();
   } else alert("Erro: " + error.message);
 }
-
 function formatarLinkZap(telefone) {
   if (!telefone) return "";
   const apenasNumeros = telefone.replace(/\D/g, "");
@@ -145,9 +180,38 @@ function formatarLinkZap(telefone) {
 
 <template>
   <div class="app-container">
-    <Auth v-if="!session" />
+    <div
+      v-if="aVerificarAcesso"
+      style="
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+      "
+    >
+      <h2>A preparar a sua oficina...</h2>
+    </div>
+
+    <Auth v-else-if="!session" />
+
+    <Paywall
+      v-else-if="
+        assinatura?.status === 'expirado' ||
+        assinatura?.status === 'inadimplente'
+      "
+      @sair="fazerLogout"
+    />
 
     <div v-else>
+      <div v-if="assinatura?.status === 'trial'" class="banner-trial">
+        ⚠️ <strong>Modo de Teste:</strong> Faltam {{ diasTrialRestantes }} dias
+        para o fim do seu teste grátis.
+        <button class="btn-trial" @click="assinatura.status = 'expirado'">
+          Ver Planos
+        </button>
+      </div>
+
       <div class="main-header card" v-if="modoAtual === 'bancada'">
         <div style="display: flex; align-items: center; gap: 15px">
           <img
@@ -170,7 +234,6 @@ function formatarLinkZap(telefone) {
           >
             📦 Arquivo / Histórico
           </button>
-
           <button
             @click="modoAtual = 'admin'"
             class="btn-primary"
@@ -178,7 +241,6 @@ function formatarLinkZap(telefone) {
           >
             ⚙️ Administração
           </button>
-
           <button
             @click="fazerLogout"
             class="btn-outline text-danger"
@@ -192,7 +254,6 @@ function formatarLinkZap(telefone) {
       <div v-if="modoAtual === 'admin'">
         <AdminArea @voltar="fecharTelasSecundarias" />
       </div>
-
       <div v-else-if="modoAtual === 'historico'">
         <div v-if="servicoDireto">
           <ExecucaoServico
@@ -368,7 +429,7 @@ function formatarLinkZap(telefone) {
 </template>
 
 <style>
-/* ESTILOS GLOBAIS MANTIDOS */
+/* CSS GLOBAL MANTIDO DO ANTERIOR */
 :root {
   --primary: #2c3e50;
   --accent: #d35400;
@@ -398,6 +459,35 @@ body {
   width: 100%;
   box-sizing: border-box;
 }
+
+/* BANNER DE AVISO DE TESTE */
+.banner-trial {
+  background: #fff3cd;
+  color: #856404;
+  text-align: center;
+  padding: 10px;
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  border: 1px solid #ffeeba;
+}
+.btn-trial {
+  background: #856404;
+  color: #fff;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-trial:hover {
+  background: #664d03;
+}
+
 .card,
 .box,
 .servico-box,

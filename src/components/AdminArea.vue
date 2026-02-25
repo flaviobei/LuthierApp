@@ -1,13 +1,35 @@
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
+import { supabase } from "../lib/supabaseClient";
 import CatalogoManager from "./CatalogoManager.vue";
 import Financeiro from "./Financeiro.vue";
 import Configuracoes from "./Configuracoes.vue";
 import RelatoriosDashboard from "./RelatoriosDashboard.vue";
-import MinhaConta from "./MinhaConta.vue"; // NOVO IMPORT
+import MinhaConta from "./MinhaConta.vue";
+import GerenciarSaaS from "./GerenciarSaaS.vue"; // NOVO IMPORT
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
+
+// Verificação de segurança VIP
+const isSuperAdmin = ref(false);
+
+onMounted(async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session?.user?.email) {
+    // Pergunta à base de dados se este e-mail está na tabela de donos
+    const { data } = await supabase
+      .from("super_admins")
+      .select("*")
+      .eq("email", session.user.email)
+      .maybeSingle();
+    if (data) {
+      isSuperAdmin.value = true;
+    }
+  }
+});
 </script>
 
 <template>
@@ -24,7 +46,7 @@ const abaAtual = ref("relatorios");
         "
       >
         <h2 style="margin: 0; color: var(--primary)">
-          Painel de Administração / Gestão
+          Painel de Administração da Oficina
         </h2>
         <button class="btn-outline" @click="$emit('voltar')">
           🚪 Voltar à Bancada
@@ -44,14 +66,14 @@ const abaAtual = ref("relatorios");
           :class="{ active: abaAtual === 'catalogo' }"
           @click="abaAtual = 'catalogo'"
         >
-          🏷️ Serviços
+          🏷️ Catálogo & Fichas
         </button>
         <button
           class="btn-tab"
           :class="{ active: abaAtual === 'financeiro' }"
           @click="abaAtual = 'financeiro'"
         >
-          💰 Caixa
+          💰 Caixa & Relatórios
         </button>
         <button
           class="btn-tab"
@@ -67,6 +89,20 @@ const abaAtual = ref("relatorios");
         >
           🔐 Minha Conta
         </button>
+
+        <button
+          v-if="isSuperAdmin"
+          class="btn-tab"
+          :class="{ active: abaAtual === 'saas' }"
+          @click="abaAtual = 'saas'"
+          style="
+            background-color: var(--danger);
+            color: white;
+            border-color: var(--danger);
+          "
+        >
+          👑 Gestão SaaS (Master)
+        </button>
       </div>
     </div>
 
@@ -79,6 +115,8 @@ const abaAtual = ref("relatorios");
       <Financeiro v-if="abaAtual === 'financeiro'" @fechar="$emit('voltar')" />
       <Configuracoes v-if="abaAtual === 'config'" />
       <MinhaConta v-if="abaAtual === 'conta'" />
+
+      <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
     </div>
   </div>
 </template>
