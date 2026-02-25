@@ -6,14 +6,6 @@
  * rápida sobre o volume de serviços em aberto, entregues e faturamento mensal.
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - vue: ref, onMounted.
- * - supabaseClient: Consultas agregadas na tabela 'servicos'.
- * * @functions
- * - carregarEstatisticas(): Calcula os totais e status das Ordens de Serviço.
- * * @notes
- * - Primeira tela visualizada pelo luthier ao entrar no sistema.
- * ============================================================================
  */
 
 import { ref, computed, onMounted } from "vue";
@@ -26,7 +18,6 @@ const servicosAbertos = ref([]);
 const oportunidadesPosVenda = ref([]);
 const loading = ref(true);
 
-// MUDANÇA AQUI: Começa por defeito em 'lista'
 const visaoAtual = ref("lista");
 
 // As colunas do nosso Kanban
@@ -52,6 +43,7 @@ async function carregarPendencias() {
     `,
     )
     .neq("status", "Entregue")
+    .neq("status", "Finalizado") // CORREÇÃO: Esconde O.S. finalizadas do painel principal
     .order("data_previsao_entrega", { ascending: true });
 
   if (!error && data) {
@@ -131,7 +123,7 @@ async function carregarPosVenda() {
     .select(
       `*, instrumentos ( marca, modelo, cliente:clientes (nome, telefone) )`,
     )
-    .eq("status", "Entregue")
+    .in("status", ["Entregue", "Finalizado"]) // CORREÇÃO: Reconhece ambos os status finalizados
     .eq("pos_venda_contatado", false)
     .lte("data_conclusao", dataCorte.toISOString())
     .or(`data_lembrete_pos_venda.is.null,data_lembrete_pos_venda.lte.${hoje}`)

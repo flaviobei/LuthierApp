@@ -9,23 +9,6 @@
  * @author      Flávio Bei
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - vue: Controle de reatividade e ciclo de vida (ref, onMounted).
- * - supabaseClient: Gerenciamento de banco de dados e autenticação.
- * - @vercel/... : Métricas e analytics de performance.
- * - Componentes Internos: Auth, ClienteForm, InstrumentoManager, ServicoManager, etc.
- * * @functions
- * - processarLeituraQR(): Lê o link do QR Code e carrega a OS correspondente.
- * - carregarAssinatura(): Verifica o status do SaaS (ativo, trial, expirado).
- * - inicializarApp(): Bootstrapper principal acionado após verificação de login.
- * - fazerLogout(): Limpa todos os estados locais e encerra a sessão no Supabase.
- * - carregarConfiguracoes(): Aplica cores e logotipo personalizados no CSS global.
- * - buscarClientes(): Carrega a lista de clientes vinculada ao usuário logado.
- * * @notes
- * - O app não utiliza Vue Router tradicional para as telas internas,
- * dependendo da variável reativa `modoAtual` para alternar os painéis.
- * - O controle de acesso e Paywall bloqueia o uso caso o SaaS expire.
- * ============================================================================
  */
 
 import { ref, onMounted } from "vue";
@@ -43,6 +26,10 @@ import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { Analytics } from "@vercel/analytics/vue";
 import ScannerQR from "./components/ScannerQR.vue";
 import CalendarioEntregas from "./components/CalendarioEntregas.vue";
+import ToastNotification from "./components/ToastNotification.vue";
+import { useToast } from "./composables/useToast"; // <-- IMPORTAMOS O TOAST AQUI
+
+const { triggerToast } = useToast(); // <-- INICIAMOS O TOAST
 
 // --- ESTADOS GERAIS ---
 const session = ref(null);
@@ -54,7 +41,7 @@ const mostrarClientes = ref(false);
 const modoAtual = ref("bancada");
 const clienteEditandoId = ref(null);
 const clienteEditado = ref({});
-const servicoDireto = ref(null); // Controla a abertura direta da O.S. (ex: via QR Code)
+const servicoDireto = ref(null);
 const mostrarScanner = ref(false);
 
 const configLuthieria = ref({
@@ -62,21 +49,15 @@ const configLuthieria = ref({
   logo_url: "",
 });
 
-// --- ESTADO DA ASSINATURA (SAAS) ---
 const assinatura = ref(null);
 const diasTrialRestantes = ref(0);
 
 // --- FUNÇÕES DE LÓGICA ---
 
-/**
- * Processa a URL lida pelo Scanner QR Code.
- * @param {string} textoLido - A URL completa obtida da câmera.
- */
 async function processarLeituraQR(textoLido) {
   mostrarScanner.value = false;
 
   try {
-    // Extrai o parâmetro "os" da URL gerada na etiqueta
     const url = new URL(textoLido);
     const osId = url.searchParams.get("os");
 
@@ -90,22 +71,20 @@ async function processarLeituraQR(textoLido) {
 
       if (data && !error) {
         servicoDireto.value = data;
+        triggerToast("Ordem de Serviço carregada!", "success"); // <-- TOAST AQUI
       } else {
-        alert("O.S. não encontrada ou acesso negado.");
+        triggerToast("O.S. não encontrada ou acesso negado.", "error"); // <-- TOAST AQUI
       }
       aVerificarAcesso.value = false;
     }
   } catch (e) {
-    alert(
+    triggerToast(
       "QR Code inválido. Certifique-se de escanear uma etiqueta gerada pelo sistema.",
-    );
+      "error",
+    ); // <-- TOAST AQUI
   }
 }
 
-/**
- * Verifica o plano atual do usuário no banco de dados.
- * Calcula dias restantes caso esteja em período de Trial.
- */
 async function carregarAssinatura() {
   const { data } = await supabase.from("assinaturas").select("*").maybeSingle();
   if (data) {
@@ -122,10 +101,6 @@ async function carregarAssinatura() {
   }
 }
 
-/**
- * Bootstrapper disparado após confirmação de login.
- * Só carrega os dados (clientes e config) se a assinatura for válida.
- */
 async function inicializarApp() {
   aVerificarAcesso.value = true;
   await carregarAssinatura();
@@ -139,10 +114,6 @@ async function inicializarApp() {
   aVerificarAcesso.value = false;
 }
 
-/**
- * Encerra a sessão atual e limpa variáveis de estado para evitar vazamento
- * visual caso um novo usuário faça login no mesmo dispositivo.
- */
 async function fazerLogout() {
   await supabase.auth.signOut();
   clientes.value = [];
@@ -150,14 +121,11 @@ async function fazerLogout() {
   assinatura.value = null;
   session.value = null;
 
-  // Reset de estilos CSS globais para o padrão
   document.documentElement.style.setProperty("--primary", "#2c3e50");
   document.documentElement.style.setProperty("--accent", "#d35400");
+  triggerToast("Sessão encerrada com sucesso.", "info"); // <-- TOAST AQUI
 }
 
-/**
- * Busca e aplica as customizações visuais (Whitelabel) do Luthier logado.
- */
 async function carregarConfiguracoes() {
   const { data } = await supabase
     .from("configuracoes")
@@ -184,9 +152,6 @@ async function carregarConfiguracoes() {
   }
 }
 
-/**
- * Busca a lista inicial de clientes vinculados à conta.
- */
 async function buscarClientes() {
   const { data } = await supabase
     .from("clientes")
@@ -195,9 +160,7 @@ async function buscarClientes() {
   clientes.value = data || [];
 }
 
-// --- CICLO DE VIDA (onMounted) ---
 onMounted(async () => {
-  // 1. Verifica se existe requisição externa (QR Code ou Link) antes do Login
   const urlParams = new URLSearchParams(window.location.search);
   const osIdDoQrCode = urlParams.get("os");
 
@@ -210,12 +173,10 @@ onMounted(async () => {
 
     if (data && !error) {
       servicoDireto.value = data;
-      // Limpa a URL para evitar reabertura acidental no reload
       window.history.replaceState({}, document.title, "/");
     }
   }
 
-  // 2. Controle de Sessão no Supabase
   supabase.auth.getSession().then(({ data }) => {
     session.value = data.session;
     if (session.value) inicializarApp();
@@ -228,8 +189,6 @@ onMounted(async () => {
     else aVerificarAcesso.value = false;
   });
 });
-
-// --- FUNÇÕES AUXILIARES PARA O TEMPLATE ---
 
 function fecharTelasSecundarias() {
   modoAtual.value = "bancada";
@@ -263,12 +222,11 @@ function cancelarEdicaoCliente() {
   clienteEditado.value = {};
 }
 
-/**
- * Salva a alteração inline (na tabela) dos dados cadastrais do cliente.
- */
 async function salvarEdicaoCliente() {
-  if (!clienteEditado.value.nome)
-    return alert("O nome não pode ficar em branco.");
+  if (!clienteEditado.value.nome) {
+    triggerToast("O nome do cliente não pode ficar em branco.", "error"); // <-- TOAST AQUI
+    return;
+  }
 
   const { error } = await supabase
     .from("clientes")
@@ -283,17 +241,15 @@ async function salvarEdicaoCliente() {
   if (!error) {
     buscarClientes();
     cancelarEdicaoCliente();
-  } else alert("Erro: " + error.message);
+    triggerToast("Dados do cliente atualizados com sucesso!", "success"); // <-- TOAST AQUI
+  } else {
+    triggerToast("Erro ao guardar cliente: " + error.message, "error"); // <-- TOAST AQUI
+  }
 }
 
-/**
- * Normaliza o telefone do cliente para o formato exigido pela API do WhatsApp (wa.me)
- * @param {string} telefone
- */
 function formatarLinkZap(telefone) {
   if (!telefone) return "";
   const apenasNumeros = telefone.replace(/\D/g, "");
-  // Adiciona o DDI do Brasil caso o usuário tenha esquecido de inserir
   return apenasNumeros.length <= 11 ? `55${apenasNumeros}` : apenasNumeros;
 }
 </script>
@@ -302,6 +258,8 @@ function formatarLinkZap(telefone) {
   <div class="app-container">
     <SpeedInsights />
     <Analytics />
+
+    <ToastNotification />
 
     <div v-if="aVerificarAcesso" class="loader-container">
       <h2>A preparar a sua oficina...</h2>
@@ -351,6 +309,9 @@ function formatarLinkZap(telefone) {
         />
 
         <div class="header-buttons">
+          <button @click="modoAtual = 'calendario'" class="btn-outline">
+            📅 Agenda
+          </button>
           <button @click="modoAtual = 'historico'" class="btn-outline">
             📦 Arquivo / Histórico
           </button>
@@ -365,6 +326,21 @@ function formatarLinkZap(telefone) {
 
       <div v-if="modoAtual === 'admin'">
         <AdminArea @voltar="fecharTelasSecundarias" />
+      </div>
+
+      <div v-else-if="modoAtual === 'calendario'">
+        <div v-if="servicoDireto">
+          <ExecucaoServico
+            :servico="servicoDireto"
+            @voltar="fecharServicoDireto"
+          />
+        </div>
+        <div v-else>
+          <CalendarioEntregas
+            @voltar="fecharTelasSecundarias"
+            @abrirOS="abrirServicoPeloDashboard"
+          />
+        </div>
       </div>
 
       <div v-else-if="modoAtual === 'historico'">
@@ -525,7 +501,7 @@ function formatarLinkZap(telefone) {
 </template>
 
 <style>
-/* CSS GLOBAL MANTIDO DO ANTERIOR */
+/* O SEU CSS GLOBAL MANTÉM-SE EXATAMENTE IGUAL */
 :root {
   --primary: #2c3e50;
   --accent: #d35400;
@@ -555,8 +531,6 @@ body {
   width: 100%;
   box-sizing: border-box;
 }
-
-/* BANNER DE AVISO DE TESTE */
 .banner-trial {
   background: #fff3cd;
   color: #856404;
@@ -583,7 +557,6 @@ body {
 .btn-trial:hover {
   background: #664d03;
 }
-
 .card,
 .box,
 .servico-box,

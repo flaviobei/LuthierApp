@@ -7,23 +7,12 @@
  * dos instrumentos e evitar atrasos.
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - vue: ref, computed, onMounted.
- * - supabaseClient: Consulta a tabela 'servicos' filtrando por prazos.
- * * @functions
- * - carregarServicosDoMes(): Procura as O.S. que possuem data de entrega no mês atual.
- * - mudarMes(): Navega entre os meses do ano.
- * - getServicosNoDia(): Filtra as O.S. específicas para uma célula do calendário.
- * * @notes
- * - Utiliza cores dinâmicas para status: Vermelho (Atrasado), Verde (Entregue),
- * Amarelo (Entrega Hoje).
- * ============================================================================
  */
 
 import { ref, computed, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 
-const emit = defineEmits(["abrirOS"]);
+const emit = defineEmits(["abrirOS", "voltar"]);
 
 const dataAtual = ref(new Date());
 const servicos = ref([]);
@@ -46,7 +35,7 @@ const meses = [
   "Dezembro",
 ];
 
-const mesAtualNome = computed(() => meses[dataAtual.ref.getMonth()]);
+const mesAtualNome = computed(() => meses[dataAtual.value.getMonth()]);
 const anoAtual = computed(() => dataAtual.value.getFullYear());
 
 const diasNoMes = computed(() => {
@@ -73,14 +62,15 @@ async function carregarServicos() {
   const { data } = await supabase
     .from("servicos")
     .select(`*, instrumentos (marca, modelo, cliente:clientes (nome))`)
-    .not("previsao_entrega", "is", null);
+    .not("data_previsao_entrega", "is", null); // CORREÇÃO AQUI
 
   if (data) servicos.value = data;
   carregando.value = false;
 }
 
 function getServicosNoDia(dataIso) {
-  return servicos.value.filter((s) => s.previsao_entrega === dataIso);
+  // CORREÇÃO AQUI TAMBÉM
+  return servicos.value.filter((s) => s.data_previsao_entrega === dataIso);
 }
 
 function mudarMes(delta) {
@@ -92,10 +82,11 @@ function mudarMes(delta) {
 }
 
 function getStatusCor(os) {
-  if (os.status === "Entregue") return "bg-success";
+  if (os.status === "Entregue" || os.status === "Finalizado")
+    return "bg-success";
   const hoje = new Date().toISOString().substring(0, 10);
-  if (os.previsao_entrega < hoje) return "bg-danger";
-  if (os.previsao_entrega === hoje) return "bg-warning";
+  if (os.data_previsao_entrega < hoje) return "bg-danger";
+  if (os.data_previsao_entrega === hoje) return "bg-warning";
   return "bg-primary";
 }
 
@@ -110,21 +101,27 @@ onMounted(carregarServicos);
           display: flex;
           justify-content: space-between;
           align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
         "
       >
         <h2 style="margin: 0">
           📅 Agenda de
-          <span style="color: var(--primary)">{{
-            meses[dataAtual.getMonth()]
-          }}</span>
+          <span style="color: var(--primary)">{{ mesAtualNome }}</span>
           {{ anoAtual }}
         </h2>
-        <div class="btn-group">
-          <button class="btn-outline" @click="mudarMes(-1)">◀ Anterior</button>
-          <button class="btn-outline" @click="dataAtual = new Date()">
-            Hoje
+
+        <div style="display: flex; gap: 15px; align-items: center">
+          <div class="btn-group" style="display: flex; gap: 5px">
+            <button class="btn-outline" @click="mudarMes(-1)">◀</button>
+            <button class="btn-outline" @click="dataAtual = new Date()">
+              Mês Atual
+            </button>
+            <button class="btn-outline" @click="mudarMes(1)">▶</button>
+          </div>
+          <button class="btn-primary" @click="$emit('voltar')">
+            Voltar à Bancada
           </button>
-          <button class="btn-outline" @click="mudarMes(1)">Próximo ▶</button>
         </div>
       </div>
     </div>
@@ -157,6 +154,7 @@ onMounted(carregarServicos);
             class="badge-os"
             :class="getStatusCor(os)"
             @click="$emit('abrirOS', os)"
+            title="Clique para abrir esta O.S."
           >
             <strong>#{{ os.numero_os }}</strong> - {{ os.instrumentos?.modelo }}
             <div class="os-cliente">{{ os.instrumentos?.cliente?.nome }}</div>
@@ -256,6 +254,7 @@ onMounted(carregarServicos);
 .badge-os:hover {
   filter: brightness(1.1);
   transform: scale(1.02);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 900px) {

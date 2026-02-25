@@ -3,22 +3,16 @@
  * ============================================================================
  * @file        Configuracoes.vue
  * @description Central de identidade visual e dados fiscais da oficina.
- * Define o logo, endereço e termos de garantia que aparecem nos documentos.
+ * Define o logo, endereço, termos de garantia e taxas de recebimento.
  * @project     LuthierApp
- * ============================================================================
- * @dependencies
- * - supabaseClient: CRUD da tabela 'configuracoes' e acesso ao Storage.
- * * @functions
- * - carregarConfig(): Recupera as definições salvas da luthieria.
- * - salvarConfig(): Atualiza os dados cadastrais da oficina.
- * - uploadLogo(): Faz o upload da imagem da marca para o bucket de fotos.
- * * @notes
- * - Os dados aqui configurados são globais e impactam a geração de PDFs e recibos.
  * ============================================================================
  */
 
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useToast } from "../composables/useToast";
+
+const { triggerToast } = useToast();
 
 const form = ref({
   nome_luthieria: "",
@@ -31,6 +25,10 @@ const form = ref({
   cor_secundaria: "#d35400",
   cor_fundo: "#f4f6f8",
   fonte_principal: "Inter, sans-serif",
+  taxa_pix: 0,
+  taxa_dinheiro: 0,
+  taxa_credito: 0,
+  taxa_debito: 0,
 });
 
 const configId = ref(null);
@@ -43,13 +41,12 @@ async function carregarConfiguracoes() {
     .select("*")
     .maybeSingle();
   if (data) {
-    form.value = { ...form.value, ...data }; // Mescla os dados do banco com os padrões
+    form.value = { ...form.value, ...data };
     configId.value = data.id;
-    aplicarTemaPreview(); // Aplica o tema carregado
+    aplicarTemaPreview();
   }
 }
 
-// Aplica as cores em tempo real no ecrã para testar o design
 function aplicarTemaPreview() {
   document.documentElement.style.setProperty(
     "--primary",
@@ -78,6 +75,10 @@ async function salvarConfiguracoes() {
     cor_secundaria: form.value.cor_secundaria,
     cor_fundo: form.value.cor_fundo,
     fonte_principal: form.value.fonte_principal,
+    taxa_pix: form.value.taxa_pix || 0,
+    taxa_dinheiro: form.value.taxa_dinheiro || 0,
+    taxa_credito: form.value.taxa_credito || 0,
+    taxa_debito: form.value.taxa_debito || 0,
   };
 
   if (configId.value) {
@@ -96,8 +97,13 @@ async function salvarConfiguracoes() {
   }
 
   loading.value = false;
-  if (!erroSalvamento) alert("Configurações e Tema salvos com sucesso!");
-  else alert("Erro ao salvar: " + erroSalvamento.message);
+
+  // AQUI A MUDANÇA MÁGICA DOS ALERTAS PARA O TOAST!
+  if (!erroSalvamento) {
+    triggerToast("As configurações da oficina foram guardadas!", "success");
+  } else {
+    triggerToast("Falha ao salvar: " + erroSalvamento.message, "error");
+  }
 }
 
 async function uploadLogo(event) {
@@ -116,18 +122,20 @@ async function uploadLogo(event) {
     .upload(fileName, file);
 
   if (error) {
-    alert("Erro no upload da logomarca: " + error.message);
+    triggerToast("Erro a enviar a logomarca: " + error.message, "error");
   } else {
     const { data } = supabase.storage
       .from("fotos-luthieria")
       .getPublicUrl(fileName);
     form.value.logo_url = data.publicUrl;
+    triggerToast("Logomarca carregada com sucesso!", "success");
   }
   carregandoFoto.value = false;
 }
 
 function removerLogo() {
   form.value.logo_url = null;
+  triggerToast("Logomarca removida. Lembre-se de salvar.", "info");
 }
 
 onMounted(() => carregarConfiguracoes());
@@ -208,7 +216,6 @@ onMounted(() => carregarConfiguracoes());
         <h4 style="margin-top: 0; color: var(--primary)">
           Cores e Tipografia (Preview Real)
         </h4>
-
         <div
           style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px"
         >
@@ -229,7 +236,6 @@ onMounted(() => carregarConfiguracoes());
               />
             </div>
           </div>
-
           <div style="flex: 1; display: flex; flex-direction: column">
             <label>Cor Secundária (Avisos / Destaques)</label>
             <div style="display: flex; gap: 5px; align-items: center">
@@ -248,7 +254,6 @@ onMounted(() => carregarConfiguracoes());
             </div>
           </div>
         </div>
-
         <div style="display: flex; gap: 10px; flex-wrap: wrap">
           <div style="flex: 1; display: flex; flex-direction: column">
             <label>Cor de Fundo da Tela</label>
@@ -267,7 +272,6 @@ onMounted(() => carregarConfiguracoes());
               />
             </div>
           </div>
-
           <div style="flex: 1; display: flex; flex-direction: column">
             <label>Estilo de Fonte do Sistema</label>
             <select
@@ -292,6 +296,67 @@ onMounted(() => carregarConfiguracoes());
       </div>
     </div>
 
+    <div
+      class="box"
+      style="
+        margin-bottom: 20px;
+        border-left: 4px solid var(--success);
+        background-color: #f8fff9;
+      "
+    >
+      <h4 style="margin-top: 0; color: var(--success)">
+        💰 Taxas de Recebimento (%)
+      </h4>
+      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
+        Configure a % cobrada pelas suas maquininhas de cartão ou bancos. Isso
+        fará com que o sistema calcule automaticamente o seu lucro líquido real
+        no encerramento da Ordem de Serviço.
+      </p>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap">
+        <div style="flex: 1; min-width: 120px">
+          <label>PIX (%)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            v-model="form.taxa_pix"
+            placeholder="Ex: 0"
+          />
+        </div>
+        <div style="flex: 1; min-width: 120px">
+          <label>Dinheiro (%)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            v-model="form.taxa_dinheiro"
+            placeholder="Ex: 0"
+          />
+        </div>
+        <div style="flex: 1; min-width: 120px">
+          <label>Cartão de Crédito (%)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            v-model="form.taxa_credito"
+            placeholder="Ex: 4.99"
+          />
+        </div>
+        <div style="flex: 1; min-width: 120px">
+          <label>Cartão de Débito (%)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            v-model="form.taxa_debito"
+            placeholder="Ex: 1.99"
+          />
+        </div>
+      </div>
+    </div>
+
     <div class="form-group">
       <label>Nome da Luthieria / Profissional:</label>
       <input
@@ -302,12 +367,12 @@ onMounted(() => carregarConfiguracoes());
 
     <div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap">
       <div style="flex: 1">
-        <label>Documento (CNPJ/CPF):</label
-        ><input v-model="form.documento" placeholder="00.000.000/0001-00" />
+        <label>Documento (CNPJ/CPF):</label>
+        <input v-model="form.documento" placeholder="00.000.000/0001-00" />
       </div>
       <div style="flex: 1">
-        <label>Telefone / WhatsApp:</label
-        ><input v-model="form.telefone" placeholder="(11) 99999-9999" />
+        <label>Telefone / WhatsApp:</label>
+        <input v-model="form.telefone" placeholder="(11) 99999-9999" />
       </div>
     </div>
 
@@ -334,7 +399,7 @@ onMounted(() => carregarConfiguracoes());
       :disabled="loading"
       style="width: 100%; padding: 12px; font-size: 1.1rem"
     >
-      {{ loading ? "⏳ A guardar..." : "💾 Salvar Configurações e Tema" }}
+      {{ loading ? "⏳ A guardar..." : "💾 Salvar Configurações e Taxas" }}
     </button>
   </div>
 </template>

@@ -24,7 +24,7 @@
  * ============================================================================
  */
 
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { supabase } from "../lib/supabaseClient";
 
 const props = defineProps(["servico"]);
@@ -44,6 +44,10 @@ const configLuthieria = ref({
   endereco: "",
   termos_garantia: "",
   logo_url: "",
+  taxa_pix: 0,
+  taxa_dinheiro: 0,
+  taxa_credito: 0,
+  taxa_debito: 0,
 });
 
 // ==========================================
@@ -74,6 +78,24 @@ const itensOrcamento = ref([]);
 const catalogoOriginal = ref([]);
 const novoItem = ref({ descricao: "", valor: null, tipo: "Mão de Obra" });
 const processandoOrcamento = ref(false);
+
+// --- VARIÁVEIS DE PAGAMENTO E CHECKOUT ---
+const pagamentosOS = ref([]);
+const subindoPagamento = ref(false);
+const novoPagamento = ref({
+  valor: 0,
+  metodo: "PIX",
+});
+
+// ==========================================
+// NOVA REGRA: VERIFICA SE A O.S ESTÁ BLOQUEADA
+// ==========================================
+const osFinalizada = computed(() => {
+  return (
+    servicoLocal.value.status === "Finalizado" ||
+    servicoLocal.value.status === "Entregue"
+  );
+});
 
 // ==========================================
 // FUNÇÕES ÚTEIS E CHECKLIST
@@ -128,6 +150,7 @@ async function carregarTudo() {
     carregarFotosChecklist(),
     carregarOrcamento(),
     carregarCatalogo(),
+    carregarPagamentos(),
   ]);
   carregandoDados.value = false;
 }
@@ -137,20 +160,12 @@ async function carregarConfig() {
     .from("configuracoes")
     .select("*")
     .maybeSingle();
-  if (data) configLuthieria.value = data;
+  if (data) configLuthieria.value = { ...configLuthieria.value, ...data };
 }
 
-// LÊ DA SUA TABELA "catalogo" SEM FILTROS DESTRUTIVOS
 async function carregarCatalogo() {
-  const { data, error } = await supabase
-    .from("catalogo")
-    .select("*")
-    .order("nome");
-  if (error) {
-    alert("Erro ao buscar o catálogo: " + error.message);
-  } else if (data) {
-    catalogoOriginal.value = data; // Puxa 100% dos itens, sem filtrar os insumos
-  }
+  const { data } = await supabase.from("catalogo").select("*").order("nome");
+  if (data) catalogoOriginal.value = data;
 }
 
 async function carregarDiario() {
@@ -164,7 +179,7 @@ async function carregarDiario() {
 
 async function carregarChecklist() {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("checklist_servico")
       .select("*")
       .eq("servico_id", servicoLocal.value.id)
@@ -210,6 +225,15 @@ async function carregarOrcamento() {
   if (data) itensOrcamento.value = data;
 }
 
+async function carregarPagamentos() {
+  const { data } = await supabase
+    .from("transacoes")
+    .select("*")
+    .eq("servico_id", servicoLocal.value.id)
+    .order("data_pagamento", { ascending: false });
+  if (data) pagamentosOS.value = data;
+}
+
 const checklistChegada = computed(() =>
   checklistItens.value.filter((i) => i.item_nome.startsWith("[Chegada]")),
 );
@@ -218,22 +242,18 @@ const checklistSaida = computed(() =>
 );
 
 // ==========================================
-// AÇÕES DO ORÇAMENTO
+// AÇÕES DO ORÇAMENTO E CHECKOUT
 // ==========================================
 function importarDoCatalogoOriginal(event) {
   const idEscolhido = event.target.value;
   if (!idEscolhido) return;
-
-  // Busca o item garantindo que o tipo de dado (String vs Number) não falhe
   const itemBanco = catalogoOriginal.value.find(
     (s) => String(s.id) === String(idEscolhido),
   );
-
   if (itemBanco) {
     novoItem.value.descricao = itemBanco.nome;
     novoItem.value.valor =
       itemBanco.preco_padrao || itemBanco.custo_padrao || 0;
-    // Se no catálogo estiver como MaoDeObra, entra como Mão de Obra. Senão, é Peça.
     novoItem.value.tipo =
       itemBanco.tipo === "MaoDeObra" ? "Mão de Obra" : "Peça / Insumo";
   }
@@ -249,17 +269,14 @@ async function adicionarItem() {
     valor: novoItem.value.valor || 0,
     tipo: novoItem.value.tipo,
   };
-
   const { data, error } = await supabase
     .from("itens_servico")
     .insert([itemParaSalvar])
     .select();
-
   if (error) alert("Erro ao salvar: " + error.message);
   else if (data) {
     itensOrcamento.value.push(data[0]);
     novoItem.value = { descricao: "", valor: null, tipo: "Mão de Obra" };
-    // Reseta o select visualmente
     const selectCat = document.getElementById("select-catalogo-original");
     if (selectCat) selectCat.value = "";
   }
@@ -271,9 +288,112 @@ async function removerItem(id) {
   itensOrcamento.value = itensOrcamento.value.filter((i) => i.id !== id);
 }
 
+// --- MATEMÁTICA DO CHECKOUT ---
 const totalOrcamento = computed(() =>
   itensOrcamento.value.reduce((acc, i) => acc + (Number(i.valor) || 0), 0),
 );
+const totalPago = computed(() =>
+  pagamentosOS.value
+    .filter((p) => p.tipo === "Entrada")
+    .reduce((acc, p) => acc + Number(p.valor_bruto), 0),
+);
+const saldoDevedor = computed(() =>
+  Math.max(0, totalOrcamento.value - totalPago.value),
+);
+
+watch(
+  saldoDevedor,
+  (newVal) => {
+    novoPagamento.value.valor = newVal;
+  },
+  { immediate: true },
+);
+
+const taxaSelecionada = computed(() => {
+  const c = configLuthieria.value;
+  if (novoPagamento.value.metodo === "PIX") return c.taxa_pix || 0;
+  if (novoPagamento.value.metodo === "Dinheiro") return c.taxa_dinheiro || 0;
+  if (novoPagamento.value.metodo === "Cartão de Crédito")
+    return c.taxa_credito || c.taxa_cartao_credito || 0;
+  if (novoPagamento.value.metodo === "Cartão de Débito")
+    return c.taxa_debito || c.taxa_cartao_debito || 0;
+  return 0;
+});
+
+const valorLiquidoPagamento = computed(() => {
+  const v = Number(novoPagamento.value.valor) || 0;
+  return v - v * (taxaSelecionada.value / 100);
+});
+
+// Registrar e salvar a venda / pagamento
+async function registrarPagamento() {
+  if (novoPagamento.value.valor <= 0)
+    return alert("O valor do pagamento deve ser maior que zero.");
+  if (novoPagamento.value.valor > saldoDevedor.value + 0.05) {
+    if (
+      !confirm(
+        "O valor lançado é maior do que o saldo que falta pagar. Deseja continuar mesmo assim?",
+      )
+    )
+      return;
+  }
+
+  subindoPagamento.value = true;
+  let descricaoVenda = `Pgto O.S. #${servicoLocal.value.numero_os} - ${novoPagamento.value.metodo}`;
+  if (taxaSelecionada.value > 0)
+    descricaoVenda += ` (Taxa da Maquininha: ${taxaSelecionada.value}%)`;
+
+  const transacao = {
+    servico_id: servicoLocal.value.id,
+    descricao: descricaoVenda,
+    valor_bruto: novoPagamento.value.valor,
+    tipo: "Entrada",
+    categoria: "Servico",
+    data_pagamento: new Date().toISOString().substring(0, 10),
+  };
+
+  const { data, error } = await supabase
+    .from("transacoes")
+    .insert([transacao])
+    .select();
+
+  if (error) {
+    alert("Erro ao salvar pagamento: " + error.message);
+  } else if (data) {
+    pagamentosOS.value.unshift(data[0]);
+
+    if (
+      saldoDevedor.value <= 0 &&
+      servicoLocal.value.status !== "Finalizado" &&
+      servicoLocal.value.status !== "Entregue"
+    ) {
+      if (
+        confirm(
+          "Recebimento concluído! O saldo devedor está zerado. Deseja marcar esta O.S. como 'Finalizada / Pronta para Entrega'?",
+        )
+      ) {
+        await supabase
+          .from("servicos")
+          .update({ status: "Finalizado", fase_projeto: "Pronto para Entrega" })
+          .eq("id", servicoLocal.value.id);
+        servicoLocal.value.status = "Finalizado";
+        servicoLocal.value.fase_projeto = "Pronto para Entrega";
+      }
+    }
+  }
+  subindoPagamento.value = false;
+}
+
+async function removerPagamento(id) {
+  if (
+    !confirm(
+      "Tem certeza que deseja cancelar este recebimento? O valor será apagado do seu Fluxo de Caixa.",
+    )
+  )
+    return;
+  await supabase.from("transacoes").delete().eq("id", id);
+  pagamentosOS.value = pagamentosOS.value.filter((p) => p.id !== id);
+}
 
 // ==========================================
 // IMPRESSÃO E WHATSAPP
@@ -282,18 +402,19 @@ function enviarOrcamentoWhatsApp() {
   const cliente = servicoLocal.value.instrumentos?.cliente;
   if (!cliente || !cliente.telefone)
     return alert("O cliente não possui um telefone cadastrado.");
-
   const numLimpo = cliente.telefone.replace(/\D/g, "");
   const telefoneZap = numLimpo.length <= 11 ? `55${numLimpo}` : numLimpo;
 
   let texto = `Olá, *${cliente.nome}*! Tudo bem?\n\n`;
   texto += `Segue o orçamento detalhado para o seu instrumento (*${servicoLocal.value.instrumentos?.marca} ${servicoLocal.value.instrumentos?.modelo}*):\n\n`;
-
   itensOrcamento.value.forEach((item) => {
     texto += `🔸 ${item.descricao}: R$ ${(Number(item.valor) || 0).toFixed(2)}\n`;
   });
-
   texto += `\n*TOTAL DO ORÇAMENTO: R$ ${totalOrcamento.value.toFixed(2)}*\n\n`;
+  if (totalPago.value > 0) {
+    texto += `*Valor já pago:* R$ ${totalPago.value.toFixed(2)}\n`;
+    texto += `*Saldo restante:* R$ ${saldoDevedor.value.toFixed(2)}\n\n`;
+  }
   texto += `Qualquer dúvida, estou à disposição!\n\nAtt, *${configLuthieria.value.nome_luthieria}*`;
 
   const url = `https://wa.me/${telefoneZap}?text=${encodeURIComponent(texto)}`;
@@ -308,61 +429,24 @@ function imprimirOrcamento() {
 
   let linhasHTML = itensOrcamento.value
     .map(
-      (i) => `
-    <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: left;">${i.descricao}</td>
-      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: left; color: #666; font-size: 0.85em;">${i.tipo || "Serviço"}</td>
-      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">R$ ${(Number(i.valor) || 0).toFixed(2)}</td>
-    </tr>
-  `,
+      (i) =>
+        `<tr><td style="padding: 12px; border-bottom: 1px solid #eee;">${i.descricao}</td><td style="padding: 12px; border-bottom: 1px solid #eee; color: #666; font-size: 0.85em;">${i.tipo || "Serviço"}</td><td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">R$ ${(Number(i.valor) || 0).toFixed(2)}</td></tr>`,
     )
     .join("");
-
   const logoHTML = config.logo_url
     ? `<img src="${config.logo_url}" style="max-height: 80px; object-fit: contain;" />`
     : `<h2 style="margin:0; color: #2c3e50;">${config.nome_luthieria}</h2>`;
 
   janela.document.write(`
     <html>
-      <head>
-        <title>Orçamento O.S. #${servicoLocal.value.numero_os}</title>
-        <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; margin: 0; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; margin-bottom: 30px; }
-          .dados-oficina { text-align: right; font-size: 0.9em; color: #555; }
-          .dados-cliente { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #eee; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { background: #f0f4f8; padding: 12px; border-bottom: 2px solid #cbd5e1; text-transform: uppercase; font-size: 0.8em; color: #475569; }
-          .total-row { background: #f0fdf4; font-size: 1.2em; border-top: 2px solid #22c55e; }
-          .footer { margin-top: 50px; text-align: center; font-size: 0.85em; color: #777; border-top: 1px solid #eee; padding-top: 20px; }
-        </style>
-      </head>
+      <head><title>Orçamento O.S. #${servicoLocal.value.numero_os}</title><style>body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; margin: 0; } .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; margin-bottom: 30px; } .dados-oficina { text-align: right; font-size: 0.9em; color: #555; } .dados-cliente { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #eee; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th { background: #f0f4f8; padding: 12px; border-bottom: 2px solid #cbd5e1; text-transform: uppercase; font-size: 0.8em; color: #475569; text-align: left;} .total-row { background: #f0fdf4; font-size: 1.2em; border-top: 2px solid #22c55e; } .footer { margin-top: 50px; text-align: center; font-size: 0.85em; color: #777; border-top: 1px solid #eee; padding-top: 20px; }</style></head>
       <body>
-        <div class="header">
-          <div>${logoHTML}</div>
-          <div class="dados-oficina">
-            <strong style="font-size: 1.1em; color: #2c3e50;">${config.nome_luthieria}</strong><br>
-            ${config.telefone ? "WhatsApp: " + config.telefone + "<br>" : ""}
-            ${config.endereco ? config.endereco : ""}
-          </div>
-        </div>
+        <div class="header"><div>${logoHTML}</div><div class="dados-oficina"><strong style="font-size: 1.1em; color: #2c3e50;">${config.nome_luthieria}</strong><br>${config.telefone ? "WhatsApp: " + config.telefone + "<br>" : ""}${config.endereco ? config.endereco : ""}</div></div>
         <h3 style="margin-top: 0; color: #2c3e50; font-size: 1.4em;">ORÇAMENTO - O.S. #${servicoLocal.value.numero_os}</h3>
-        <div class="dados-cliente">
-          <strong>Cliente:</strong> ${cliente?.nome || "Não informado"} <br>
-          <strong>Contato:</strong> ${cliente?.telefone || "--"} <br>
-          <strong>Instrumento:</strong> ${inst?.marca} ${inst?.modelo}
-        </div>
-        <table>
-          <thead><tr><th style="text-align: left;">Descrição do Serviço / Peça</th><th style="text-align: left;">Categoria</th><th style="text-align: right;">Valor</th></tr></thead>
-          <tbody>${linhasHTML}</tbody>
-          <tfoot>
-            <tr class="total-row">
-              <td colspan="2" style="padding: 15px; font-weight: bold; text-align: right;">VALOR TOTAL APROVADO:</td>
-              <td style="padding: 15px; font-weight: bold; text-align: right; color: #166534;">R$ ${totalOrcamento.value.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-        <div class="footer"><p>Orçamento válido por 15 dias.<br>${config.termos_garantia || "Garantia de 90 dias sobre a mão de obra executada."}</p></div>
+        <div class="dados-cliente"><strong>Cliente:</strong> ${cliente?.nome || "Não informado"} <br><strong>Contato:</strong> ${cliente?.telefone || "--"} <br><strong>Instrumento:</strong> ${inst?.marca} ${inst?.modelo}</div>
+        <table><thead><tr><th>Descrição</th><th>Categoria</th><th style="text-align: right;">Valor</th></tr></thead><tbody>${linhasHTML}</tbody>
+        <tfoot><tr class="total-row"><td colspan="2" style="padding: 15px; font-weight: bold; text-align: right;">VALOR TOTAL APROVADO:</td><td style="padding: 15px; font-weight: bold; text-align: right; color: #166534;">R$ ${totalOrcamento.value.toFixed(2)}</td></tr></tfoot></table>
+        <div class="footer"><p>Orçamento válido por 15 dias.<br>${config.termos_garantia || "Garantia de 90 dias sobre a mão de obra."}</p></div>
         <script>window.onload = function() { window.print(); window.close(); }<\/script>
       </body>
     </html>
@@ -374,6 +458,7 @@ function imprimirOrcamento() {
 // AÇÕES DO CHECKLIST E DIÁRIO
 // ==========================================
 async function atualizarStatusChecklist(item, novoStatus) {
+  if (osFinalizada.value) return; // Trava contra cliques
   item.status = novoStatus;
   await supabase
     .from("checklist_servico")
@@ -476,13 +561,13 @@ onMounted(carregarTudo);
         :class="{ active: abaAtual === 'checklist' }"
         @click="abaAtual = 'checklist'"
       >
-        📋 Checklists & Fotos
+        📋 Checklists
       </button>
       <button
         :class="{ active: abaAtual === 'diario' }"
         @click="abaAtual = 'diario'"
       >
-        📓 Diário de Bordo
+        📓 Diário
       </button>
       <button
         :class="{ active: abaAtual === 'orcamento' }"
@@ -490,9 +575,36 @@ onMounted(carregarTudo);
       >
         💰 Orçamento
       </button>
+      <button
+        :class="{ active: abaAtual === 'checkout' }"
+        @click="abaAtual = 'checkout'"
+      >
+        💳 Recebimento
+      </button>
     </div>
 
-    <div v-if="carregandoDados" class="card">A carregar os dados...</div>
+    <div
+      v-if="osFinalizada"
+      class="alerta-pago mb-2"
+      style="
+        background: #e0f2fe;
+        color: #0369a1;
+        border-color: #bae6fd;
+        font-size: 0.95rem;
+      "
+    >
+      🔒 <strong>O.S. {{ servicoLocal.status }}</strong
+      >. Esta Ordem de Serviço foi concluída e o seu histórico (orçamento,
+      diário e checklists) está bloqueado contra edições.
+    </div>
+
+    <div
+      v-if="carregandoDados"
+      class="card"
+      style="text-align: center; padding: 40px"
+    >
+      A carregar dados da O.S...
+    </div>
 
     <div v-else>
       <div v-if="abaAtual === 'orcamento'">
@@ -526,55 +638,58 @@ onMounted(carregarTudo);
             </div>
           </div>
 
-          <div
-            class="form-group mb-2"
-            style="
-              background: #f8fafc;
-              padding: 10px;
-              border-radius: 6px;
-              border: 1px solid #e2e8f0;
-            "
-          >
-            <label style="color: var(--primary); font-weight: bold"
-              >📖 Importar do Catálogo da Administração:</label
+          <div v-if="!osFinalizada">
+            <div
+              class="form-group mb-2"
+              style="
+                background: #f8fafc;
+                padding: 10px;
+                border-radius: 6px;
+                border: 1px solid #e2e8f0;
+              "
             >
-            <select
-              id="select-catalogo-original"
-              @change="importarDoCatalogoOriginal"
-              style="width: 100%; padding: 8px; margin-top: 5px"
-            >
-              <option value="">
-                -- Digite manualmente abaixo ou escolha um item aqui --
-              </option>
-              <option v-for="s in catalogoOriginal" :key="s.id" :value="s.id">
-                [{{ s.tipo === "MaoDeObra" ? "Serviço" : s.tipo || "Geral" }}]
-                {{ s.nome }} (R$ {{ (Number(s.preco_padrao) || 0).toFixed(2) }})
-              </option>
-            </select>
-          </div>
+              <label style="color: var(--primary); font-weight: bold"
+                >📖 Importar do Catálogo da Administração:</label
+              >
+              <select
+                id="select-catalogo-original"
+                @change="importarDoCatalogoOriginal"
+                style="width: 100%; padding: 8px; margin-top: 5px"
+              >
+                <option value="">
+                  -- Digite manualmente abaixo ou escolha um item aqui --
+                </option>
+                <option v-for="s in catalogoOriginal" :key="s.id" :value="s.id">
+                  [{{ s.tipo === "MaoDeObra" ? "Serviço" : s.tipo || "Geral" }}]
+                  {{ s.nome }} (R$
+                  {{ (Number(s.preco_padrao) || 0).toFixed(2) }})
+                </option>
+              </select>
+            </div>
 
-          <div class="grid-orcamento mb-2">
-            <input
-              v-model="novoItem.descricao"
-              placeholder="Descrição do Serviço ou Peça..."
-            />
-            <input
-              v-model.number="novoItem.valor"
-              type="number"
-              placeholder="Valor (R$)"
-              min="0"
-            />
-            <select v-model="novoItem.tipo">
-              <option>Mão de Obra</option>
-              <option>Peça / Insumo</option>
-            </select>
-            <button
-              class="btn-primary"
-              @click="adicionarItem"
-              :disabled="processandoOrcamento"
-            >
-              {{ processandoOrcamento ? "⏳" : "➕ Adicionar" }}
-            </button>
+            <div class="grid-orcamento mb-2">
+              <input
+                v-model="novoItem.descricao"
+                placeholder="Descrição do Serviço ou Peça..."
+              />
+              <input
+                v-model.number="novoItem.valor"
+                type="number"
+                placeholder="Valor (R$)"
+                min="0"
+              />
+              <select v-model="novoItem.tipo">
+                <option>Mão de Obra</option>
+                <option>Peça / Insumo</option>
+              </select>
+              <button
+                class="btn-primary"
+                @click="adicionarItem"
+                :disabled="processandoOrcamento"
+              >
+                {{ processandoOrcamento ? "⏳" : "➕ Adicionar" }}
+              </button>
+            </div>
           </div>
 
           <div class="tabela-responsiva">
@@ -584,7 +699,7 @@ onMounted(carregarTudo);
                   <th style="text-align: left">Item / Descrição</th>
                   <th style="text-align: left">Tipo</th>
                   <th style="text-align: left">Valor</th>
-                  <th style="text-align: center">Ação</th>
+                  <th v-if="!osFinalizada" style="text-align: center">Ação</th>
                 </tr>
               </thead>
               <tbody>
@@ -598,14 +713,13 @@ onMounted(carregarTudo);
                           ? 'badge-mao-obra'
                           : 'badge-peca',
                       ]"
+                      >{{ item.tipo || "Serviço" }}</span
                     >
-                      {{ item.tipo || "Serviço" }}
-                    </span>
                   </td>
                   <td style="font-weight: bold">
                     R$ {{ (Number(item.valor) || 0).toFixed(2) }}
                   </td>
-                  <td align="center">
+                  <td v-if="!osFinalizada" align="center">
                     <button
                       class="btn-text-danger"
                       @click="removerItem(item.id)"
@@ -616,11 +730,11 @@ onMounted(carregarTudo);
                 </tr>
                 <tr v-if="itensOrcamento.length === 0">
                   <td
-                    colspan="4"
+                    colspan="100%"
                     class="text-muted"
                     style="text-align: center; padding: 20px"
                   >
-                    Orçamento vazio. Adicione os itens acima.
+                    Orçamento vazio.
                   </td>
                 </tr>
               </tbody>
@@ -631,13 +745,171 @@ onMounted(carregarTudo);
                       >TOTAL DO ORÇAMENTO</strong
                     >
                   </td>
-                  <td colspan="2">
+                  <td>
                     <strong style="font-size: 1.3rem; color: #16a34a"
                       >R$ {{ totalOrcamento.toFixed(2) }}</strong
                     >
                   </td>
+                  <td v-if="!osFinalizada" align="center">
+                    <button
+                      class="btn-primary"
+                      style="background: #10b981; border: none"
+                      @click="abaAtual = 'checkout'"
+                    >
+                      💸 Cobrar
+                    </button>
+                  </td>
                 </tr>
               </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="abaAtual === 'checkout'">
+        <div class="card mb-2">
+          <h4 style="margin-top: 0; color: var(--primary)">
+            💳 Finalizar Venda e Recebimento
+          </h4>
+
+          <div class="resumo-financeiro">
+            <div class="caixa-valor total">
+              <small>Total do Serviço</small>
+              <strong>R$ {{ totalOrcamento.toFixed(2) }}</strong>
+            </div>
+            <div class="caixa-valor pago">
+              <small>Já Recebido</small>
+              <strong>R$ {{ totalPago.toFixed(2) }}</strong>
+            </div>
+            <div
+              class="caixa-valor restante"
+              :class="{ zerado: saldoDevedor <= 0 }"
+            >
+              <small>Saldo Devedor</small>
+              <strong>R$ {{ saldoDevedor.toFixed(2) }}</strong>
+            </div>
+          </div>
+
+          <div
+            class="form-pagamento mb-2"
+            v-if="saldoDevedor > 0 && !osFinalizada"
+          >
+            <h5 style="margin-top: 0; color: var(--primary)">
+              ➕ Lançar Pagamento (Permite Sinal / Parcial)
+            </h5>
+            <div
+              class="grid-form"
+              style="display: flex; gap: 15px; flex-wrap: wrap"
+            >
+              <div class="f-item" style="flex: 1; min-width: 200px">
+                <label>Método de Pagamento:</label>
+                <select v-model="novoPagamento.metodo">
+                  <option value="PIX">PIX</option>
+                  <option value="Dinheiro">Dinheiro Físico</option>
+                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Cartão de Débito">Cartão de Débito</option>
+                </select>
+              </div>
+              <div class="f-item" style="flex: 1; min-width: 200px">
+                <label>Valor Pago pelo Cliente (R$):</label>
+                <input
+                  type="number"
+                  v-model.number="novoPagamento.valor"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <p class="taxa-info" v-if="taxaSelecionada > 0">
+              ℹ️ A sua taxa de máquina para
+              <strong>{{ novoPagamento.metodo }}</strong> é de
+              <strong>{{ taxaSelecionada }}%</strong>. O valor líquido que entra
+              no fluxo de caixa será
+              <strong>R$ {{ valorLiquidoPagamento.toFixed(2) }}</strong
+              >.
+            </p>
+            <p
+              class="taxa-info"
+              v-else
+              style="background: #e0f2fe; border-color: #0284c7; color: #0369a1"
+            >
+              ℹ️ Nenhuma taxa foi cobrada ou configurada para este método (100%
+              de lucro líquido).
+            </p>
+
+            <button
+              class="btn-primary mt-1"
+              style="
+                background: #10b981;
+                border: none;
+                width: 100%;
+                font-size: 1.1rem;
+                padding: 12px;
+                margin-top: 15px;
+              "
+              @click="registrarPagamento"
+              :disabled="subindoPagamento"
+            >
+              {{
+                subindoPagamento
+                  ? "⏳ A salvar transação..."
+                  : "✅ Receber e Lançar no Fluxo de Caixa"
+              }}
+            </button>
+          </div>
+
+          <div v-else-if="saldoDevedor <= 0" class="alerta-pago mb-2">
+            🎉 O saldo está liquidado. Esta Ordem de Serviço já está 100% paga!
+          </div>
+        </div>
+
+        <div class="card">
+          <h4 style="margin-top: 0; color: var(--primary)">
+            📑 Histórico de Recebimentos desta O.S.
+          </h4>
+          <div class="tabela-responsiva">
+            <table class="tabela-padrao">
+              <thead>
+                <tr>
+                  <th style="text-align: left">Data</th>
+                  <th style="text-align: left">Descrição do Pagamento</th>
+                  <th style="text-align: left">Valor Recebido</th>
+                  <th v-if="!osFinalizada" style="text-align: center">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in pagamentosOS" :key="p.id">
+                  <td>
+                    {{
+                      new Date(
+                        p.data_pagamento + "T12:00:00",
+                      ).toLocaleDateString("pt-BR")
+                    }}
+                  </td>
+                  <td>{{ p.descricao }}</td>
+                  <td style="font-weight: bold; color: #16a34a">
+                    R$ {{ Number(p.valor_bruto).toFixed(2) }}
+                  </td>
+                  <td v-if="!osFinalizada" align="center">
+                    <button
+                      class="btn-text-danger"
+                      @click="removerPagamento(p.id)"
+                    >
+                      Estornar
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="pagamentosOS.length === 0">
+                  <td
+                    colspan="100%"
+                    class="text-muted"
+                    style="text-align: center; padding: 20px"
+                  >
+                    Nenhum pagamento registrado ainda. O cliente não deu sinal.
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -656,8 +928,9 @@ onMounted(carregarTudo);
                 <span class="check-text">{{
                   item.item_nome.replace("[Chegada] ", "")
                 }}</span>
-                <div class="toggle-group">
+                <div class="toggle-group" :class="{ bloqueado: osFinalizada }">
                   <button
+                    :disabled="osFinalizada"
                     :class="[
                       'btn-toggle',
                       {
@@ -676,6 +949,7 @@ onMounted(carregarTudo);
                     {{ getBotoesChecklist(item.item_nome).pos }}
                   </button>
                   <button
+                    :disabled="osFinalizada"
                     :class="[
                       'btn-toggle',
                       {
@@ -700,7 +974,7 @@ onMounted(carregarTudo);
                 class="text-muted"
                 style="font-size: 0.85em"
               >
-                Não há regras de chegada configuradas na Administração.
+                Não há regras de chegada.
               </p>
             </div>
           </div>
@@ -715,8 +989,9 @@ onMounted(carregarTudo);
                 <span class="check-text">{{
                   item.item_nome.replace("[Saída] ", "")
                 }}</span>
-                <div class="toggle-group">
+                <div class="toggle-group" :class="{ bloqueado: osFinalizada }">
                   <button
+                    :disabled="osFinalizada"
                     :class="[
                       'btn-toggle',
                       {
@@ -735,6 +1010,7 @@ onMounted(carregarTudo);
                     {{ getBotoesChecklist(item.item_nome).pos }}
                   </button>
                   <button
+                    :disabled="osFinalizada"
                     :class="[
                       'btn-toggle',
                       {
@@ -759,7 +1035,7 @@ onMounted(carregarTudo);
                 class="text-muted"
                 style="font-size: 0.85em"
               >
-                Não há regras de saída configuradas na Administração.
+                Não há regras de saída.
               </p>
             </div>
           </div>
@@ -774,21 +1050,24 @@ onMounted(carregarTudo);
             "
           >
             <div><h4 style="margin: 0">📸 Registo Fotográfico</h4></div>
-            <input
-              type="file"
-              @change="uploadFotoChecklist"
-              accept="image/*"
-              id="upload-foto-check"
-              hidden
-            />
-            <label
-              for="upload-foto-check"
-              class="btn-primary"
-              style="cursor: pointer; padding: 8px 15px; border-radius: 6px"
-              >{{
-                subindoFotoChecklist ? "⏳ A enviar..." : "➕ Adicionar Foto"
-              }}</label
-            >
+
+            <div v-if="!osFinalizada">
+              <input
+                type="file"
+                @change="uploadFotoChecklist"
+                accept="image/*"
+                id="upload-foto-check"
+                hidden
+              />
+              <label
+                for="upload-foto-check"
+                class="btn-primary"
+                style="cursor: pointer; padding: 8px 15px; border-radius: 6px"
+                >{{
+                  subindoFotoChecklist ? "⏳ A enviar..." : "➕ Adicionar Foto"
+                }}</label
+              >
+            </div>
           </div>
           <div class="galeria-inline">
             <div
@@ -802,6 +1081,7 @@ onMounted(carregarTudo);
                 class="foto-img"
               />
               <button
+                v-if="!osFinalizada"
                 class="btn-del-foto"
                 @click="deletarFoto(foto.id)"
                 title="Remover"
@@ -814,19 +1094,19 @@ onMounted(carregarTudo);
       </div>
 
       <div v-if="abaAtual === 'diario'">
-        <div class="box mb-2">
+        <div class="box mb-2" v-if="!osFinalizada">
           <h4 style="margin-top: 0">➕ Nova Atualização</h4>
           <textarea
             v-model="novaEntradaDiario.descricao"
             rows="2"
             placeholder="O que foi feito?"
           ></textarea>
-          <div class="grid-form mb-1 mt-1">
-            <div class="f-item">
+          <div class="grid-form mb-1 mt-1" style="display: flex; gap: 15px">
+            <div class="f-item" style="flex: 1">
               <label>Data:</label
               ><input type="date" v-model="novaEntradaDiario.data_registro" />
             </div>
-            <div class="f-item">
+            <div class="f-item" style="flex: 1">
               <label>Fase:</label
               ><select v-model="novaEntradaDiario.fase_projeto">
                 <option v-for="f in fasesPermitidas" :key="f">{{ f }}</option>
@@ -851,6 +1131,7 @@ onMounted(carregarTudo);
             {{ subindoDiario ? "⏳ A gravar..." : "Registar Etapa" }}
           </button>
         </div>
+
         <div class="timeline">
           <div v-for="item in diario" :key="item.id" class="timeline-item">
             <div class="timeline-header">
@@ -890,6 +1171,7 @@ onMounted(carregarTudo);
   padding: 15px;
 }
 
+/* TABS E ORÇAMENTO */
 .tabs-clean {
   display: flex;
   gap: 5px;
@@ -898,6 +1180,7 @@ onMounted(carregarTudo);
   padding: 5px;
   border-radius: 8px;
   justify-content: flex-start;
+  overflow-x: auto;
 }
 .tabs-clean button {
   flex: 1;
@@ -910,13 +1193,13 @@ onMounted(carregarTudo);
   color: #777;
   transition: 0.2s;
   text-align: center;
+  white-space: nowrap;
 }
 .tabs-clean button.active {
   background: white;
   color: var(--primary);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
-
 .grid-orcamento {
   display: grid;
   grid-template-columns: 3fr 1fr 1fr auto;
@@ -938,6 +1221,71 @@ onMounted(carregarTudo);
   color: #a16207;
 }
 
+/* CHECKOUT E FINANCEIRO */
+.resumo-financeiro {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+  margin-bottom: 20px;
+}
+.caixa-valor {
+  padding: 15px;
+  border-radius: 8px;
+  color: white;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.caixa-valor.total {
+  background: #3b82f6;
+}
+.caixa-valor.pago {
+  background: #10b981;
+}
+.caixa-valor.restante {
+  background: #ef4444;
+}
+.caixa-valor.restante.zerado {
+  background: #64748b;
+}
+.caixa-valor small {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 5px;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.caixa-valor strong {
+  font-size: 1.5rem;
+}
+.form-pagamento {
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.taxa-info {
+  font-size: 0.85rem;
+  color: #b45309;
+  margin-top: 10px;
+  padding: 10px;
+  background: #fef3c7;
+  border-radius: 6px;
+  border-left: 4px solid #f59e0b;
+}
+.alerta-pago {
+  background: #dcfce7;
+  color: #166534;
+  padding: 15px;
+  text-align: center;
+  font-weight: bold;
+  border-radius: 8px;
+  border: 1px solid #bbf7d0;
+  font-size: 1.1rem;
+}
+
+/* CHECKLIST & DIÁRIO */
 .grid-2-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -992,6 +1340,16 @@ onMounted(carregarTudo);
   padding: 4px;
   border-radius: 8px;
 }
+
+/* NOVO: BOTÕES BLOQUEADOS */
+.toggle-group.bloqueado {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.btn-toggle:disabled {
+  cursor: not-allowed;
+}
+
 .btn-toggle {
   border: none;
   padding: 6px 12px;
@@ -1003,9 +1361,6 @@ onMounted(carregarTudo);
   background: transparent;
   transition: all 0.2s ease;
 }
-.btn-toggle:hover {
-  color: #52525b;
-}
 .btn-active-pos {
   background: #10b981;
   color: white !important;
@@ -1016,7 +1371,6 @@ onMounted(carregarTudo);
   color: white !important;
   box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
-
 .galeria-inline {
   display: flex;
   flex-wrap: wrap;
@@ -1030,7 +1384,6 @@ onMounted(carregarTudo);
   border-radius: 8px;
   overflow: hidden;
   border: 2px solid #eee;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 .foto-img {
   width: 100%;
@@ -1058,10 +1411,6 @@ onMounted(carregarTudo);
   font-size: 0.75rem;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
-.btn-del-foto:hover {
-  background: #fee2e2;
-}
-
 .btn-text-danger {
   background: none;
   border: none;
@@ -1069,15 +1418,6 @@ onMounted(carregarTudo);
   cursor: pointer;
   font-weight: bold;
   padding: 5px;
-}
-.grid-form {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-.f-item {
-  flex: 1;
-  min-width: 150px;
 }
 .timeline {
   margin-top: 20px;
