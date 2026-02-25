@@ -4,9 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 const emit = defineEmits(["sair"]);
 
 async function simularPagamento() {
-  alert(
-    "Integração Futura: Aqui abriremos o Checkout da Stripe ou Asaas! \n\nPara efeitos de teste, vou reativar a sua conta como 'Ativo' agora.",
-  );
+  alert("Integração Futura");
 
   const {
     data: { user },

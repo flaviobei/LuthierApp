@@ -85,7 +85,7 @@ onMounted(() => carregarAssinantes());
       <table class="tabela-padrao">
         <thead>
           <tr>
-            <th>E-mail do Luthier</th>
+            <th>E-mail</th>
             <th>Início / Fim do Teste</th>
             <th>Plano</th>
             <th>Status de Acesso</th>

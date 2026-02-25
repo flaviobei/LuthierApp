@@ -101,7 +101,7 @@ onMounted(async () => {
             border-color: var(--danger);
           "
         >
-          👑 Gestão SaaS (Master)
+          👑 Gestão SaaS
         </button>
       </div>
     </div>
