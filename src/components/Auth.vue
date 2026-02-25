@@ -48,7 +48,7 @@ async function handleAuth() {
           color: var(--text-muted);
         "
       >
-        {{ isLogin ? "Aceder ao Painel" : "Criar Conta de Luthier" }}
+        {{ isLogin ? "Entrar" : "Criar Conta de Luthier" }}
       </h3>
 
       <div class="form-group">
