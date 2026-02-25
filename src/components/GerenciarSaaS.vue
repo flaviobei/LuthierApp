@@ -88,7 +88,7 @@ onMounted(() => carregarAssinantes());
             <th>E-mail</th>
             <th>Início / Fim do Teste</th>
             <th>Plano</th>
-            <th>Status de Acesso</th>
+            <th>Status Atual</th>
             <th style="text-align: center">Ações</th>
           </tr>
         </thead>
