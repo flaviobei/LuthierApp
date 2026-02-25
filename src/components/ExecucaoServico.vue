@@ -41,6 +41,21 @@ async function buscarDadosCompletos() {
 const isFinalizado = computed(() => servicoLocal.value?.status === "Entregue");
 const abaAtual = ref("orcamento");
 const mostrarRecibo = ref(false);
+const mostrarEtiqueta = ref(false); // NOVO: Controle da Etiqueta
+
+// NOVO: Gerador de QR Code
+const qrCodeUrl = computed(() => {
+  if (!servicoLocal.value?.id) return "";
+  // Cria um texto simples com a OS para o QR Code (no futuro pode ser um link de rastreio para o cliente)
+  const textoQr = encodeURIComponent(
+    `OS: #${servicoLocal.value.numero_os} | Cliente: ${servicoLocal.value.instrumentos?.cliente?.nome}`,
+  );
+  return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${textoQr}`;
+});
+
+function imprimirEtiqueta() {
+  window.print();
+}
 
 const fotoAmpliada = ref(null);
 const mostrarModalFoto = ref(false);
@@ -200,11 +215,8 @@ async function salvarChecklist() {
   else alert("Checklist salvo!");
 }
 
-// --- ORÇAMENTO E ESTOQUE INTELIGENTE ---
 const listaCatalogo = ref([]);
 const itensServico = ref([]);
-
-// Novo campo "catalogo_id" adicionado para fazer a ligação ao stock
 const novoItem = ref({
   descricao: "",
   tipo: "MaoDeObra",
@@ -212,7 +224,6 @@ const novoItem = ref({
   valor_cobrado: 0,
   catalogo_id: null,
 });
-
 const mostrarFechamento = ref(false);
 const totalJaPago = ref(0);
 const dadosPagamento = ref({
@@ -259,40 +270,31 @@ async function carregarItens() {
   if (data) itensServico.value = data;
 }
 
-// ==========================================
-// 1. LÓGICA DE SELEÇÃO E AVISO DE ESTOQUE
-// ==========================================
 async function selecionarItemCatalogo(event) {
   const idSelecionado = event.target.value;
   if (!idSelecionado) return;
   const item = listaCatalogo.value.find((i) => i.id === idSelecionado);
 
   if (item) {
-    // Verifica se o item tem controlo de stock e se está zerado
     if (item.controla_estoque && item.quantidade_estoque <= 0) {
       alert(
         `⚠️ Atenção: O item "${item.nome}" está esgotado no seu Catálogo!\nA peça será adicionada à O.S., mas lembre-se de repor o stock.`,
       );
     }
-
     novoItem.value = {
       descricao: item.nome,
       tipo: item.tipo || "MaoDeObra",
       custo_aquisicao: item.custo_padrao || 0,
       valor_cobrado: item.preco_padrao || 0,
-      catalogo_id: item.id, // Guarda o elo de ligação!
+      catalogo_id: item.id,
     };
     await adicionarItem();
     event.target.value = "";
   }
 }
 
-// ==========================================
-// 2. ADICIONAR E DESCONTAR DO ESTOQUE
-// ==========================================
 async function adicionarItem() {
   if (!novoItem.value.descricao) return alert("Descreva o item.");
-
   const { data, error } = await supabase
     .from("itens_servico")
     .insert([{ servico_id: servicoLocal.value.id, ...novoItem.value }])
@@ -300,8 +302,6 @@ async function adicionarItem() {
 
   if (!error && data) {
     itensServico.value.push(data[0]);
-
-    // MÁGICA: Se o item veio do catálogo e controla stock, subtrai 1 unidade
     if (novoItem.value.catalogo_id) {
       const catItem = listaCatalogo.value.find(
         (c) => c.id === novoItem.value.catalogo_id,
@@ -312,11 +312,9 @@ async function adicionarItem() {
           .from("catalogo")
           .update({ quantidade_estoque: novaQuantidade })
           .eq("id", catItem.id);
-        catItem.quantidade_estoque = novaQuantidade; // Atualiza a variável local para próximos cliques
+        catItem.quantidade_estoque = novaQuantidade;
       }
     }
-
-    // Limpa o formulário
     novoItem.value = {
       descricao: "",
       tipo: "MaoDeObra",
@@ -324,23 +322,14 @@ async function adicionarItem() {
       valor_cobrado: 0,
       catalogo_id: null,
     };
-  } else {
-    alert("Erro ao adicionar: " + error.message);
-  }
+  } else alert("Erro ao adicionar: " + error.message);
 }
 
-// ==========================================
-// 3. REMOVER E DEVOLVER AO ESTOQUE
-// ==========================================
 async function removerItem(id) {
-  // Descobre que item vai ser removido para saber se tem que devolver algo
   const itemRemovido = itensServico.value.find((i) => i.id === id);
-
   const { error } = await supabase.from("itens_servico").delete().eq("id", id);
   if (!error) {
     itensServico.value = itensServico.value.filter((i) => i.id !== id);
-
-    // MÁGICA: Se o item veio do catálogo e controla stock, soma 1 unidade de volta!
     if (itemRemovido && itemRemovido.catalogo_id && !isFinalizado.value) {
       const catItem = listaCatalogo.value.find(
         (c) => c.id === itemRemovido.catalogo_id,
@@ -351,7 +340,7 @@ async function removerItem(id) {
           .from("catalogo")
           .update({ quantidade_estoque: novaQuantidade })
           .eq("id", catItem.id);
-        catItem.quantidade_estoque = novaQuantidade; // Atualiza a variável local
+        catItem.quantidade_estoque = novaQuantidade;
       }
     }
   }
@@ -407,17 +396,19 @@ function abrirFechamento() {
 async function registrarPagamento() {
   const v = Number(dadosPagamento.value.valorPago);
   if (v <= 0) return alert("Valor inválido");
-  await supabase.from("transacoes").insert([
-    {
-      servico_id: servicoLocal.value.id,
-      tipo: "Entrada",
-      categoria: "Servico",
-      descricao: `Recebimento O.S. #${servicoLocal.value.numero_os}`,
-      valor_bruto: v,
-      forma_pagamento: dadosPagamento.value.forma,
-      data_pagamento: new Date(),
-    },
-  ]);
+  await supabase
+    .from("transacoes")
+    .insert([
+      {
+        servico_id: servicoLocal.value.id,
+        tipo: "Entrada",
+        categoria: "Servico",
+        descricao: `Recebimento O.S. #${servicoLocal.value.numero_os}`,
+        valor_bruto: v,
+        forma_pagamento: dadosPagamento.value.forma,
+        data_pagamento: new Date(),
+      },
+    ]);
   totalJaPago.value += v;
   if (saldoDevedor.value <= 0.02) {
     await supabase
@@ -448,22 +439,33 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="card">
+  <div class="card tela-nao-imprimivel">
     <div
       style="
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 15px;
+        flex-wrap: wrap;
+        gap: 10px;
       "
     >
       <h3 style="margin: 0; color: var(--primary)">
         O.S. #{{ servicoLocal.numero_os }} -
         {{ servicoLocal.fase_projeto || "Em Andamento" }}
       </h3>
-      <button class="btn-outline" @click="$emit('voltar')">
-        &larr; Voltar
-      </button>
+      <div style="display: flex; gap: 10px">
+        <button
+          class="btn-outline"
+          @click="mostrarEtiqueta = true"
+          style="border-color: var(--accent); color: var(--accent)"
+        >
+          🏷️ Etiqueta
+        </button>
+        <button class="btn-outline" @click="$emit('voltar')">
+          &larr; Voltar
+        </button>
+      </div>
     </div>
 
     <div style="display: flex; gap: 10px; margin-bottom: 20px">
@@ -627,42 +629,6 @@ onMounted(() => {
               "
             />
           </div>
-          <div
-            v-if="entrada.proximos_passos || entrada.data_proxima_etapa"
-            style="
-              background: #fff;
-              padding: 8px;
-              border-radius: 4px;
-              font-size: 0.85rem;
-              color: var(--text-muted);
-              display: flex;
-              flex-direction: column;
-              gap: 5px;
-              border: 1px dashed var(--border);
-            "
-          >
-            <span v-if="entrada.proximos_passos"
-              ><strong>Próximo passo:</strong>
-              {{ entrada.proximos_passos }}</span
-            >
-            <span
-              v-if="entrada.data_proxima_etapa"
-              style="
-                background: #ffeeba;
-                color: #856404;
-                padding: 2px 6px;
-                border-radius: 4px;
-                font-weight: bold;
-                width: fit-content;
-              "
-              >📅 Fazer em:
-              {{
-                new Date(
-                  entrada.data_proxima_etapa + "T12:00:00",
-                ).toLocaleDateString()
-              }}</span
-            >
-          </div>
         </div>
       </div>
     </div>
@@ -739,7 +705,6 @@ onMounted(() => {
         >
           📱 Enviar Proposta
         </button>
-
         <button
           class="btn-primary"
           @click="mostrarRecibo = true"
@@ -969,163 +934,279 @@ onMounted(() => {
         ✅ Serviço Quitado e Entregue
       </div>
     </div>
+  </div>
 
-    <div
-      v-if="mostrarRecibo"
-      class="modal-overlay"
-      @click.self="mostrarRecibo = false"
-    >
-      <div class="modal-content">
-        <div id="area-do-recibo" class="folha-recibo">
-          <div style="text-align: center; margin-bottom: 20px">
-            <img
-              v-if="configLuthieria.logo_url"
-              :src="configLuthieria.logo_url"
-              style="max-height: 80px; margin-bottom: 10px; object-fit: contain"
-            />
-            <h2 style="margin: 0; font-size: 1.4rem; color: #333">
-              {{ configLuthieria.nome_luthieria }}
-            </h2>
-            <p style="margin: 5px 0; font-size: 0.85rem; color: #555">
-              <span v-if="configLuthieria.documento"
-                >Doc: {{ configLuthieria.documento }} | </span
-              ><span v-if="configLuthieria.telefone"
-                >Contato: {{ configLuthieria.telefone }}</span
-              >
-            </p>
-            <p
-              v-if="configLuthieria.endereco"
-              style="margin: 3px 0; font-size: 0.8rem; color: #777"
-            >
-              {{ configLuthieria.endereco }}
-            </p>
-          </div>
-          <hr style="border: 1px solid #000; margin: 15px 0" />
-          <div
-            style="
-              font-size: 0.95rem;
-              margin-bottom: 20px;
-              background: #f9f9f9;
-              padding: 10px;
-              border-radius: 4px;
-              border: 1px solid #eee;
-            "
-          >
-            <p style="margin: 3px 0">
-              <strong>O.S. Número:</strong> #{{ servicoLocal.numero_os }}
-            </p>
-            <p style="margin: 3px 0">
-              <strong>Cliente:</strong>
-              {{ servicoLocal.instrumentos?.cliente?.nome }}
-            </p>
-            <p style="margin: 3px 0">
-              <strong>Instrumento:</strong>
-              {{ servicoLocal.instrumentos?.marca }}
-              {{ servicoLocal.instrumentos?.modelo }}
-            </p>
-            <p style="margin: 3px 0">
-              <strong>Data de Emissão:</strong>
-              {{ new Date().toLocaleDateString() }}
-            </p>
-          </div>
-          <table
-            style="
-              width: 100%;
-              font-size: 0.95rem;
-              border-collapse: collapse;
-              margin-bottom: 15px;
-            "
-          >
-            <tr v-for="item in itensVisiveisCliente" :key="item.id">
-              <td style="border-bottom: 1px dashed #ccc; padding: 5px 0">
-                {{ item.descricao }}
-              </td>
-              <td
-                align="right"
-                style="border-bottom: 1px dashed #ccc; padding: 5px 0"
-              >
-                R$ {{ item.valor_cobrado }}
-              </td>
-            </tr>
-            <tr>
-              <td
-                style="font-weight: bold; padding-top: 10px; font-size: 1.1rem"
-              >
-                TOTAL DO SERVIÇO
-              </td>
-              <td
-                align="right"
-                style="font-weight: bold; padding-top: 10px; font-size: 1.1rem"
-              >
-                R$ {{ valorFinalCliente.toFixed(2) }}
-              </td>
-            </tr>
-            <tr v-if="totalJaPago > 0">
-              <td style="padding-top: 5px; color: green">Sinal / Valor Pago</td>
-              <td align="right" style="padding-top: 5px; color: green">
-                - R$ {{ totalJaPago.toFixed(2) }}
-              </td>
-            </tr>
-            <tr v-if="saldoDevedor > 0">
-              <td style="font-weight: bold; padding-top: 5px">
-                RESTANTE A PAGAR
-              </td>
-              <td align="right" style="font-weight: bold; padding-top: 5px">
-                R$ {{ saldoDevedor.toFixed(2) }}
-              </td>
-            </tr>
-          </table>
-          <div
-            style="
-              margin-top: 30px;
-              padding-top: 15px;
-              border-top: 1px dashed #999;
-              font-size: 0.8rem;
-              color: #444;
-              white-space: pre-wrap;
-              text-align: justify;
-              line-height: 1.4;
-            "
-          >
-            <strong>Termos e Condições / Garantia:</strong><br />{{
-              configLuthieria.termos_garantia
+  <div
+    v-if="mostrarEtiqueta"
+    class="modal-overlay tela-nao-imprimivel"
+    @click.self="mostrarEtiqueta = false"
+  >
+    <div class="modal-content" style="max-width: 400px; text-align: center">
+      <div id="area-da-etiqueta" class="etiqueta-print card-etiqueta">
+        <h1 style="margin: 0; font-size: 3rem; color: #000; line-height: 1">
+          #{{ servicoLocal.numero_os }}
+        </h1>
+        <p
+          style="
+            margin: 5px 0 15px 0;
+            font-size: 1rem;
+            color: #444;
+            font-weight: bold;
+            text-transform: uppercase;
+          "
+        >
+          {{ servicoLocal.instrumentos?.marca }}
+          {{ servicoLocal.instrumentos?.modelo }}
+        </p>
+
+        <div
+          style="
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: left;
+          "
+        >
+          <p style="margin: 3px 0; font-size: 0.9rem">
+            <strong>👤 Cliente:</strong>
+            {{ servicoLocal.instrumentos?.cliente?.nome }}
+          </p>
+          <p style="margin: 3px 0; font-size: 0.9rem">
+            <strong>📥 Entrada:</strong>
+            {{
+              new Date(servicoLocal.data_entrada).toLocaleDateString("pt-BR")
             }}
-          </div>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 15px">
-          <button
-            class="btn-success"
-            @click="baixarImagemRecibo"
-            style="flex: 1"
+          </p>
+          <p
+            v-if="servicoLocal.data_previsao_entrega"
+            style="margin: 3px 0; font-size: 0.9rem; color: var(--danger)"
           >
-            ⬇️ Descarregar Imagem PDF
-          </button>
-          <button
-            class="btn-outline"
-            @click="mostrarRecibo = false"
-            style="flex: 1"
-          >
-            Fechar
-          </button>
+            <strong>🚨 Prazo:</strong>
+            {{
+              new Date(
+                servicoLocal.data_previsao_entrega + "T12:00:00",
+              ).toLocaleDateString("pt-BR")
+            }}
+          </p>
         </div>
+
+        <img
+          :src="qrCodeUrl"
+          alt="QR Code da OS"
+          style="
+            width: 120px;
+            height: 120px;
+            border: 4px solid #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+          "
+        />
+        <p style="font-size: 0.75rem; color: #777; margin-top: 10px">
+          {{ configLuthieria.nome_luthieria }}
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px">
+        <button class="btn-success" @click="imprimirEtiqueta" style="flex: 1">
+          🖨️ Imprimir
+        </button>
+        <button
+          class="btn-outline"
+          @click="mostrarEtiqueta = false"
+          style="flex: 1"
+        >
+          Fechar
+        </button>
       </div>
     </div>
+  </div>
 
-    <div
-      v-if="mostrarModalFoto"
-      class="modal-overlay"
-      @click.self="fecharModalFoto"
-      style="z-index: 9999"
-    >
-      <div class="modal-foto-content">
-        <button class="btn-fechar-foto" @click="fecharModalFoto">✖</button>
-        <img :src="fotoAmpliada" class="foto-ampliada-img" />
+  <div
+    v-if="mostrarRecibo"
+    class="modal-overlay tela-nao-imprimivel"
+    @click.self="mostrarRecibo = false"
+  >
+    <div class="modal-content">
+      <div id="area-do-recibo" class="folha-recibo">
+        <div style="text-align: center; margin-bottom: 20px">
+          <img
+            v-if="configLuthieria.logo_url"
+            :src="configLuthieria.logo_url"
+            style="max-height: 80px; margin-bottom: 10px; object-fit: contain"
+          />
+          <h2 style="margin: 0; font-size: 1.4rem; color: #333">
+            {{ configLuthieria.nome_luthieria }}
+          </h2>
+          <p style="margin: 5px 0; font-size: 0.85rem; color: #555">
+            <span v-if="configLuthieria.documento"
+              >Doc: {{ configLuthieria.documento }} | </span
+            ><span v-if="configLuthieria.telefone"
+              >Contato: {{ configLuthieria.telefone }}</span
+            >
+          </p>
+          <p
+            v-if="configLuthieria.endereco"
+            style="margin: 3px 0; font-size: 0.8rem; color: #777"
+          >
+            {{ configLuthieria.endereco }}
+          </p>
+        </div>
+        <hr style="border: 1px solid #000; margin: 15px 0" />
+        <div
+          style="
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #eee;
+          "
+        >
+          <p style="margin: 3px 0">
+            <strong>O.S. Número:</strong> #{{ servicoLocal.numero_os }}
+          </p>
+          <p style="margin: 3px 0">
+            <strong>Cliente:</strong>
+            {{ servicoLocal.instrumentos?.cliente?.nome }}
+          </p>
+          <p style="margin: 3px 0">
+            <strong>Instrumento:</strong> {{ servicoLocal.instrumentos?.marca }}
+            {{ servicoLocal.instrumentos?.modelo }}
+          </p>
+          <p style="margin: 3px 0">
+            <strong>Data de Emissão:</strong>
+            {{ new Date().toLocaleDateString() }}
+          </p>
+        </div>
+        <table
+          style="
+            width: 100%;
+            font-size: 0.95rem;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+          "
+        >
+          <tr v-for="item in itensVisiveisCliente" :key="item.id">
+            <td style="border-bottom: 1px dashed #ccc; padding: 5px 0">
+              {{ item.descricao }}
+            </td>
+            <td
+              align="right"
+              style="border-bottom: 1px dashed #ccc; padding: 5px 0"
+            >
+              R$ {{ item.valor_cobrado }}
+            </td>
+          </tr>
+          <tr>
+            <td style="font-weight: bold; padding-top: 10px; font-size: 1.1rem">
+              TOTAL DO SERVIÇO
+            </td>
+            <td
+              align="right"
+              style="font-weight: bold; padding-top: 10px; font-size: 1.1rem"
+            >
+              R$ {{ valorFinalCliente.toFixed(2) }}
+            </td>
+          </tr>
+          <tr v-if="totalJaPago > 0">
+            <td style="padding-top: 5px; color: green">Sinal / Valor Pago</td>
+            <td align="right" style="padding-top: 5px; color: green">
+              - R$ {{ totalJaPago.toFixed(2) }}
+            </td>
+          </tr>
+          <tr v-if="saldoDevedor > 0">
+            <td style="font-weight: bold; padding-top: 5px">
+              RESTANTE A PAGAR
+            </td>
+            <td align="right" style="font-weight: bold; padding-top: 5px">
+              R$ {{ saldoDevedor.toFixed(2) }}
+            </td>
+          </tr>
+        </table>
+        <div
+          style="
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px dashed #999;
+            font-size: 0.8rem;
+            color: #444;
+            white-space: pre-wrap;
+            text-align: justify;
+            line-height: 1.4;
+          "
+        >
+          <strong>Termos e Condições / Garantia:</strong><br />{{
+            configLuthieria.termos_garantia
+          }}
+        </div>
       </div>
+      <div style="display: flex; gap: 10px; margin-top: 15px">
+        <button class="btn-success" @click="baixarImagemRecibo" style="flex: 1">
+          ⬇️ Baixar PDF
+        </button>
+        <button
+          class="btn-outline"
+          @click="mostrarRecibo = false"
+          style="flex: 1"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="mostrarModalFoto"
+    class="modal-overlay tela-nao-imprimivel"
+    @click.self="fecharModalFoto"
+    style="z-index: 9999"
+  >
+    <div class="modal-foto-content">
+      <button class="btn-fechar-foto" @click="fecharModalFoto">✖</button>
+      <img :src="fotoAmpliada" class="foto-ampliada-img" />
     </div>
   </div>
 </template>
 
 <style scoped>
+/* ESTILOS DE ETIQUETA E IMPRESSÃO */
+.card-etiqueta {
+  background: white;
+  border: 2px dashed #000;
+  padding: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+}
+
+@media print {
+  /* Oculta tudo na tela exceto a etiqueta! */
+  .tela-nao-imprimivel {
+    display: none !important;
+  }
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  /* Faz a etiqueta saltar para o centro da folha de impressão */
+  .etiqueta-print {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    border: none;
+    display: block !important;
+    visibility: visible !important;
+  }
+}
+
 .btn-tab {
   flex: 1;
   padding: 10px;
