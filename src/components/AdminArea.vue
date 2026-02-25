@@ -6,7 +6,7 @@ import Financeiro from "./Financeiro.vue";
 import Configuracoes from "./Configuracoes.vue";
 import RelatoriosDashboard from "./RelatoriosDashboard.vue";
 import MinhaConta from "./MinhaConta.vue";
-import GerenciarSaaS from "./GerenciarSaaS.vue"; // NOVO IMPORT
+import GerenciarSaaS from "./GerenciarSaaS.vue"; // O SEGREDO ESTÁ AQUI
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
@@ -19,7 +19,6 @@ onMounted(async () => {
     data: { session },
   } = await supabase.auth.getSession();
   if (session?.user?.email) {
-    // Pergunta à base de dados se este e-mail está na tabela de donos
     const { data } = await supabase
       .from("super_admins")
       .select("*")
@@ -46,7 +45,7 @@ onMounted(async () => {
         "
       >
         <h2 style="margin: 0; color: var(--primary)">
-          Painel de Administração da Oficina
+          Painel de Administração / Gestão
         </h2>
         <button class="btn-outline" @click="$emit('voltar')">
           🚪 Voltar à Bancada
@@ -66,14 +65,14 @@ onMounted(async () => {
           :class="{ active: abaAtual === 'catalogo' }"
           @click="abaAtual = 'catalogo'"
         >
-          🏷️ Catálogo & Fichas
+          🏷️ Serviços
         </button>
         <button
           class="btn-tab"
           :class="{ active: abaAtual === 'financeiro' }"
           @click="abaAtual = 'financeiro'"
         >
-          💰 Caixa & Relatórios
+          💰 Caixa
         </button>
         <button
           class="btn-tab"
@@ -101,7 +100,7 @@ onMounted(async () => {
             border-color: var(--danger);
           "
         >
-          👑 Gestão SaaS
+          👑 Gestão SaaS (Master)
         </button>
       </div>
     </div>
@@ -115,7 +114,6 @@ onMounted(async () => {
       <Financeiro v-if="abaAtual === 'financeiro'" @fechar="$emit('voltar')" />
       <Configuracoes v-if="abaAtual === 'config'" />
       <MinhaConta v-if="abaAtual === 'conta'" />
-
       <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
     </div>
   </div>
