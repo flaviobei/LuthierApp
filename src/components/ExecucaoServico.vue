@@ -41,21 +41,6 @@ async function buscarDadosCompletos() {
 const isFinalizado = computed(() => servicoLocal.value?.status === "Entregue");
 const abaAtual = ref("orcamento");
 const mostrarRecibo = ref(false);
-const mostrarEtiqueta = ref(false); // NOVO: Controle da Etiqueta
-
-// NOVO: Gerador de QR Code
-const qrCodeUrl = computed(() => {
-  if (!servicoLocal.value?.id) return "";
-  // Cria um texto simples com a OS para o QR Code (no futuro pode ser um link de rastreio para o cliente)
-  const textoQr = encodeURIComponent(
-    `OS: #${servicoLocal.value.numero_os} | Cliente: ${servicoLocal.value.instrumentos?.cliente?.nome}`,
-  );
-  return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${textoQr}`;
-});
-
-function imprimirEtiqueta() {
-  window.print();
-}
 
 const fotoAmpliada = ref(null);
 const mostrarModalFoto = ref(false);
@@ -278,7 +263,7 @@ async function selecionarItemCatalogo(event) {
   if (item) {
     if (item.controla_estoque && item.quantidade_estoque <= 0) {
       alert(
-        `⚠️ Atenção: O item "${item.nome}" está esgotado no seu Catálogo!\nA peça será adicionada à O.S., mas lembre-se de repor o stock.`,
+        `⚠️ Atenção: O item "${item.nome}" está esgotado no seu Catálogo!\nA peça será adicionada à O.S., mas lembre-se de repor o estoque.`,
       );
     }
     novoItem.value = {
@@ -439,7 +424,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="card tela-nao-imprimivel">
+  <div class="card">
     <div
       style="
         display: flex;
@@ -454,18 +439,9 @@ onMounted(() => {
         O.S. #{{ servicoLocal.numero_os }} -
         {{ servicoLocal.fase_projeto || "Em Andamento" }}
       </h3>
-      <div style="display: flex; gap: 10px">
-        <button
-          class="btn-outline"
-          @click="mostrarEtiqueta = true"
-          style="border-color: var(--accent); color: var(--accent)"
-        >
-          🏷️ Etiqueta
-        </button>
-        <button class="btn-outline" @click="$emit('voltar')">
-          &larr; Voltar
-        </button>
-      </div>
+      <button class="btn-outline" @click="$emit('voltar')">
+        &larr; Voltar
+      </button>
     </div>
 
     <div style="display: flex; gap: 10px; margin-bottom: 20px">
@@ -799,7 +775,7 @@ onMounted(() => {
         <div style="margin-bottom: 10px">
           <select @change="selecionarItemCatalogo" style="width: 100%">
             <option value="">
-              -- Selecionar do Catálogo Automático (Desconta Stock) --
+              -- Selecionar do Catálogo Automático (Desconta Estoque) --
             </option>
             <option v-for="cat in listaCatalogo" :key="cat.id" :value="cat.id">
               {{ cat.nome }}
@@ -810,7 +786,7 @@ onMounted(() => {
               }})
               {{
                 cat.controla_estoque
-                  ? ` [📦 Stock: ${cat.quantidade_estoque}]`
+                  ? ` [📦 Estoque: ${cat.quantidade_estoque}]`
                   : ""
               }}
             </option>
@@ -822,7 +798,7 @@ onMounted(() => {
         >
           <input
             v-model="novoItem.descricao"
-            placeholder="Descrição avulsa (Não afeta o stock)..."
+            placeholder="Descrição avulsa (Não afeta estoque)..."
             style="flex: 2; min-width: 150px"
           />
           <select v-model="novoItem.tipo" style="flex: 1; min-width: 120px">
@@ -937,94 +913,8 @@ onMounted(() => {
   </div>
 
   <div
-    v-if="mostrarEtiqueta"
-    class="modal-overlay tela-nao-imprimivel"
-    @click.self="mostrarEtiqueta = false"
-  >
-    <div class="modal-content" style="max-width: 400px; text-align: center">
-      <div id="area-da-etiqueta" class="etiqueta-print card-etiqueta">
-        <h1 style="margin: 0; font-size: 3rem; color: #000; line-height: 1">
-          #{{ servicoLocal.numero_os }}
-        </h1>
-        <p
-          style="
-            margin: 5px 0 15px 0;
-            font-size: 1rem;
-            color: #444;
-            font-weight: bold;
-            text-transform: uppercase;
-          "
-        >
-          {{ servicoLocal.instrumentos?.marca }}
-          {{ servicoLocal.instrumentos?.modelo }}
-        </p>
-
-        <div
-          style="
-            background: #f4f4f4;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            text-align: left;
-          "
-        >
-          <p style="margin: 3px 0; font-size: 0.9rem">
-            <strong>👤 Cliente:</strong>
-            {{ servicoLocal.instrumentos?.cliente?.nome }}
-          </p>
-          <p style="margin: 3px 0; font-size: 0.9rem">
-            <strong>📥 Entrada:</strong>
-            {{
-              new Date(servicoLocal.data_entrada).toLocaleDateString("pt-BR")
-            }}
-          </p>
-          <p
-            v-if="servicoLocal.data_previsao_entrega"
-            style="margin: 3px 0; font-size: 0.9rem; color: var(--danger)"
-          >
-            <strong>🚨 Prazo:</strong>
-            {{
-              new Date(
-                servicoLocal.data_previsao_entrega + "T12:00:00",
-              ).toLocaleDateString("pt-BR")
-            }}
-          </p>
-        </div>
-
-        <img
-          :src="qrCodeUrl"
-          alt="QR Code da OS"
-          style="
-            width: 120px;
-            height: 120px;
-            border: 4px solid #fff;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            border-radius: 4px;
-          "
-        />
-        <p style="font-size: 0.75rem; color: #777; margin-top: 10px">
-          {{ configLuthieria.nome_luthieria }}
-        </p>
-      </div>
-
-      <div style="display: flex; gap: 10px; margin-top: 20px">
-        <button class="btn-success" @click="imprimirEtiqueta" style="flex: 1">
-          🖨️ Imprimir
-        </button>
-        <button
-          class="btn-outline"
-          @click="mostrarEtiqueta = false"
-          style="flex: 1"
-        >
-          Fechar
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div
     v-if="mostrarRecibo"
-    class="modal-overlay tela-nao-imprimivel"
+    class="modal-overlay"
     @click.self="mostrarRecibo = false"
   >
     <div class="modal-content">
@@ -1158,7 +1048,7 @@ onMounted(() => {
 
   <div
     v-if="mostrarModalFoto"
-    class="modal-overlay tela-nao-imprimivel"
+    class="modal-overlay"
     @click.self="fecharModalFoto"
     style="z-index: 9999"
   >
@@ -1170,43 +1060,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* ESTILOS DE ETIQUETA E IMPRESSÃO */
-.card-etiqueta {
-  background: white;
-  border: 2px dashed #000;
-  padding: 20px;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 0 auto;
-}
-
-@media print {
-  /* Oculta tudo na tela exceto a etiqueta! */
-  .tela-nao-imprimivel {
-    display: none !important;
-  }
-  body,
-  html {
-    margin: 0;
-    padding: 0;
-    background: white;
-  }
-  /* Faz a etiqueta saltar para o centro da folha de impressão */
-  .etiqueta-print {
-    position: absolute !important;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 20px;
-    border: none;
-    display: block !important;
-    visibility: visible !important;
-  }
-}
-
 .btn-tab {
   flex: 1;
   padding: 10px;
