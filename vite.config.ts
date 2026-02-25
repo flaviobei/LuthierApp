@@ -1,27 +1,31 @@
+import { fileURLToPath, URL } from "node:url";
+
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import vueDevTools from "vite-plugin-vue-devtools";
 
-// https://vitejs.dev/config/
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), vueDevTools()],
+  server: {
+    host: true,
+    port: 5173,
+  },
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   build: {
-    // Aumenta o limite do aviso de 500kb para 1000kb (1MB)
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        // Ensina o Vite a separar as bibliotecas pesadas em ficheiros diferentes
         manualChunks(id) {
           if (id.includes("node_modules")) {
-            if (id.includes("@supabase")) {
-              return "supabase";
-            }
-            if (id.includes("html2canvas")) {
-              return "html2canvas";
-            }
-            if (id.includes("vue")) {
-              return "vue-vendor";
-            }
-            return "vendor"; // Restantes bibliotecas
+            if (id.includes("@supabase")) return "supabase";
+            if (id.includes("html2canvas")) return "html2canvas";
+            if (id.includes("vue")) return "vue-vendor";
+            return "vendor";
           }
         },
       },

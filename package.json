@@ -10,8 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "build-only": "vite build",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
