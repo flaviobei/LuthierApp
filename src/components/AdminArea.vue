@@ -6,27 +6,41 @@ import Financeiro from "./Financeiro.vue";
 import Configuracoes from "./Configuracoes.vue";
 import RelatoriosDashboard from "./RelatoriosDashboard.vue";
 import MinhaConta from "./MinhaConta.vue";
-import GerenciarSaaS from "./GerenciarSaaS.vue"; // O SEGREDO ESTÁ AQUI
+import GerenciarSaaS from "./GerenciarSaaS.vue";
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
 
-// Verificação de segurança VIP
 const isSuperAdmin = ref(false);
+const logDebug = ref("A carregar segurança..."); // Variável detetive
 
 onMounted(async () => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (session?.user?.email) {
-    const { data } = await supabase
-      .from("super_admins")
-      .select("*")
-      .eq("email", session.user.email)
-      .maybeSingle();
-    if (data) {
-      isSuperAdmin.value = true;
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user?.email) {
+      logDebug.value = `Logado como: ${session.user.email}. A procurar na base de dados...`;
+
+      const { data, error } = await supabase
+        .from("super_admins")
+        .select("*")
+        .eq("email", session.user.email)
+        .maybeSingle();
+
+      if (error) {
+        logDebug.value = `Erro no Supabase: ${error.message}`;
+      } else if (data) {
+        isSuperAdmin.value = true;
+        logDebug.value = `✅ Acesso VIP Autorizado para ${data.email}! O botão deve aparecer abaixo.`;
+      } else {
+        logDebug.value = `❌ O e-mail "${session.user.email}" não foi encontrado na tabela super_admins!`;
+      }
+    } else {
+      logDebug.value = "Nenhum utilizador logado no momento.";
     }
+  } catch (err) {
+    logDebug.value = `Erro crítico: ${err.message}`;
   }
 });
 </script>
@@ -50,6 +64,20 @@ onMounted(async () => {
         <button class="btn-outline" @click="$emit('voltar')">
           🚪 Voltar à Bancada
         </button>
+      </div>
+
+      <div
+        style="
+          background: #ffeeba;
+          color: #856404;
+          padding: 10px;
+          margin-bottom: 15px;
+          border-radius: 4px;
+          font-family: monospace;
+          font-size: 0.95rem;
+        "
+      >
+        <strong>Diagnóstico de Segurança:</strong> {{ logDebug }}
       </div>
 
       <div class="admin-tabs">
