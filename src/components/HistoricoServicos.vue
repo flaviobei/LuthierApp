@@ -244,9 +244,6 @@ onMounted(() => carregarHistorico());
               : "📥 Relatório Excel Completo"
           }}
         </button>
-        <button class="btn-outline" @click="$emit('voltar')">
-          &larr; Voltar
-        </button>
       </div>
     </div>
 
@@ -264,7 +261,7 @@ onMounted(() => carregarHistorico());
           <input v-model="termoBusca" placeholder="Ex: Fender, João, 1024..." />
         </div>
         <div style="flex: 1; min-width: 150px">
-          <label>📅 Filtrar por Mês de Fecho:</label>
+          <label>📅 Filtrar por Mês de Fechamento:</label>
           <input type="month" v-model="mesFiltro" />
         </div>
       </div>

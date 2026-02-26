@@ -82,9 +82,6 @@ onMounted(async () => {
         <h2 style="margin: 0; color: var(--primary)">
           Painel de Administração / Gestão
         </h2>
-        <button class="btn-outline" @click="$emit('voltar')">
-          🚪 Voltar à Bancada
-        </button>
       </div>
 
       <div class="admin-tabs">

@@ -2,8 +2,8 @@
 /**
  * ============================================================================
  * @file        ConfigChecklist.vue
- * @description Gestor de configurações de inspeção. Permite personalizar os
- * itens que aparecerão nos checklists de Chegada e Saída de todas as novas O.S.
+ * @description Gestor de configurações de inspeção. Agora com confirmação
+ * inteligente de exclusão (sem alerts do navegador).
  * @project     LuthierApp
  * ============================================================================
  */
@@ -15,23 +15,28 @@ import { useToast } from "../composables/useToast";
 const { triggerToast } = useToast();
 
 const itens = ref([]);
+const carregando = ref(true);
+const idParaRemover = ref(null); // Estado para controlar a confirmação de remoção
 
-// O formulário agora tem os campos de texto livres!
 const novoItem = ref({
   tipo: "Chegada",
   item_nome: "",
-  opcao_positiva: "✅ Sim", // Valores padrão sugeridos
+  opcao_positiva: "✅ Sim",
   opcao_negativa: "❌ Não",
 });
-const carregando = ref(true);
 
 async function carregarItens() {
   carregando.value = true;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("checklist_padrao")
     .select("*")
     .order("id");
-  if (data) itens.value = data;
+
+  if (error) {
+    triggerToast("Erro ao carregar checklist: " + error.message, "error");
+  } else if (data) {
+    itens.value = data;
+  }
   carregando.value = false;
 }
 
@@ -43,7 +48,6 @@ async function adicionarItem() {
     );
   }
 
-  // Impede que as opções fiquem vazias
   if (!novoItem.value.opcao_positiva) novoItem.value.opcao_positiva = "✅ Sim";
   if (!novoItem.value.opcao_negativa) novoItem.value.opcao_negativa = "❌ Não";
 
@@ -61,20 +65,39 @@ async function adicionarItem() {
 
   if (!error && data) {
     itens.value.push(data[0]);
-    // Reseta o nome, mas mantém os botões para facilitar digitações em massa
     novoItem.value.item_nome = "";
-    triggerToast("Regra de inspeção adicionada com sucesso!", "success");
+    triggerToast("Regra de inspeção adicionada!", "success");
   } else {
     triggerToast("Erro ao gravar item: " + error.message, "error");
   }
 }
 
-async function removerItem(id) {
-  if (!confirm("Remover este item do padrão? (Isso não afeta O.S. antigas)"))
-    return;
-  await supabase.from("checklist_padrao").delete().eq("id", id);
-  itens.value = itens.value.filter((i) => i.id !== id);
-  triggerToast("Item removido com sucesso.", "info");
+/**
+ * Lógica de remoção em dois passos para evitar o 'alert' do navegador
+ */
+async function confirmarRemocao(id) {
+  if (idParaRemover.value === id) {
+    // Segundo clique: Executa a remoção
+    const { error } = await supabase
+      .from("checklist_padrao")
+      .delete()
+      .eq("id", id);
+
+    if (!error) {
+      itens.value = itens.value.filter((i) => i.id !== id);
+      triggerToast("Item removido do padrão.", "info");
+    } else {
+      triggerToast("Erro ao remover: " + error.message, "error");
+    }
+    idParaRemover.value = null;
+  } else {
+    // Primeiro clique: Ativa o modo de confirmação
+    idParaRemover.value = id;
+    // Cancela automaticamente após 3 segundos se não confirmar
+    setTimeout(() => {
+      if (idParaRemover.value === id) idParaRemover.value = null;
+    }, 3000);
+  }
 }
 
 const itensChegada = computed(() =>
@@ -93,176 +116,225 @@ onMounted(carregarItens);
       📋 Configurar Checklist Padrão
     </h3>
     <p class="text-muted">
-      Estes itens e os seus respetivos botões serão adicionados a todas as novas
-      Ordens de Serviço.
+      Estes itens serão adicionados a todas as novas Ordens de Serviço.
     </p>
 
-    <div
-      style="
-        background: #f8fafc;
-        padding: 20px;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-        margin-bottom: 25px;
-      "
-    >
-      <div
-        style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px"
-      >
-        <div style="flex: 1; min-width: 150px">
+    <div class="box-config-checklist">
+      <div class="grid-inputs">
+        <div class="field">
           <label>Fase de Inspeção</label>
-          <select v-model="novoItem.tipo" style="padding: 10px">
+          <select v-model="novoItem.tipo">
             <option value="Chegada">📥 Inspeção de Chegada</option>
             <option value="Saída">📤 Qualidade de Saída</option>
           </select>
         </div>
 
-        <div style="flex: 3; min-width: 200px">
+        <div class="field-grow">
           <label>O que vai inspecionar? *</label>
           <input
             v-model="novoItem.item_nome"
-            placeholder="Ex: Altura das Cordas, Limpeza da Escala..."
-            style="padding: 10px"
+            placeholder="Ex: Altura das Cordas, Trastes..."
           />
         </div>
       </div>
 
-      <div
-        style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end"
-      >
-        <div style="flex: 1; min-width: 150px">
-          <label style="color: #10b981">Opção Positiva (Botão Verde)</label>
-          <input
-            v-model="novoItem.opcao_positiva"
-            placeholder="Ex: ✅ OK, 👍 Boa..."
-            style="padding: 10px; border-color: #a7f3d0"
-          />
+      <div class="grid-buttons-config">
+        <div class="field">
+          <label style="color: #10b981">Botão Positivo</label>
+          <input v-model="novoItem.opcao_positiva" />
         </div>
 
-        <div style="flex: 1; min-width: 150px">
-          <label style="color: #f59e0b">Opção Negativa (Botão Amarelo)</label>
+        <div class="field">
+          <label style="color: #f59e0b">Botão Negativo</label>
           <input
             v-model="novoItem.opcao_negativa"
-            placeholder="Ex: ❌ Refazer, ⚠️ Ruim..."
-            style="padding: 10px; border-color: #fde68a"
             @keyup.enter="adicionarItem"
           />
         </div>
 
-        <button
-          class="btn-primary"
-          @click="adicionarItem"
-          style="padding: 10px 20px; height: 42px"
-        >
-          ➕ Adicionar Regra
+        <button class="btn-primary btn-add-regra" @click="adicionarItem">
+          ➕ Adicionar
         </button>
       </div>
     </div>
 
-    <div v-if="carregando" class="text-muted">A carregar itens...</div>
-    <div
-      v-else
-      style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
-    >
-      <div
-        style="
-          border: 1px solid #fde68a;
-          border-radius: 8px;
-          padding: 15px;
-          background: #fffbeb;
-        "
-      >
-        <h4 style="margin-top: 0; color: #d97706">📥 Itens de Chegada</h4>
-        <div
-          v-for="item in itensChegada"
-          :key="item.id"
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            border: 1px solid #fde68a;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          "
-        >
-          <div>
-            <strong style="display: block; color: var(--primary)">{{
-              item.item_nome
-            }}</strong>
-            <small class="text-muted"
-              >Botões: [ {{ item.opcao_positiva }} ] ou [
-              {{ item.opcao_negativa }} ]</small
+    <div v-if="carregando" class="text-muted text-center" style="padding: 20px">
+      A carregar regras...
+    </div>
+
+    <div v-else class="checklist-columns">
+      <div class="col-checklist chegada">
+        <h4>📥 Itens de Chegada</h4>
+        <div v-for="item in itensChegada" :key="item.id" class="item-regra">
+          <div class="regra-info">
+            <strong>{{ item.item_nome }}</strong>
+            <small
+              >Botões: [{{ item.opcao_positiva }}] [{{
+                item.opcao_negativa
+              }}]</small
             >
           </div>
           <button
-            @click="removerItem(item.id)"
-            class="btn-icon text-danger"
-            title="Apagar regra"
+            @click="confirmarRemocao(item.id)"
+            class="btn-delete-confirm"
+            :class="{ confirming: idParaRemover === item.id }"
           >
-            ❌
+            {{ idParaRemover === item.id ? "Confirmar?" : "🗑️" }}
           </button>
         </div>
-        <p
-          v-if="itensChegada.length === 0"
-          class="text-muted"
-          style="font-size: 0.85em"
-        >
+        <p v-if="itensChegada.length === 0" class="text-muted small">
           Nenhuma regra configurada.
         </p>
       </div>
 
-      <div
-        style="
-          border: 1px solid #a7f3d0;
-          border-radius: 8px;
-          padding: 15px;
-          background: #ecfdf5;
-        "
-      >
-        <h4 style="margin-top: 0; color: #059669">📤 Itens de Saída</h4>
-        <div
-          v-for="item in itensSaida"
-          :key="item.id"
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            border: 1px solid #a7f3d0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          "
-        >
-          <div>
-            <strong style="display: block; color: var(--primary)">{{
-              item.item_nome
-            }}</strong>
-            <small class="text-muted"
-              >Botões: [ {{ item.opcao_positiva }} ] ou [
-              {{ item.opcao_negativa }} ]</small
+      <div class="col-checklist saida">
+        <h4>📤 Itens de Saída</h4>
+        <div v-for="item in itensSaida" :key="item.id" class="item-regra">
+          <div class="regra-info">
+            <strong>{{ item.item_nome }}</strong>
+            <small
+              >Botões: [{{ item.opcao_positiva }}] [{{
+                item.opcao_negativa
+              }}]</small
             >
           </div>
           <button
-            @click="removerItem(item.id)"
-            class="btn-icon text-danger"
-            title="Apagar regra"
+            @click="confirmarRemocao(item.id)"
+            class="btn-delete-confirm"
+            :class="{ confirming: idParaRemover === item.id }"
           >
-            ❌
+            {{ idParaRemover === item.id ? "Confirmar?" : "🗑️" }}
           </button>
         </div>
-        <p
-          v-if="itensSaida.length === 0"
-          class="text-muted"
-          style="font-size: 0.85em"
-        >
+        <p v-if="itensSaida.length === 0" class="text-muted small">
           Nenhuma regra configurada.
         </p>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.box-config-checklist {
+  background: #f8fafc;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 25px;
+}
+
+.grid-inputs,
+.grid-buttons-config {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.field {
+  flex: 1;
+  min-width: 140px;
+}
+.field-grow {
+  flex: 3;
+  min-width: 200px;
+}
+
+.btn-add-regra {
+  height: 42px;
+  align-self: flex-end;
+  padding: 0 20px;
+}
+
+.checklist-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.col-checklist {
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.chegada {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+.chegada h4 {
+  color: #d97706;
+  margin-top: 0;
+}
+
+.saida {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+.saida h4 {
+  color: #059669;
+  margin-top: 0;
+}
+
+.item-regra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.regra-info {
+  display: flex;
+  flex-direction: column;
+}
+.regra-info strong {
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+.regra-info small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* Botão de remoção com dois estados */
+.btn-delete-confirm {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  min-width: 40px;
+}
+
+.btn-delete-confirm.confirming {
+  background: #dc2626;
+  color: white;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 700px) {
+  .checklist-columns {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

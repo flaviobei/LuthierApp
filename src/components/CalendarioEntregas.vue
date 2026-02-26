@@ -122,9 +122,6 @@ onMounted(carregarServicos);
             </button>
             <button class="btn-outline" @click="mudarMes(1)">▶</button>
           </div>
-          <button class="btn-primary" @click="$emit('voltar')">
-            Voltar à Bancada
-          </button>
         </div>
       </div>
     </div>
