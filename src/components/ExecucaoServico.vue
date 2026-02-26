@@ -2,20 +2,16 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { comprimirImagem } from "../lib/imageUtils";
-import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
+import { useToast } from "../composables/useToast";
 
 const props = defineProps(["servico"]);
 const emit = defineEmits(["voltar"]);
-
-const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
+const { triggerToast } = useToast();
 
 const servicoLocal = ref({ ...props.servico });
 const carregandoDados = ref(true);
-const abaAtual = ref("orcamento");
+const abaAtual = ref("orcamento"); // Aba padrão inicial
 
-// ==========================================
-// ESTADO: CONFIGURAÇÕES DA OFICINA
-// ==========================================
 const configLuthieria = ref({
   nome_luthieria: "Minha Luthieria",
   documento: "",
@@ -29,9 +25,6 @@ const configLuthieria = ref({
   taxa_debito: 0,
 });
 
-// ==========================================
-// ESTADOS E VARIÁVEIS
-// ==========================================
 const diario = ref([]);
 const fasesPermitidas = [
   "Fila de Espera",
@@ -58,27 +51,16 @@ const catalogoOriginal = ref([]);
 const novoItem = ref({ descricao: "", valor: null, tipo: "Mão de Obra" });
 const processandoOrcamento = ref(false);
 
-// --- VARIÁVEIS DE PAGAMENTO E CHECKOUT ---
 const pagamentosOS = ref([]);
 const subindoPagamento = ref(false);
-const novoPagamento = ref({
-  valor: 0,
-  metodo: "PIX",
-});
+const novoPagamento = ref({ valor: 0, metodo: "PIX" });
 
-// ==========================================
-// NOVA REGRA: VERIFICA SE A O.S ESTÁ BLOQUEADA
-// ==========================================
-const osFinalizada = computed(() => {
-  return (
+const osFinalizada = computed(
+  () =>
     servicoLocal.value.status === "Finalizado" ||
-    servicoLocal.value.status === "Entregue"
-  );
-});
+    servicoLocal.value.status === "Entregue",
+);
 
-// ==========================================
-// FUNÇÕES ÚTEIS E CHECKLIST
-// ==========================================
 function formatarDataHora(dataIso) {
   if (!dataIso) return "---";
   const dataAjustada = dataIso.length === 10 ? `${dataIso}T12:00:00` : dataIso;
@@ -117,9 +99,6 @@ function getBotoesChecklist(nomeFull) {
   return { pos: "✅ Sim", neg: "❌ Não", valPos: "Sim", valNeg: "Não" };
 }
 
-// ==========================================
-// CARREGAMENTO DE DADOS UNIFICADOS
-// ==========================================
 async function carregarTudo() {
   carregandoDados.value = true;
   await Promise.all([
@@ -147,11 +126,7 @@ async function carregarCatalogo() {
     .from("catalogo")
     .select("*")
     .order("nome");
-  if (error) {
-    triggerToast("Erro ao buscar o catálogo: " + error.message, "error");
-  } else if (data) {
-    catalogoOriginal.value = data;
-  }
+  if (!error && data) catalogoOriginal.value = data;
 }
 
 async function carregarDiario() {
@@ -181,6 +156,8 @@ async function carregarChecklist() {
         const itensParaInserir = padroes.map((p) => ({
           servico_id: servicoLocal.value.id,
           item_nome: `[${p.tipo}] ${p.item_nome}`,
+          opcao_positiva: p.opcao_positiva || "✅ Sim",
+          opcao_negativa: p.opcao_negativa || "❌ Não",
           status: "Pendente",
         }));
         const { data: inserted } = await supabase
@@ -220,6 +197,40 @@ async function carregarPagamentos() {
   if (data) pagamentosOS.value = data;
 }
 
+// ==========================================
+// NOVA FUNÇÃO: SALVA OBSERVAÇÕES
+// ==========================================
+async function salvarObsChecklist() {
+  if (osFinalizada.value) return;
+  const { error } = await supabase
+    .from("servicos")
+    .update({ obs_checklist: servicoLocal.value.obs_checklist })
+    .eq("id", servicoLocal.value.id);
+
+  if (error) {
+    triggerToast("Erro ao gravar observações: " + error.message, "error");
+  } else {
+    triggerToast("Observações adicionais guardadas!", "success");
+  }
+}
+
+async function salvarObsFechamento() {
+  if (osFinalizada.value) return;
+  const { error } = await supabase
+    .from("servicos")
+    .update({ obs_fechamento: servicoLocal.value.obs_fechamento })
+    .eq("id", servicoLocal.value.id);
+
+  if (error) {
+    triggerToast(
+      "Erro ao gravar comentários de fecho: " + error.message,
+      "error",
+    );
+  } else {
+    triggerToast("Comentários de fechamento guardados!", "success");
+  }
+}
+
 const checklistChegada = computed(() =>
   checklistItens.value.filter((i) => i.item_nome.startsWith("[Chegada]")),
 );
@@ -227,9 +238,6 @@ const checklistSaida = computed(() =>
   checklistItens.value.filter((i) => i.item_nome.startsWith("[Saída]")),
 );
 
-// ==========================================
-// AÇÕES DO ORÇAMENTO E CHECKOUT
-// ==========================================
 function importarDoCatalogoOriginal(event) {
   const idEscolhido = event.target.value;
   if (!idEscolhido) return;
@@ -246,9 +254,8 @@ function importarDoCatalogoOriginal(event) {
 }
 
 async function adicionarItem() {
-  if (!novoItem.value.descricao) {
+  if (!novoItem.value.descricao)
     return triggerToast("Preencha a descrição do serviço ou peça.", "error");
-  }
   processandoOrcamento.value = true;
   const itemParaSalvar = {
     servico_id: servicoLocal.value.id,
@@ -275,10 +282,9 @@ async function adicionarItem() {
 async function removerItem(id) {
   await supabase.from("itens_servico").delete().eq("id", id);
   itensOrcamento.value = itensOrcamento.value.filter((i) => i.id !== id);
-  triggerToast("Item removido do orçamento.", "info");
+  triggerToast("Item removido.", "info");
 }
 
-// --- MATEMÁTICA DO CHECKOUT ---
 const totalOrcamento = computed(() =>
   itensOrcamento.value.reduce((acc, i) => acc + (Number(i.valor) || 0), 0),
 );
@@ -309,28 +315,21 @@ const taxaSelecionada = computed(() => {
     return c.taxa_debito || c.taxa_cartao_debito || 0;
   return 0;
 });
-
 const valorLiquidoPagamento = computed(() => {
   const v = Number(novoPagamento.value.valor) || 0;
   return v - v * (taxaSelecionada.value / 100);
 });
 
-// Registrar e salvar a venda / pagamento
 async function registrarPagamento() {
-  if (novoPagamento.value.valor <= 0) {
-    return triggerToast(
-      "O valor do pagamento deve ser maior que zero.",
-      "error",
-    );
-  }
-  if (novoPagamento.value.valor > saldoDevedor.value + 0.05) {
+  if (novoPagamento.value.valor <= 0)
+    return triggerToast("O valor deve ser maior que zero.", "error");
+  if (novoPagamento.value.valor > saldoDevedor.value + 0.05)
     if (
       !confirm(
         "O valor lançado é maior do que o saldo que falta pagar. Deseja continuar mesmo assim?",
       )
     )
       return;
-  }
 
   subindoPagamento.value = true;
   let descricaoVenda = `Pgto O.S. #${servicoLocal.value.numero_os} - ${novoPagamento.value.metodo}`;
@@ -345,7 +344,6 @@ async function registrarPagamento() {
     categoria: "Servico",
     data_pagamento: new Date().toISOString().substring(0, 10),
   };
-
   const { data, error } = await supabase
     .from("transacoes")
     .insert([transacao])
@@ -378,7 +376,6 @@ async function registrarPagamento() {
             data_conclusao: new Date().toISOString(),
           })
           .eq("id", servicoLocal.value.id);
-
         servicoLocal.value.status = "Finalizado";
         servicoLocal.value.fase_projeto = "Pronto para Entrega";
         triggerToast("Ordem de Serviço finalizada!", "success");
@@ -397,37 +394,31 @@ async function removerPagamento(id) {
     return;
   await supabase.from("transacoes").delete().eq("id", id);
   pagamentosOS.value = pagamentosOS.value.filter((p) => p.id !== id);
-  triggerToast("Pagamento estornado com sucesso.", "info");
+  triggerToast("Pagamento estornado.", "info");
 }
 
-// ==========================================
-// IMPRESSÃO E WHATSAPP
-// ==========================================
 function enviarOrcamentoWhatsApp() {
   const cliente = servicoLocal.value.instrumentos?.cliente;
-  if (!cliente || !cliente.telefone) {
+  if (!cliente || !cliente.telefone)
     return triggerToast(
       "O cliente não possui um telefone cadastrado.",
       "error",
     );
-  }
   const numLimpo = cliente.telefone.replace(/\D/g, "");
   const telefoneZap = numLimpo.length <= 11 ? `55${numLimpo}` : numLimpo;
-
-  let texto = `Olá, *${cliente.nome}*! Tudo bem?\n\n`;
-  texto += `Segue o orçamento detalhado para o seu instrumento (*${servicoLocal.value.instrumentos?.marca} ${servicoLocal.value.instrumentos?.modelo}*):\n\n`;
+  let texto = `Olá, *${cliente.nome}*! Tudo bem?\n\nSegue o orçamento detalhado para o seu instrumento (*${servicoLocal.value.instrumentos?.marca} ${servicoLocal.value.instrumentos?.modelo}*):\n\n`;
   itensOrcamento.value.forEach((item) => {
     texto += `🔸 ${item.descricao}: R$ ${(Number(item.valor) || 0).toFixed(2)}\n`;
   });
   texto += `\n*TOTAL DO ORÇAMENTO: R$ ${totalOrcamento.value.toFixed(2)}*\n\n`;
   if (totalPago.value > 0) {
-    texto += `*Valor já pago:* R$ ${totalPago.value.toFixed(2)}\n`;
-    texto += `*Saldo restante:* R$ ${saldoDevedor.value.toFixed(2)}\n\n`;
+    texto += `*Valor já pago:* R$ ${totalPago.value.toFixed(2)}\n*Saldo restante:* R$ ${saldoDevedor.value.toFixed(2)}\n\n`;
   }
   texto += `Qualquer dúvida, estou à disposição!\n\nAtt, *${configLuthieria.value.nome_luthieria}*`;
-
-  const url = `https://wa.me/${telefoneZap}?text=${encodeURIComponent(texto)}`;
-  window.open(url, "_blank");
+  window.open(
+    `https://wa.me/${telefoneZap}?text=${encodeURIComponent(texto)}`,
+    "_blank",
+  );
 }
 
 function imprimirOrcamento() {
@@ -435,7 +426,6 @@ function imprimirOrcamento() {
   const cliente = servicoLocal.value.instrumentos?.cliente;
   const inst = servicoLocal.value.instrumentos;
   const config = configLuthieria.value;
-
   let linhasHTML = itensOrcamento.value
     .map(
       (i) =>
@@ -445,27 +435,12 @@ function imprimirOrcamento() {
   const logoHTML = config.logo_url
     ? `<img src="${config.logo_url}" style="max-height: 80px; object-fit: contain;" />`
     : `<h2 style="margin:0; color: #2c3e50;">${config.nome_luthieria}</h2>`;
-
-  janela.document.write(`
-    <html>
-      <head><title>Orçamento O.S. #${servicoLocal.value.numero_os}</title><style>body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; margin: 0; } .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; margin-bottom: 30px; } .dados-oficina { text-align: right; font-size: 0.9em; color: #555; } .dados-cliente { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #eee; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th { background: #f0f4f8; padding: 12px; border-bottom: 2px solid #cbd5e1; text-transform: uppercase; font-size: 0.8em; color: #475569; text-align: left;} .total-row { background: #f0fdf4; font-size: 1.2em; border-top: 2px solid #22c55e; } .footer { margin-top: 50px; text-align: center; font-size: 0.85em; color: #777; border-top: 1px solid #eee; padding-top: 20px; }</style></head>
-      <body>
-        <div class="header"><div>${logoHTML}</div><div class="dados-oficina"><strong style="font-size: 1.1em; color: #2c3e50;">${config.nome_luthieria}</strong><br>${config.telefone ? "WhatsApp: " + config.telefone + "<br>" : ""}${config.endereco ? config.endereco : ""}</div></div>
-        <h3 style="margin-top: 0; color: #2c3e50; font-size: 1.4em;">ORÇAMENTO - O.S. #${servicoLocal.value.numero_os}</h3>
-        <div class="dados-cliente"><strong>Cliente:</strong> ${cliente?.nome || "Não informado"} <br><strong>Contato:</strong> ${cliente?.telefone || "--"} <br><strong>Instrumento:</strong> ${inst?.marca} ${inst?.modelo}</div>
-        <table><thead><tr><th>Descrição</th><th>Categoria</th><th style="text-align: right;">Valor</th></tr></thead><tbody>${linhasHTML}</tbody>
-        <tfoot><tr class="total-row"><td colspan="2" style="padding: 15px; font-weight: bold; text-align: right;">VALOR TOTAL APROVADO:</td><td style="padding: 15px; font-weight: bold; text-align: right; color: #166534;">R$ ${totalOrcamento.value.toFixed(2)}</td></tr></tfoot></table>
-        <div class="footer"><p>Orçamento válido por 15 dias.<br>${config.termos_garantia || "Garantia de 90 dias sobre a mão de obra."}</p></div>
-        <script>window.onload = function() { window.print(); window.close(); }<\/script>
-      </body>
-    </html>
-  `);
+  janela.document.write(
+    `<html><head><title>Orçamento O.S. #${servicoLocal.value.numero_os}</title><style>body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; margin: 0; } .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; margin-bottom: 30px; } .dados-oficina { text-align: right; font-size: 0.9em; color: #555; } .dados-cliente { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #eee; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th { background: #f0f4f8; padding: 12px; border-bottom: 2px solid #cbd5e1; text-transform: uppercase; font-size: 0.8em; color: #475569; text-align: left;} .total-row { background: #f0fdf4; font-size: 1.2em; border-top: 2px solid #22c55e; } .footer { margin-top: 50px; text-align: center; font-size: 0.85em; color: #777; border-top: 1px solid #eee; padding-top: 20px; }</style></head><body><div class="header"><div>${logoHTML}</div><div class="dados-oficina"><strong style="font-size: 1.1em; color: #2c3e50;">${config.nome_luthieria}</strong><br>${config.telefone ? "WhatsApp: " + config.telefone + "<br>" : ""}${config.endereco ? config.endereco : ""}</div></div><h3 style="margin-top: 0; color: #2c3e50; font-size: 1.4em;">ORÇAMENTO - O.S. #${servicoLocal.value.numero_os}</h3><div class="dados-cliente"><strong>Cliente:</strong> ${cliente?.nome || "Não informado"} <br><strong>Contato:</strong> ${cliente?.telefone || "--"} <br><strong>Instrumento:</strong> ${inst?.marca} ${inst?.modelo}</div><table><thead><tr><th>Descrição</th><th>Categoria</th><th style="text-align: right;">Valor</th></tr></thead><tbody>${linhasHTML}</tbody><tfoot><tr class="total-row"><td colspan="2" style="padding: 15px; font-weight: bold; text-align: right;">VALOR TOTAL APROVADO:</td><td style="padding: 15px; font-weight: bold; text-align: right; color: #166534;">R$ ${totalOrcamento.value.toFixed(2)}</td></tr></tfoot></table><div class="footer"><p>Orçamento válido por 15 dias.<br>${config.termos_garantia || "Garantia de 90 dias sobre a mão de obra."}</p></div><script>window.onload = function() { window.print(); window.close(); }<\/script></body></html>`,
+  );
   janela.document.close();
 }
 
-// ==========================================
-// AÇÕES DO CHECKLIST E DIÁRIO
-// ==========================================
 async function atualizarStatusChecklist(item, novoStatus) {
   if (osFinalizada.value) return;
   item.status = novoStatus;
@@ -479,14 +454,12 @@ async function uploadFotoChecklist(event) {
   const arquivoOriginal = event.target.files[0];
   if (!arquivoOriginal) return;
   subindoFotoChecklist.value = true;
-
   try {
     const arquivoComprimido = await comprimirImagem(arquivoOriginal);
     const fileName = `checklist/${servicoLocal.value.id}/${Date.now()}_img`;
     const { error: erroUpload } = await supabase.storage
       .from("fotos-luthieria")
       .upload(fileName, arquivoComprimido);
-
     if (!erroUpload) {
       const { data: urlData } = supabase.storage
         .from("fotos-luthieria")
@@ -506,7 +479,6 @@ async function uploadFotoChecklist(event) {
     }
   } catch (err) {
     triggerToast("Erro ao processar e comprimir imagem.", "error");
-    console.error(err);
   } finally {
     subindoFotoChecklist.value = false;
   }
@@ -524,16 +496,13 @@ function selecionarFotoDiario(event) {
 }
 
 async function salvarEntradaDiario() {
-  if (!novaEntradaDiario.value.descricao) {
+  if (!novaEntradaDiario.value.descricao)
     return triggerToast(
       "Por favor, descreva o que foi feito na etapa.",
       "error",
     );
-  }
-
   subindoDiario.value = true;
   let urlFoto = null;
-
   try {
     if (arquivoFotoDiario.value) {
       const arquivoComprimido = await comprimirImagem(arquivoFotoDiario.value);
@@ -548,7 +517,6 @@ async function salvarEntradaDiario() {
         urlFoto = data.publicUrl;
       }
     }
-
     const entrada = {
       servico_id: servicoLocal.value.id,
       descricao: novaEntradaDiario.value.descricao,
@@ -556,12 +524,10 @@ async function salvarEntradaDiario() {
       data_registro: novaEntradaDiario.value.data_registro,
       foto_url: urlFoto,
     };
-
     const { data, error } = await supabase
       .from("diario_servico")
       .insert([entrada])
       .select();
-
     if (!error && data) {
       diario.value.unshift(data[0]);
       await supabase
@@ -572,7 +538,6 @@ async function salvarEntradaDiario() {
       novaEntradaDiario.value.descricao = "";
       arquivoFotoDiario.value = null;
       triggerToast("Nova etapa registada no Diário de Bordo!", "success");
-
       const inpFoto = document.getElementById("foto-diario");
       if (inpFoto) inpFoto.value = "";
     } else {
@@ -580,7 +545,6 @@ async function salvarEntradaDiario() {
     }
   } catch (err) {
     triggerToast("Erro ao processar ficheiro da etapa.", "error");
-    console.error(err);
   } finally {
     subindoDiario.value = false;
   }
@@ -715,7 +679,6 @@ onMounted(carregarTudo);
                 </option>
               </select>
             </div>
-
             <div class="grid-orcamento mb-2">
               <input
                 v-model="novoItem.descricao"
@@ -911,6 +874,35 @@ onMounted(carregarTudo);
           <div v-else-if="saldoDevedor <= 0" class="alerta-pago mb-2">
             🎉 O saldo está liquidado. Esta Ordem de Serviço já está 100% paga!
           </div>
+
+          <div
+            style="
+              background: #fef9c3;
+              border: 1px dashed #fde047;
+              padding: 15px;
+              border-radius: 8px;
+              margin-top: 20px;
+            "
+          >
+            <h5 style="margin-top: 0; color: #b45309">
+              📝 Comentários de Fechamento
+            </h5>
+            <textarea
+              v-model="servicoLocal.obs_fechamento"
+              @change="salvarObsFechamento"
+              :disabled="osFinalizada"
+              rows="2"
+              placeholder="Ex: Cliente levantou o instrumento hoje. Ficou de trazer o outro baixo na próxima semana..."
+            ></textarea>
+            <small
+              v-if="!osFinalizada"
+              class="text-muted"
+              style="display: block; margin-top: 5px"
+            >
+              💾 Guarda automaticamente ao clicar fora. Aparecerá no relatório
+              exportado.
+            </small>
+          </div>
         </div>
 
         <div class="card">
@@ -965,6 +957,29 @@ onMounted(carregarTudo);
       </div>
 
       <div v-if="abaAtual === 'checklist'">
+        <div
+          class="card mb-2 p-15"
+          style="background: #fdfdfd; border: 1px dashed var(--border)"
+        >
+          <h4 style="margin-top: 0; color: var(--primary)">
+            📝 Observações Gerais da Inspeção
+          </h4>
+          <textarea
+            v-model="servicoLocal.obs_checklist"
+            @change="salvarObsChecklist"
+            :disabled="osFinalizada"
+            rows="3"
+            placeholder="Anote detalhes importantes, batidas pré-existentes, ou pedidos extras do cliente..."
+          ></textarea>
+          <small
+            v-if="!osFinalizada"
+            class="text-muted"
+            style="display: block; margin-top: 5px"
+            >💾 Guarda automaticamente assim que terminar de escrever (ao clicar
+            fora da caixa).</small
+          >
+        </div>
+
         <div class="grid-2-cols mb-2">
           <div class="card p-15 checklist-box">
             <h4 class="title-chegada">📥 Inspeção de Chegada</h4>
@@ -985,17 +1000,22 @@ onMounted(carregarTudo);
                       {
                         'btn-active-pos':
                           item.status ===
-                          getBotoesChecklist(item.item_nome).valPos,
+                          (item.opcao_positiva ||
+                            getBotoesChecklist(item.item_nome).valPos),
                       },
                     ]"
                     @click="
                       atualizarStatusChecklist(
                         item,
-                        getBotoesChecklist(item.item_nome).valPos,
+                        item.opcao_positiva ||
+                          getBotoesChecklist(item.item_nome).valPos,
                       )
                     "
                   >
-                    {{ getBotoesChecklist(item.item_nome).pos }}
+                    {{
+                      item.opcao_positiva ||
+                      getBotoesChecklist(item.item_nome).pos
+                    }}
                   </button>
                   <button
                     :disabled="osFinalizada"
@@ -1004,17 +1024,22 @@ onMounted(carregarTudo);
                       {
                         'btn-active-neg':
                           item.status ===
-                          getBotoesChecklist(item.item_nome).valNeg,
+                          (item.opcao_negativa ||
+                            getBotoesChecklist(item.item_nome).valNeg),
                       },
                     ]"
                     @click="
                       atualizarStatusChecklist(
                         item,
-                        getBotoesChecklist(item.item_nome).valNeg,
+                        item.opcao_negativa ||
+                          getBotoesChecklist(item.item_nome).valNeg,
                       )
                     "
                   >
-                    {{ getBotoesChecklist(item.item_nome).neg }}
+                    {{
+                      item.opcao_negativa ||
+                      getBotoesChecklist(item.item_nome).neg
+                    }}
                   </button>
                 </div>
               </div>
@@ -1046,17 +1071,22 @@ onMounted(carregarTudo);
                       {
                         'btn-active-pos':
                           item.status ===
-                          getBotoesChecklist(item.item_nome).valPos,
+                          (item.opcao_positiva ||
+                            getBotoesChecklist(item.item_nome).valPos),
                       },
                     ]"
                     @click="
                       atualizarStatusChecklist(
                         item,
-                        getBotoesChecklist(item.item_nome).valPos,
+                        item.opcao_positiva ||
+                          getBotoesChecklist(item.item_nome).valPos,
                       )
                     "
                   >
-                    {{ getBotoesChecklist(item.item_nome).pos }}
+                    {{
+                      item.opcao_positiva ||
+                      getBotoesChecklist(item.item_nome).pos
+                    }}
                   </button>
                   <button
                     :disabled="osFinalizada"
@@ -1065,17 +1095,22 @@ onMounted(carregarTudo);
                       {
                         'btn-active-neg':
                           item.status ===
-                          getBotoesChecklist(item.item_nome).valNeg,
+                          (item.opcao_negativa ||
+                            getBotoesChecklist(item.item_nome).valNeg),
                       },
                     ]"
                     @click="
                       atualizarStatusChecklist(
                         item,
-                        getBotoesChecklist(item.item_nome).valNeg,
+                        item.opcao_negativa ||
+                          getBotoesChecklist(item.item_nome).valNeg,
                       )
                     "
                   >
-                    {{ getBotoesChecklist(item.item_nome).neg }}
+                    {{
+                      item.opcao_negativa ||
+                      getBotoesChecklist(item.item_nome).neg
+                    }}
                   </button>
                 </div>
               </div>
@@ -1099,7 +1134,6 @@ onMounted(carregarTudo);
             "
           >
             <div><h4 style="margin: 0">📸 Registo Fotográfico</h4></div>
-
             <div v-if="!osFinalizada">
               <input
                 type="file"
@@ -1180,7 +1214,6 @@ onMounted(carregarTudo);
             {{ subindoDiario ? "⏳ A gravar..." : "Registar Etapa" }}
           </button>
         </div>
-
         <div class="timeline">
           <div v-for="item in diario" :key="item.id" class="timeline-item">
             <div class="timeline-header">
@@ -1389,8 +1422,6 @@ onMounted(carregarTudo);
   padding: 4px;
   border-radius: 8px;
 }
-
-/* BOTÕES BLOQUEADOS */
 .toggle-group.bloqueado {
   pointer-events: none;
   opacity: 0.7;
@@ -1398,7 +1429,6 @@ onMounted(carregarTudo);
 .btn-toggle:disabled {
   cursor: not-allowed;
 }
-
 .btn-toggle {
   border: none;
   padding: 6px 12px;

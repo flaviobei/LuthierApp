@@ -4,15 +4,17 @@
  * @file        CalendarioEntregas.vue
  * @description Módulo de agendamento e prazos. Oferece uma visão mensal
  * das entregas previstas, permitindo ao luthier gerir o fluxo de saída
- * dos instrumentos e evitar atrasos.
+ * dos instrumentos e evitar atrasos. Apenas mostra O.S. ativas.
  * @project     LuthierApp
  * ============================================================================
  */
 
 import { ref, computed, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useToast } from "../composables/useToast"; // <-- Adicionado
 
 const emit = defineEmits(["abrirOS", "voltar"]);
+const { triggerToast } = useToast(); // <-- Inicializado
 
 const dataAtual = ref(new Date());
 const servicos = ref([]);
@@ -45,11 +47,9 @@ const diasNoMes = computed(() => {
   const ultimoDia = new Date(ano, mes + 1, 0).getDate();
 
   const listaDias = [];
-  // Preencher espaços vazios do início da semana
   for (let i = 0; i < primeiroDia; i++) {
     listaDias.push({ dia: null, dataIso: null });
   }
-  // Preencher os dias do mês
   for (let d = 1; d <= ultimoDia; d++) {
     const dataIso = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     listaDias.push({ dia: d, dataIso });
@@ -59,17 +59,24 @@ const diasNoMes = computed(() => {
 
 async function carregarServicos() {
   carregando.value = true;
-  const { data } = await supabase
+
+  const { data, error } = await supabase
     .from("servicos")
     .select(`*, instrumentos (marca, modelo, cliente:clientes (nome))`)
-    .not("data_previsao_entrega", "is", null); // CORREÇÃO AQUI
+    .neq("status", "Entregue") // <-- FILTRO 1: Ignora Entregues
+    .neq("status", "Finalizado") // <-- FILTRO 2: Ignora Finalizados
+    .not("data_previsao_entrega", "is", null);
 
-  if (data) servicos.value = data;
+  if (error) {
+    triggerToast("Erro ao carregar a agenda: " + error.message, "error");
+  } else if (data) {
+    servicos.value = data;
+  }
+
   carregando.value = false;
 }
 
 function getServicosNoDia(dataIso) {
-  // CORREÇÃO AQUI TAMBÉM
   return servicos.value.filter((s) => s.data_previsao_entrega === dataIso);
 }
 
@@ -82,12 +89,10 @@ function mudarMes(delta) {
 }
 
 function getStatusCor(os) {
-  if (os.status === "Entregue" || os.status === "Finalizado")
-    return "bg-success";
   const hoje = new Date().toISOString().substring(0, 10);
-  if (os.data_previsao_entrega < hoje) return "bg-danger";
-  if (os.data_previsao_entrega === hoje) return "bg-warning";
-  return "bg-primary";
+  if (os.data_previsao_entrega < hoje) return "bg-danger"; // Atrasado
+  if (os.data_previsao_entrega === hoje) return "bg-warning"; // É Hoje
+  return "bg-primary"; // Futuro
 }
 
 onMounted(carregarServicos);
@@ -212,7 +217,6 @@ onMounted(carregarServicos);
   color: #94a3b8;
   margin-bottom: 5px;
 }
-
 .lista-servicos-dia {
   display: flex;
   flex-direction: column;

@@ -8,27 +8,19 @@
  * ============================================================================
  */
 
-import { ref, computed, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { abrirWhatsapp } from "../lib/whatsappUtils";
+import { useToast } from "../composables/useToast"; // <-- Adicionado o Toast para padronizar
 
 const emit = defineEmits(["abrirOS"]);
+const { triggerToast } = useToast();
 
 const servicosAbertos = ref([]);
 const oportunidadesPosVenda = ref([]);
 const loading = ref(true);
 
-const visaoAtual = ref("lista");
-
-// As colunas do nosso Kanban
-const fasesKanban = [
-  "Fila de Espera",
-  "Aguardando Peças",
-  "Na Bancada",
-  "Secagem / Cura",
-  "Testes / Setup",
-  "Pronto para Entrega",
-];
+// Variaveis do Kanban foram removidas por agora
 
 async function carregarPendencias() {
   loading.value = true;
@@ -43,7 +35,7 @@ async function carregarPendencias() {
     `,
     )
     .neq("status", "Entregue")
-    .neq("status", "Finalizado") // CORREÇÃO: Esconde O.S. finalizadas do painel principal
+    .neq("status", "Finalizado")
     .order("data_previsao_entrega", { ascending: true });
 
   if (!error && data) {
@@ -66,52 +58,6 @@ async function carregarPendencias() {
   carregarPosVenda();
 }
 
-const servicosPorFase = computed(() => {
-  const colunas = {};
-  fasesKanban.forEach((f) => (colunas[f] = []));
-
-  servicosAbertos.value.forEach((os) => {
-    if (colunas[os.fase_projeto]) {
-      colunas[os.fase_projeto].push(os);
-    } else {
-      colunas["Fila de Espera"].push(os);
-    }
-  });
-  return colunas;
-});
-
-// --- LÓGICA DE ARRASTAR E SOLTAR (DRAG & DROP) ---
-function onDragStart(event, osId) {
-  event.dataTransfer.dropEffect = "move";
-  event.dataTransfer.effectAllowed = "move";
-  event.dataTransfer.setData("osId", osId);
-}
-
-async function onDrop(event, novaFase) {
-  const osId = event.dataTransfer.getData("osId");
-  if (!osId) return;
-
-  const os = servicosAbertos.value.find((s) => s.id === osId);
-  if (os && os.fase_projeto !== novaFase) {
-    const faseAntiga = os.fase_projeto;
-    os.fase_projeto = novaFase;
-
-    await supabase
-      .from("servicos")
-      .update({ fase_projeto: novaFase })
-      .eq("id", osId);
-
-    const entradaDiario = {
-      servico_id: osId,
-      descricao: `📌 Status alterado de "${faseAntiga}" para "${novaFase}".`,
-      fase_projeto: novaFase,
-    };
-    await supabase.from("diario_servico").insert([entradaDiario]);
-    carregarPendencias();
-  }
-}
-// --------------------------------------------------
-
 // --- LÓGICA DO PÓS-VENDA (CRM) ---
 async function carregarPosVenda() {
   const dataCorte = new Date();
@@ -123,7 +69,7 @@ async function carregarPosVenda() {
     .select(
       `*, instrumentos ( marca, modelo, cliente:clientes (nome, telefone) )`,
     )
-    .in("status", ["Entregue", "Finalizado"]) // CORREÇÃO: Reconhece ambos os status finalizados
+    .in("status", ["Entregue", "Finalizado"])
     .eq("pos_venda_contatado", false)
     .lte("data_conclusao", dataCorte.toISOString())
     .or(`data_lembrete_pos_venda.is.null,data_lembrete_pos_venda.lte.${hoje}`)
@@ -136,7 +82,8 @@ async function carregarPosVenda() {
 function chamarClientePosVenda(os) {
   const cli = os.instrumentos?.cliente;
   if (!cli || !cli.telefone)
-    return alert("Este cliente não tem telefone registado.");
+    return triggerToast("Este cliente não tem telefone registado.", "error");
+
   const msg = `Olá *${cli.nome}*! Tudo bem?\n\nAqui é da Luthieria. Notei que já faz um tempo que entregámos o seu *${os.instrumentos.marca} ${os.instrumentos.modelo}* (O.S. #${os.numero_os}).\n\nComo ele se tem comportado? Se precisar de dar uma revisão ou um ajuste para manter a tocabilidade 100%, é só dizer! 🎸`;
   abrirWhatsapp(cli, msg);
 }
@@ -149,6 +96,7 @@ async function marcarComoContatado(osId) {
   oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
     (o) => o.id !== osId,
   );
+  triggerToast("O.S. removida da lista de pendências do CRM.", "success");
 }
 
 async function adiarPosVenda(osId, dias) {
@@ -161,6 +109,7 @@ async function adiarPosVenda(osId, dias) {
   oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
     (o) => o.id !== osId,
   );
+  triggerToast(`Lembrete adiado para daqui a ${dias} dias.`, "info");
 }
 // ---------------------------------
 
@@ -239,15 +188,33 @@ onMounted(() => carregarPendencias());
             <button
               class="btn-success"
               @click="chamarClientePosVenda(opp)"
-              style="flex: 1"
+              style="
+                flex: 1;
+                padding: 10px;
+                border-radius: 6px;
+                font-weight: bold;
+                border: none;
+                cursor: pointer;
+                background: #10b981;
+                color: white;
+              "
             >
-              📱 Chamar
+              📱 Chamar no Zap
             </button>
-            <div class="crm-actions-secundary">
+            <div
+              class="crm-actions-secundary"
+              style="display: flex; gap: 8px; margin-top: 8px"
+            >
               <button
                 class="btn-icon bg-light"
                 @click="adiarPosVenda(opp.id, 15)"
                 title="Lembrar daqui a 15 dias"
+                style="
+                  flex: 1;
+                  font-size: 0.85rem;
+                  border: 1px solid var(--border);
+                  border-radius: 4px;
+                "
               >
                 ⏰ Adiar 15d
               </button>
@@ -255,8 +222,14 @@ onMounted(() => carregarPendencias());
                 class="btn-icon bg-light text-success"
                 @click="marcarComoContatado(opp.id)"
                 title="Marcar como Concluído"
+                style="
+                  flex: 1;
+                  font-size: 0.85rem;
+                  border: 1px solid var(--border);
+                  border-radius: 4px;
+                "
               >
-                ✅ Feito
+                ✅ Já Falei
               </button>
             </div>
           </div>
@@ -266,29 +239,12 @@ onMounted(() => carregarPendencias());
 
     <div
       style="
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        flex-wrap: wrap;
-        gap: 10px;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border);
       "
     >
       <h2 style="color: var(--primary); margin: 0">🛠️ Bancada de Trabalho</h2>
-      <div class="toggle-visao">
-        <button
-          :class="{ active: visaoAtual === 'lista' }"
-          @click="visaoAtual = 'lista'"
-        >
-          🗂️ Lista
-        </button>
-        <button
-          :class="{ active: visaoAtual === 'kanban' }"
-          @click="visaoAtual = 'kanban'"
-        >
-          📋 Quadro (Kanban)
-        </button>
-      </div>
     </div>
 
     <div v-if="loading" class="text-muted text-center" style="padding: 40px">
@@ -296,126 +252,70 @@ onMounted(() => carregarPendencias());
     </div>
 
     <div v-else-if="servicosAbertos.length === 0" class="card empty-state">
-      <p>🎉 Nenhuma pendência! Tudo entregue ou bancada limpa.</p>
+      <p style="font-size: 1.1rem; color: var(--text-muted)">
+        🎉 Nenhuma pendência! Tudo entregue ou bancada limpa.
+      </p>
     </div>
 
-    <div v-else>
-      <div v-if="visaoAtual === 'lista'" class="grid-cards">
+    <div v-else class="grid-cards">
+      <div
+        v-for="os in servicosAbertos"
+        :key="os.id"
+        class="card card-os"
+        @click="$emit('abrirOS', os)"
+      >
         <div
-          v-for="os in servicosAbertos"
-          :key="os.id"
-          class="card card-os"
-          @click="$emit('abrirOS', os)"
+          class="status-badge"
+          :style="{ backgroundColor: corFase(os.fase_projeto) }"
         >
-          <div
-            class="status-badge"
-            :style="{ backgroundColor: corFase(os.fase_projeto) }"
-          >
-            #{{ os.numero_os }} - {{ os.fase_projeto || os.status }}
-          </div>
-          <h3 class="modelo">{{ os.instrumentos?.modelo }}</h3>
-          <span class="marca">{{ os.instrumentos?.marca }}</span>
-          <div class="cliente">👤 {{ os.instrumentos?.cliente?.nome }}</div>
-          <p class="desc">
-            {{
-              os.descricao_cliente?.length > 50
-                ? os.descricao_cliente.slice(0, 50) + "..."
-                : os.descricao_cliente
-            }}
-          </p>
+          #{{ os.numero_os }} - {{ os.fase_projeto || os.status }}
+        </div>
 
-          <div v-if="os.ultima_atualizacao" class="ultima-atualizacao">
-            <div class="atualizacao-header">
-              <small
-                >Último passo ({{
-                  formatarDataCurta(os.ultima_atualizacao.data_registro)
-                }}):</small
-              >
-            </div>
-            <div class="atualizacao-body">
-              <img
-                v-if="os.ultima_atualizacao.foto_url"
-                :src="os.ultima_atualizacao.foto_url"
-                class="miniatura-diario"
-              />
-              <p class="texto-diario">
-                {{
-                  os.ultima_atualizacao.descricao.length > 55
-                    ? os.ultima_atualizacao.descricao.slice(0, 55) + "..."
-                    : os.ultima_atualizacao.descricao
-                }}
-              </p>
-            </div>
-          </div>
-          <div v-else style="flex-grow: 1"></div>
+        <h3 class="modelo">{{ os.instrumentos?.modelo }}</h3>
+        <span class="marca">{{ os.instrumentos?.marca }}</span>
+        <div class="cliente">👤 {{ os.instrumentos?.cliente?.nome }}</div>
 
-          <div class="footer-card">
-            <small>Entrada: {{ formatarData(os.data_entrada) }}</small>
+        <p class="desc">
+          {{
+            os.descricao_cliente?.length > 50
+              ? os.descricao_cliente.slice(0, 50) + "..."
+              : os.descricao_cliente
+          }}
+        </p>
+
+        <div v-if="os.ultima_atualizacao" class="ultima-atualizacao">
+          <div class="atualizacao-header">
             <small
-              v-if="os.data_previsao_entrega"
-              style="color: var(--danger); font-weight: bold"
+              >Última anotação ({{
+                formatarDataCurta(os.ultima_atualizacao.data_registro)
+              }}):</small
             >
-              Prazo: {{ formatarData(os.data_previsao_entrega) }}
-            </small>
+          </div>
+          <div class="atualizacao-body">
+            <img
+              v-if="os.ultima_atualizacao.foto_url"
+              :src="os.ultima_atualizacao.foto_url"
+              class="miniatura-diario"
+            />
+            <p class="texto-diario">
+              {{
+                os.ultima_atualizacao.descricao.length > 55
+                  ? os.ultima_atualizacao.descricao.slice(0, 55) + "..."
+                  : os.ultima_atualizacao.descricao
+              }}
+            </p>
           </div>
         </div>
-      </div>
+        <div v-else style="flex-grow: 1"></div>
 
-      <div v-if="visaoAtual === 'kanban'" class="kanban-board">
-        <div
-          v-for="fase in fasesKanban"
-          :key="fase"
-          class="kanban-column"
-          @dragover.prevent
-          @dragenter.prevent
-          @drop="onDrop($event, fase)"
-        >
-          <div
-            class="kanban-column-header"
-            :style="{ borderTopColor: corFase(fase) }"
+        <div class="footer-card">
+          <small>Entrada: {{ formatarData(os.data_entrada) }}</small>
+          <small
+            v-if="os.data_previsao_entrega"
+            style="color: var(--danger); font-weight: bold"
           >
-            <span class="column-title">{{ fase }}</span>
-            <span class="column-count">{{ servicosPorFase[fase].length }}</span>
-          </div>
-
-          <div class="kanban-cards-container">
-            <div
-              v-for="os in servicosPorFase[fase]"
-              :key="os.id"
-              class="kanban-card"
-              draggable="true"
-              @dragstart="onDragStart($event, os.id)"
-              @click="$emit('abrirOS', os)"
-            >
-              <div class="card-os-header">
-                <strong>#{{ os.numero_os }}</strong>
-                <small
-                  v-if="os.data_previsao_entrega"
-                  style="
-                    color: var(--danger);
-                    font-weight: bold;
-                    font-size: 0.7rem;
-                  "
-                >
-                  {{ formatarDataCurta(os.data_previsao_entrega) }}
-                </small>
-              </div>
-
-              <div class="kanban-modelo">{{ os.instrumentos?.modelo }}</div>
-              <div class="kanban-marca">{{ os.instrumentos?.marca }}</div>
-              <div class="kanban-cliente">
-                👤 {{ os.instrumentos?.cliente?.nome?.split(" ")[0] }}
-              </div>
-
-              <div v-if="os.ultima_atualizacao" class="kanban-diario-mini">
-                {{
-                  os.ultima_atualizacao.descricao.length > 35
-                    ? os.ultima_atualizacao.descricao.slice(0, 35) + "..."
-                    : os.ultima_atualizacao.descricao
-                }}
-              </div>
-            </div>
-          </div>
+            Prazo: {{ formatarData(os.data_previsao_entrega) }}
+          </small>
         </div>
       </div>
     </div>
@@ -427,137 +327,7 @@ onMounted(() => carregarPendencias());
   margin-bottom: 30px;
 }
 
-/* CONTROLO DE VISÃO (TOGGLE) */
-.toggle-visao {
-  display: flex;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.toggle-visao button {
-  padding: 8px 15px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-weight: bold;
-  color: var(--text-muted);
-  transition: 0.2s;
-}
-.toggle-visao button.active {
-  background: var(--primary);
-  color: white;
-}
-
-/* --- KANBAN BOARD ESTILOS --- */
-.kanban-board {
-  display: flex;
-  gap: 15px;
-  overflow-x: auto;
-  padding-bottom: 15px;
-  align-items: flex-start;
-  min-height: 60vh;
-}
-.kanban-column {
-  background: #f4f5f7;
-  border-radius: 8px;
-  min-width: 280px;
-  max-width: 280px;
-  display: flex;
-  flex-direction: column;
-  max-height: 75vh;
-  border: 1px solid #e1e4e8;
-}
-.kanban-column-header {
-  padding: 12px 15px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #e1e4e8;
-  border-top: 4px solid var(--primary);
-  border-radius: 8px 8px 0 0;
-  background: white;
-}
-.column-title {
-  font-weight: bold;
-  font-size: 0.95rem;
-  color: var(--primary);
-}
-.column-count {
-  background: var(--bg-body);
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-}
-.kanban-cards-container {
-  padding: 10px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex-grow: 1;
-}
-
-/* KANBAN CARD */
-.kanban-card {
-  background: white;
-  border-radius: 6px;
-  padding: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--border);
-  cursor: grab;
-  transition:
-    transform 0.1s,
-    box-shadow 0.1s;
-}
-.kanban-card:active {
-  cursor: grabbing;
-  opacity: 0.8;
-  transform: scale(0.98);
-}
-.kanban-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-color: var(--accent);
-}
-.card-os-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 5px;
-}
-.kanban-modelo {
-  font-size: 1rem;
-  color: var(--primary);
-  font-weight: bold;
-  line-height: 1.2;
-}
-.kanban-marca {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.kanban-cliente {
-  font-size: 0.85rem;
-  color: var(--text-main);
-  border-top: 1px dashed var(--border);
-  padding-top: 5px;
-}
-.kanban-diario-mini {
-  margin-top: 8px;
-  font-size: 0.75rem;
-  color: #666;
-  background: #fffdfa;
-  padding: 6px;
-  border-radius: 4px;
-  border-left: 2px solid var(--accent);
-  font-style: italic;
-}
-
-/* --- CRM E LISTA ANTIGA MANTIDOS --- */
+/* CRM ESTILOS */
 .crm-box {
   border: 2px solid var(--accent);
   background: #fffdfa;
@@ -605,28 +375,14 @@ onMounted(() => carregarPendencias());
 .crm-actions-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   min-width: 180px;
 }
-.crm-actions-secundary {
-  display: flex;
-  gap: 5px;
-}
-.crm-actions-secundary button {
-  flex: 1;
-  font-size: 0.85rem;
-  padding: 6px;
-  border: 1px solid var(--border);
-}
-.crm-actions-secundary button:hover {
-  border-color: var(--primary);
-}
 
+/* GRID DE CARDS DA BANCADA */
 .grid-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
-  margin-top: 15px;
 }
 .card-os {
   cursor: pointer;
@@ -680,6 +436,8 @@ onMounted(() => carregarPendencias());
   font-style: italic;
   margin-bottom: 10px;
 }
+
+/* MINIATURA DO DIÁRIO */
 .ultima-atualizacao {
   background: #fdfdfd;
   border: 1px dashed var(--border);
@@ -712,6 +470,7 @@ onMounted(() => carregarPendencias());
   margin: 0;
   line-height: 1.3;
 }
+
 .footer-card {
   display: flex;
   justify-content: space-between;
@@ -725,31 +484,6 @@ onMounted(() => carregarPendencias());
 .empty-state {
   text-align: center;
   padding: 40px;
-}
-
-/* Scrollbar personalizada para o Kanban para ficar mais elegante */
-.kanban-board::-webkit-scrollbar {
-  height: 8px;
-}
-.kanban-board::-webkit-scrollbar-track {
-  background: transparent;
-}
-.kanban-board::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 4px;
-}
-.kanban-board::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
-}
-.kanban-cards-container::-webkit-scrollbar {
-  width: 4px;
-}
-.kanban-cards-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-.kanban-cards-container::-webkit-scrollbar-thumb {
-  background: #ddd;
-  border-radius: 4px;
 }
 
 @media (max-width: 600px) {

@@ -6,43 +6,38 @@
  * edição e listagem dos proprietários dos instrumentos.
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - vue: ref, onMounted.
- * - supabaseClient: Acesso à tabela 'clientes'.
- * * @functions
- * - salvarCliente(): Registra um novo cliente ou atualiza os dados de contato.
- * - buscarClientes(): Realiza a consulta de clientes para exibição na listagem.
- * * @notes
- * - Essencial para o vínculo de instrumentos e envio de mensagens via WhatsApp.
- * ============================================================================
  */
 
 import { ref } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
 
 const emit = defineEmits(["clienteSalvo"]);
 
+const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
+
 const form = ref({ nome: "", telefone: "", email: "", cpf_cnpj: "" });
 const loading = ref(false);
-const mensagem = ref("");
 
 async function salvarCliente() {
-  if (!form.value.nome) return alert("O nome é obrigatório!");
+  if (!form.value.nome) {
+    // SUBSTITUÍDO: alert() por triggerToast()
+    return triggerToast("O nome do cliente é obrigatório!", "error");
+  }
 
   loading.value = true;
-  mensagem.value = "";
 
   const { error } = await supabase.from("clientes").insert([form.value]);
 
   loading.value = false;
 
   if (error) {
-    mensagem.value = "Erro: " + error.message;
+    triggerToast("Erro ao cadastrar: " + error.message, "error");
   } else {
-    mensagem.value = "Cliente salvo com sucesso!";
+    // SUBSTITUÍDO: Mensagem de texto na tela pelo Toast
+    triggerToast("Cliente cadastrado com sucesso!", "success");
     form.value = { nome: "", telefone: "", email: "", cpf_cnpj: "" };
     emit("clienteSalvo");
-    setTimeout(() => (mensagem.value = ""), 3000);
   }
 }
 </script>
@@ -83,27 +78,9 @@ async function salvarCliente() {
     >
       {{ loading ? "⏳ Salvando..." : "➕ Cadastrar Cliente" }}
     </button>
-
-    <p
-      v-if="mensagem"
-      class="msg-retorno"
-      :class="{ erro: mensagem.includes('Erro') }"
-    >
-      {{ mensagem }}
-    </p>
   </div>
 </template>
 
 <style scoped>
 /* O design do card, inputs e botões já vem automaticamente do App.vue! */
-.msg-retorno {
-  margin-top: 15px;
-  font-weight: bold;
-  text-align: center;
-  color: var(--success);
-  font-size: 0.9rem;
-}
-.msg-retorno.erro {
-  color: var(--danger);
-}
 </style>

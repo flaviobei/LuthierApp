@@ -12,9 +12,9 @@
 import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import Chart from "chart.js/auto";
-import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
+import { useToast } from "../composables/useToast";
 
-const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
+const { triggerToast } = useToast();
 
 const transacoes = ref([]);
 const carregando = ref(true);
@@ -45,10 +45,25 @@ const novaDespesa = ref({
 
 async function carregarDados() {
   carregando.value = true;
+
+  // CONSULTA ATUALIZADA: Puxa também os dados da O.S., do Instrumento e do Cliente!
   const { data } = await supabase
     .from("transacoes")
-    .select("*")
+    .select(
+      `
+      *,
+      servicos (
+        numero_os,
+        instrumentos (
+          marca,
+          modelo,
+          cliente:clientes (nome)
+        )
+      )
+    `,
+    )
     .order("data_pagamento", { ascending: true });
+
   if (data) transacoes.value = data;
   carregando.value = false;
 
@@ -56,9 +71,83 @@ async function carregarDados() {
   renderizarGrafico();
 }
 
-// FUNÇÃO DE IMPRESSÃO
 function acionarImpressao() {
   window.print();
+}
+
+// --- FUNÇÃO DE EXPORTAÇÃO (AGORA COM MAIS DADOS E CÁLCULO LÍQUIDO) ---
+function exportarParaCSV() {
+  if (transacoesFiltradas.value.length === 0) {
+    return triggerToast("Não há dados para exportar neste período.", "error");
+  }
+
+  // 1. Criar o cabeçalho do arquivo (novas colunas adicionadas)
+  let csvContent =
+    "Data Pagamento;Descricao;Categoria;Tipo Movimentacao;O.S.;Cliente;Instrumento;Taxa Maquina (%);Valor Bruto (R$);Valor Liquido (R$)\n";
+
+  // 2. Preencher com os dados filtrados
+  transacoesFiltradas.value.forEach((t) => {
+    // Datas e textos base
+    const dataFormatada = new Date(
+      t.data_pagamento + "T12:00:00",
+    ).toLocaleDateString("pt-BR");
+    const descLimpa = t.descricao
+      ? t.descricao.replace(/;/g, ",").replace(/\n/g, " ")
+      : "Sem descrição";
+
+    // Extração de dados Relacionais (Se a transação for de uma O.S.)
+    const osNum = t.servicos?.numero_os ? `#${t.servicos.numero_os}` : "--";
+    const clienteNome = t.servicos?.instrumentos?.cliente?.nome || "--";
+    const instrumentoInfo = t.servicos?.instrumentos
+      ? `${t.servicos.instrumentos.marca} ${t.servicos.instrumentos.modelo}`
+      : "--";
+
+    // CÁLCULO DE VALOR LÍQUIDO
+    let taxaPorcentagem = 0;
+    // Tenta encontrar "Taxa da Maquininha: X%" no texto da descrição
+    const matchTaxa = t.descricao?.match(/Taxa da Maquininha:\s*([\d.]+)%/);
+    if (matchTaxa && matchTaxa[1]) {
+      taxaPorcentagem = parseFloat(matchTaxa[1]);
+    }
+
+    let valorBrutoNum = Number(t.valor_bruto) || 0;
+    let valorLiquidoNum = valorBrutoNum;
+
+    // Se for uma entrada e tiver taxa, calcula o líquido
+    if (t.tipo === "Entrada" && taxaPorcentagem > 0) {
+      valorLiquidoNum = valorBrutoNum - valorBrutoNum * (taxaPorcentagem / 100);
+    }
+
+    // Formatação amigável para o Excel (R$) e (%)
+    const vBrutoStr = valorBrutoNum.toFixed(2).replace(".", ",");
+    const vLiquidoStr = valorLiquidoNum.toFixed(2).replace(".", ",");
+    const taxaStr =
+      taxaPorcentagem > 0
+        ? taxaPorcentagem.toString().replace(".", ",") + "%"
+        : "0%";
+
+    // Concatena a linha
+    csvContent += `${dataFormatada};${descLimpa};${t.categoria};${t.tipo};${osNum};${clienteNome};${instrumentoInfo};${taxaStr};${vBrutoStr};${vLiquidoStr}\n`;
+  });
+
+  // 3. Adicionar o BOM (Byte Order Mark) para o Excel reconhecer acentos (ç, ã, é)
+  const blob = new Blob(["\uFEFF" + csvContent], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+
+  // 4. Criar um link invisível e clicar nele para baixar
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute(
+    "download",
+    `Relatorio_Financeiro_${filtroDataInicio.value}_a_${filtroDataFim.value}.csv`,
+  );
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  triggerToast("Relatório completo gerado e baixado!", "success");
 }
 
 const transacoesFiltradas = computed(() => {
@@ -135,8 +224,10 @@ function renderizarGrafico() {
 
 async function salvarDespesa() {
   if (!novaDespesa.value.descricao || novaDespesa.value.valor <= 0) {
-    // SUBSTITUÍDO: alert() por triggerToast()
-    return triggerToast("Preencha a descrição e indique um valor maior que zero.", "error");
+    return triggerToast(
+      "Preencha a descrição e indique um valor maior que zero.",
+      "error",
+    );
   }
 
   const { error } = await supabase.from("transacoes").insert([
@@ -156,10 +247,9 @@ async function salvarDespesa() {
       categoria: "Aluguel",
       data_pagamento: hoje,
     };
-    triggerToast("Despesa registada com sucesso!", "success"); // <-- MENSAGEM DE SUCESSO
+    triggerToast("Despesa registada com sucesso!", "success");
     carregarDados();
   } else {
-    // Caso haja erro no banco de dados
     triggerToast("Erro ao gravar despesa: " + error.message, "error");
   }
 }
@@ -180,12 +270,25 @@ onMounted(carregarDados);
           justify-content: space-between;
           align-items: center;
           margin-bottom: 15px;
+          flex-wrap: wrap;
+          gap: 10px;
         "
       >
-        <h4 style="margin: 0">📊 Filtros de Relatório</h4>
-        <button class="btn-outline" @click="acionarImpressao">
-          🖨️ Imprimir PDF
-        </button>
+        <h4 style="margin: 0; color: var(--primary)">
+          📊 Filtros de Relatório
+        </h4>
+        <div style="display: flex; gap: 10px">
+          <button
+            class="btn-outline"
+            style="border-color: #27ae60; color: #27ae60"
+            @click="exportarParaCSV"
+          >
+            📥 Exportar Excel
+          </button>
+          <button class="btn-outline" @click="acionarImpressao">
+            🖨️ Imprimir PDF
+          </button>
+        </div>
       </div>
       <div class="filtros-row">
         <div class="f-item">
@@ -275,10 +378,19 @@ onMounted(carregarDados);
               <tr>
                 <th>Data</th>
                 <th>Descrição</th>
-                <th align="right">Valor</th>
+                <th align="right">Valor Bruto</th>
               </tr>
             </thead>
             <tbody>
+              <tr v-if="transacoesFiltradas.length === 0">
+                <td
+                  colspan="3"
+                  class="text-center text-muted"
+                  style="padding: 20px"
+                >
+                  Nenhuma movimentação neste período.
+                </td>
+              </tr>
               <tr v-for="t in transacoesFiltradas" :key="t.id">
                 <td>
                   {{
@@ -287,7 +399,17 @@ onMounted(carregarDados);
                     )
                   }}
                 </td>
-                <td>{{ t.descricao }}</td>
+                <td>
+                  {{ t.descricao }}<br />
+                  <small
+                    v-if="t.servicos?.instrumentos"
+                    class="text-muted"
+                    style="display: block; margin-top: 3px"
+                  >
+                    👤 {{ t.servicos.instrumentos.cliente?.nome }} | 🎸
+                    {{ t.servicos.instrumentos.marca }}
+                  </small>
+                </td>
                 <td
                   align="right"
                   :class="t.tipo === 'Entrada' ? 'text-success' : 'text-danger'"
@@ -339,9 +461,7 @@ onMounted(carregarDados);
 .azul {
   background: var(--primary);
 }
-.preto {
-  background: #333;
-}
+
 .financeiro-layout {
   display: flex;
   gap: 20px;

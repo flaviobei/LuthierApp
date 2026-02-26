@@ -61,13 +61,14 @@ async function simularPagamento() {
       <div class="planos-grid">
         <div class="plano-box">
           <h3>Plano Profissional</h3>
-          <div class="preco"><span>R$</span> 49 <span>/mês</span></div>
+          <div class="preco"><span>R$</span> 0 <span>/mês</span></div>
           <ul class="beneficios">
             <li>✅ Ordens de Serviço Ilimitadas</li>
             <li>✅ Gestão de Estoque</li>
             <li>✅ CRM e Pós-venda Automático</li>
             <li>✅ Suporte Prioritário</li>
           </ul>
+          <!--
           <button
             class="btn-primary"
             @click="simularPagamento"
@@ -75,6 +76,7 @@ async function simularPagamento() {
           >
             Assinar Agora
           </button>
+          -->
         </div>
       </div>
 

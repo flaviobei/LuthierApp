@@ -6,7 +6,6 @@
  * Gerencia autenticação, estado global (clientes, assinaturas),
  * aplicação de temas (UI) e a navegação principal baseada em
  * estado (bancada, admin, histórico, etc).
- * @author      Flávio Bei
  * @project     LuthierApp
  * ============================================================================
  */
@@ -27,9 +26,9 @@ import { Analytics } from "@vercel/analytics/vue";
 import ScannerQR from "./components/ScannerQR.vue";
 import CalendarioEntregas from "./components/CalendarioEntregas.vue";
 import ToastNotification from "./components/ToastNotification.vue";
-import { useToast } from "./composables/useToast"; // <-- IMPORTAMOS O TOAST AQUI
+import { useToast } from "./composables/useToast";
 
-const { triggerToast } = useToast(); // <-- INICIAMOS O TOAST
+const { triggerToast } = useToast();
 
 // --- ESTADOS GERAIS ---
 const session = ref(null);
@@ -71,9 +70,9 @@ async function processarLeituraQR(textoLido) {
 
       if (data && !error) {
         servicoDireto.value = data;
-        triggerToast("Ordem de Serviço carregada!", "success"); // <-- TOAST AQUI
+        triggerToast("Ordem de Serviço carregada!", "success");
       } else {
-        triggerToast("O.S. não encontrada ou acesso negado.", "error"); // <-- TOAST AQUI
+        triggerToast("O.S. não encontrada ou acesso negado.", "error");
       }
       aVerificarAcesso.value = false;
     }
@@ -81,7 +80,7 @@ async function processarLeituraQR(textoLido) {
     triggerToast(
       "QR Code inválido. Certifique-se de escanear uma etiqueta gerada pelo sistema.",
       "error",
-    ); // <-- TOAST AQUI
+    );
   }
 }
 
@@ -123,7 +122,7 @@ async function fazerLogout() {
 
   document.documentElement.style.setProperty("--primary", "#2c3e50");
   document.documentElement.style.setProperty("--accent", "#d35400");
-  triggerToast("Sessão encerrada com sucesso.", "info"); // <-- TOAST AQUI
+  triggerToast("Sessão encerrada com sucesso.", "info");
 }
 
 async function carregarConfiguracoes() {
@@ -190,9 +189,17 @@ onMounted(async () => {
   });
 });
 
-function fecharTelasSecundarias() {
+function irParaInicio() {
   modoAtual.value = "bancada";
+  servicoDireto.value = null;
+  clienteSelecionado.value = null;
+  instrumentoSelecionado.value = null;
+  mostrarClientes.value = false;
   carregarConfiguracoes();
+}
+
+function fecharTelasSecundarias() {
+  irParaInicio();
 }
 
 function selecionarCliente(c) {
@@ -224,8 +231,7 @@ function cancelarEdicaoCliente() {
 
 async function salvarEdicaoCliente() {
   if (!clienteEditado.value.nome) {
-    triggerToast("O nome do cliente não pode ficar em branco.", "error"); // <-- TOAST AQUI
-    return;
+    return triggerToast("O nome do cliente não pode ficar em branco.", "error");
   }
 
   const { error } = await supabase
@@ -241,9 +247,9 @@ async function salvarEdicaoCliente() {
   if (!error) {
     buscarClientes();
     cancelarEdicaoCliente();
-    triggerToast("Dados do cliente atualizados com sucesso!", "success"); // <-- TOAST AQUI
+    triggerToast("Dados do cliente atualizados com sucesso!", "success");
   } else {
-    triggerToast("Erro ao guardar cliente: " + error.message, "error"); // <-- TOAST AQUI
+    triggerToast("Erro ao guardar cliente: " + error.message, "error");
   }
 }
 
@@ -283,91 +289,128 @@ function formatarLinkZap(telefone) {
         </button>
       </div>
 
-      <div class="main-header card" v-if="modoAtual === 'bancada'">
-        <div style="display: flex; align-items: center; gap: 15px">
+      <div class="main-header card global-header">
+        <div
+          class="brand-area"
+          @click="irParaInicio"
+          style="cursor: pointer"
+          title="Voltar ao Início"
+        >
           <img
             v-if="configLuthieria.logo_url"
             :src="configLuthieria.logo_url"
-            style="max-height: 55px; border-radius: 4px; object-fit: contain"
+            class="logo-img"
           />
-          <span v-else style="font-size: 2.5rem">🎸</span>
+          <span v-else style="font-size: 2.2rem">🎸</span>
           <h1 class="logo-title">{{ configLuthieria.nome_luthieria }}</h1>
         </div>
 
-        <button
-          @click="mostrarScanner = true"
-          class="btn-primary"
-          style="background: var(--accent); border: none"
-        >
-          📷 Escanear
-        </button>
-
-        <ScannerQR
-          v-if="mostrarScanner"
-          @detectado="processarLeituraQR"
-          @fechar="mostrarScanner = false"
-        />
-
         <div class="header-buttons">
-          <button @click="modoAtual = 'calendario'" class="btn-outline">
+          <button
+            @click="irParaInicio"
+            class="btn-outline btn-home"
+            :class="{
+              active:
+                modoAtual === 'bancada' &&
+                !servicoDireto &&
+                !clienteSelecionado,
+            }"
+          >
+            🏠 Início
+          </button>
+
+          <button @click="mostrarScanner = true" class="btn-primary scan-btn">
+            📷 QR
+          </button>
+
+          <button
+            @click="
+              modoAtual = 'calendario';
+              servicoDireto = null;
+              clienteSelecionado = null;
+            "
+            class="btn-outline"
+            :class="{ active: modoAtual === 'calendario' }"
+          >
             📅 Agenda
           </button>
-          <button @click="modoAtual = 'historico'" class="btn-outline">
-            📦 Arquivo / Histórico
+
+          <button
+            @click="
+              modoAtual = 'historico';
+              servicoDireto = null;
+              clienteSelecionado = null;
+            "
+            class="btn-outline"
+            :class="{ active: modoAtual === 'historico' }"
+          >
+            📦 Arquivo
           </button>
-          <button @click="modoAtual = 'admin'" class="btn-primary">
-            ⚙️ Administração
+
+          <button
+            @click="
+              modoAtual = 'admin';
+              servicoDireto = null;
+              clienteSelecionado = null;
+            "
+            class="btn-primary"
+            :class="{ active: modoAtual === 'admin' }"
+          >
+            ⚙️ Admin
           </button>
+
           <button @click="fazerLogout" class="btn-outline text-danger">
             🚪 Sair
           </button>
         </div>
       </div>
 
-      <div v-if="modoAtual === 'admin'">
-        <AdminArea @voltar="fecharTelasSecundarias" />
-      </div>
+      <ScannerQR
+        v-if="mostrarScanner"
+        @detectado="processarLeituraQR"
+        @fechar="mostrarScanner = false"
+      />
 
-      <div v-else-if="modoAtual === 'calendario'">
-        <div v-if="servicoDireto">
+      <div class="conteudo-principal">
+        <div v-if="modoAtual === 'admin'">
+          <AdminArea @voltar="fecharTelasSecundarias" />
+        </div>
+
+        <div v-else-if="modoAtual === 'calendario'">
           <ExecucaoServico
+            v-if="servicoDireto"
             :servico="servicoDireto"
             @voltar="fecharServicoDireto"
           />
-        </div>
-        <div v-else>
           <CalendarioEntregas
+            v-else
             @voltar="fecharTelasSecundarias"
             @abrirOS="abrirServicoPeloDashboard"
           />
         </div>
-      </div>
 
-      <div v-else-if="modoAtual === 'historico'">
-        <div v-if="servicoDireto">
+        <div v-else-if="modoAtual === 'historico'">
           <ExecucaoServico
+            v-if="servicoDireto"
             :servico="servicoDireto"
             @voltar="fecharServicoDireto"
           />
-        </div>
-        <div v-else>
           <HistoricoServicos
+            v-else
             @voltar="fecharTelasSecundarias"
             @abrirOS="abrirServicoPeloDashboard"
           />
         </div>
-      </div>
-
-      <div v-else>
-        <div v-if="servicoDireto">
-          <ExecucaoServico
-            :servico="servicoDireto"
-            @voltar="fecharServicoDireto"
-          />
-        </div>
 
         <div v-else>
-          <div v-if="instrumentoSelecionado">
+          <div v-if="servicoDireto">
+            <ExecucaoServico
+              :servico="servicoDireto"
+              @voltar="fecharServicoDireto"
+            />
+          </div>
+
+          <div v-else-if="instrumentoSelecionado">
             <ServicoManager
               :instrumento="instrumentoSelecionado"
               @voltar="instrumentoSelecionado = null"
@@ -375,12 +418,8 @@ function formatarLinkZap(telefone) {
           </div>
 
           <div v-else-if="clienteSelecionado">
-            <button
-              @click="clienteSelecionado = null"
-              class="btn-outline"
-              style="margin-bottom: 15px"
-            >
-              &larr; Voltar
+            <button @click="clienteSelecionado = null" class="btn-outline mb-1">
+              &larr; Voltar para Bancada
             </button>
             <InstrumentoManager
               :clienteId="clienteSelecionado.id"
@@ -424,10 +463,8 @@ function formatarLinkZap(telefone) {
                       <tr v-for="cliente in clientes" :key="cliente.id">
                         <template v-if="clienteEditandoId === cliente.id">
                           <td>
+                            <input v-model="clienteEditado.nome" class="mb-1" />
                             <input
-                              v-model="clienteEditado.nome"
-                              class="mb-1"
-                            /><input
                               v-model="clienteEditado.cpf_cnpj"
                               placeholder="CPF/CNPJ"
                             />
@@ -436,7 +473,8 @@ function formatarLinkZap(telefone) {
                             <input
                               v-model="clienteEditado.telefone"
                               class="mb-1"
-                            /><input
+                            />
+                            <input
                               v-model="clienteEditado.email"
                               placeholder="E-mail"
                             />
@@ -488,6 +526,11 @@ function formatarLinkZap(telefone) {
                           </td>
                         </template>
                       </tr>
+                      <tr v-if="clientes.length === 0">
+                        <td colspan="3" class="text-muted text-center">
+                          Nenhum cliente cadastrado.
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -501,7 +544,7 @@ function formatarLinkZap(telefone) {
 </template>
 
 <style>
-/* O SEU CSS GLOBAL MANTÉM-SE EXATAMENTE IGUAL */
+/* CSS GLOBAL */
 :root {
   --primary: #2c3e50;
   --accent: #d35400;
@@ -526,11 +569,12 @@ body {
 }
 .app-container {
   padding: 20px;
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
 }
+
 .banner-trial {
   background: #fff3cd;
   color: #856404;
@@ -554,9 +598,7 @@ body {
   font-weight: bold;
   cursor: pointer;
 }
-.btn-trial:hover {
-  background: #664d03;
-}
+
 .card,
 .box,
 .servico-box,
@@ -575,6 +617,7 @@ body {
   border-bottom: 2px solid var(--border);
   padding-bottom: 10px;
 }
+
 input,
 select,
 textarea {
@@ -603,9 +646,11 @@ label {
   color: var(--text-muted);
   margin-bottom: 5px;
 }
+
 .form-group {
   margin-bottom: 15px;
 }
+
 button {
   font-family: inherit;
   border-radius: var(--radius-sm);
@@ -643,7 +688,8 @@ button {
   font-weight: bold;
   cursor: pointer;
 }
-.btn-outline:hover {
+.btn-outline:hover,
+.btn-outline.active {
   background: var(--primary);
   color: #fff;
 }
@@ -658,6 +704,7 @@ button {
 .btn-icon:hover {
   background: #eee;
 }
+
 .tabela-responsiva {
   overflow-x: auto;
 }
@@ -680,6 +727,7 @@ button {
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+
 .text-muted {
   color: var(--text-muted);
 }
@@ -689,13 +737,18 @@ button {
 .text-danger {
   color: var(--danger);
 }
+.text-center {
+  text-align: center;
+}
 .mb-1 {
   margin-bottom: 5px;
 }
 .bg-light {
   background: #f8f9fa;
 }
-.main-header {
+
+/* CABEÇALHO GLOBAL */
+.global-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -703,19 +756,42 @@ button {
   flex-wrap: wrap;
   gap: 15px;
   border-bottom: 4px solid var(--accent);
-  padding: 20px;
+  padding: 15px 20px;
+  position: sticky;
+  top: 10px;
+  z-index: 100;
 }
-.header-buttons {
+.brand-area {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 15px;
+  transition: opacity 0.2s;
+}
+.brand-area:hover {
+  opacity: 0.8;
+}
+.logo-img {
+  max-height: 45px;
+  border-radius: 4px;
+  object-fit: contain;
 }
 .logo-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   color: var(--primary);
+  white-space: nowrap;
 }
+.header-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.scan-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .controle-clientes {
   text-align: center;
   margin: 40px 0 20px 0;
@@ -735,6 +811,7 @@ button {
   border-color: var(--primary);
   color: var(--primary);
 }
+
 .clientes-grid {
   display: flex;
   gap: 20px;
@@ -762,24 +839,37 @@ button {
 .badge-zap:hover {
   background: #c8e6c9;
 }
+
+@media (max-width: 850px) {
+  .global-header {
+    flex-direction: column;
+    text-align: center;
+    position: relative;
+    top: 0;
+  }
+  .header-buttons {
+    justify-content: center;
+    width: 100%;
+  }
+  .header-buttons button {
+    flex: 1;
+    min-width: 100px;
+    font-size: 0.85rem;
+    padding: 8px;
+  }
+  .btn-home {
+    order: -1;
+    width: 100%;
+    flex: none !important;
+  }
+}
+
 @media (max-width: 768px) {
   .clientes-grid {
     flex-direction: column;
   }
   .col-form {
     max-width: 100%;
-  }
-  .main-header {
-    flex-direction: column;
-    text-align: center;
-  }
-  .header-buttons {
-    width: 100%;
-    flex-direction: column;
-    justify-content: center;
-  }
-  .header-buttons button {
-    width: 100%;
   }
 }
 </style>

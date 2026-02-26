@@ -7,24 +7,14 @@
  * e definição de preços padrão para o orçamento.
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - vue: ref, onMounted, computed.
- * - supabaseClient: Acesso à tabela 'catalogo'.
- * * @functions
- * - carregarCatalogo(): Procura todos os itens cadastrados no banco de dados.
- * - salvarItem(): Executa o Insert ou Update do produto/serviço no catálogo.
- * - excluirItem(): Remove permanentemente um item do catálogo após confirmação.
- * - iniciarEdicao(): Preenche o formulário com os dados de um item existente.
- * * @notes
- * - Implementa lógica condicional para controle de estoque (apenas para peças/insumos).
- * - Utiliza filtros reativos (computed) para separar visualmente as categorias.
- * ============================================================================
  */
 
 import { ref, onMounted, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useToast } from "../composables/useToast"; // <-- Importa o Toast
 
 const emit = defineEmits(["voltar"]);
+const { triggerToast } = useToast(); // <-- Inicializa o Toast
 
 const catalogo = ref([]);
 const loading = ref(false);
@@ -56,7 +46,9 @@ async function carregarCatalogo() {
 }
 
 async function salvarItem() {
-  if (!form.value.nome) return alert("O nome do item é obrigatório.");
+  if (!form.value.nome) {
+    return triggerToast("O nome do item é obrigatório.", "error"); // Toast de Erro
+  }
 
   loading.value = true;
   const dadosParaSalvar = { ...form.value };
@@ -67,17 +59,32 @@ async function salvarItem() {
     dadosParaSalvar.estoque_minimo = 0;
   }
 
+  let errorMessage = null;
+
   if (editandoId.value) {
-    await supabase
+    const { error } = await supabase
       .from("catalogo")
       .update(dadosParaSalvar)
       .eq("id", editandoId.value);
+    errorMessage = error;
   } else {
-    await supabase.from("catalogo").insert([dadosParaSalvar]);
+    const { error } = await supabase.from("catalogo").insert([dadosParaSalvar]);
+    errorMessage = error;
   }
 
-  cancelarEdicao();
-  await carregarCatalogo();
+  if (!errorMessage) {
+    triggerToast(
+      editandoId.value
+        ? "Item atualizado com sucesso!"
+        : "Novo item adicionado ao catálogo!",
+      "success",
+    ); // Toast de Sucesso
+    cancelarEdicao();
+    await carregarCatalogo();
+  } else {
+    triggerToast("Erro ao gravar item: " + errorMessage.message, "error");
+  }
+
   loading.value = false;
 }
 
@@ -102,6 +109,7 @@ function cancelarEdicao() {
 async function excluirItem(id) {
   if (!confirm("Tem certeza que deseja excluir este item do catálogo?")) return;
   await supabase.from("catalogo").delete().eq("id", id);
+  triggerToast("Item excluído permanentemente.", "info"); // Toast Informativo
   carregarCatalogo();
 }
 
