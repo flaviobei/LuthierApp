@@ -1,23 +1,4 @@
 <script setup>
-/**
- * ============================================================================
- * @file        AdminArea.vue
- * @description Contentor principal da área administrativa. Gere a navegação
- * entre módulos de configuração, catálogo, financeiro e segurança do sistema.
- * @project     LuthierApp
- * ============================================================================
- * @dependencies
- * - Componentes internos: CatalogoManager, Financeiro, ConfigChecklist, LimpezaBanco, etc.
- * - supabaseClient: Verificação de privilégios de SuperAdmin.
- * * @functions
- * - onMounted: Verifica se o utilizador logado possui o e-mail na tabela
- * 'super_admins' para desbloquear funções de gestão do SaaS.
- * * @notes
- * - Centraliza o design de "Tabs" (Abas) para uma experiência de utilizador limpa.
- * - Atua como um guardião de acesso para funcionalidades sensíveis (Zona de Perigo).
- * ============================================================================
- */
-
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import CatalogoManager from "./CatalogoManager.vue";
@@ -25,43 +6,27 @@ import Financeiro from "./Financeiro.vue";
 import Configuracoes from "./Configuracoes.vue";
 import RelatoriosDashboard from "./RelatoriosDashboard.vue";
 import MinhaConta from "./MinhaConta.vue";
-import GerenciarSaaS from "./GerenciarSaaS.vue";
 import ConfigChecklist from "./ConfigChecklist.vue";
 import LimpezaBanco from "./LimpezaBanco.vue";
+import { useOnboarding } from "../composables/useOnboarding";
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
+const { iniciarTour } = useOnboarding(ref("admin"), ref(false));
 
 const isSuperAdmin = ref(false);
-const logDebug = ref("A carregar segurança..."); // Variável detetive
 
 onMounted(async () => {
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session?.user?.email) {
-      logDebug.value = `Logado como: ${session.user.email}. A procurar na base de dados...`;
-
-      const { data, error } = await supabase
-        .from("super_admins")
-        .select("*")
-        .eq("email", session.user.email)
-        .maybeSingle();
-
-      if (error) {
-        logDebug.value = `Erro no Supabase: ${error.message}`;
-      } else if (data) {
-        isSuperAdmin.value = true;
-        logDebug.value = `✅ Acesso VIP Autorizado para ${data.email}! O botão deve aparecer abaixo.`;
-      } else {
-        logDebug.value = `❌ O e-mail "${session.user.email}" não foi encontrado na tabela super_admins!`;
-      }
-    } else {
-      logDebug.value = "Nenhum utilizador logado no momento.";
-    }
-  } catch (err) {
-    logDebug.value = `Erro crítico: ${err.message}`;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session?.user?.email) {
+    const { data } = await supabase
+      .from("super_admins")
+      .select("*")
+      .eq("email", session.user.email)
+      .maybeSingle();
+    if (data) isSuperAdmin.value = true;
   }
 });
 </script>
@@ -79,9 +44,18 @@ onMounted(async () => {
           padding-bottom: 10px;
         "
       >
-        <h2 style="margin: 0; color: var(--primary)">
-          Painel de Administração / Gestão
-        </h2>
+        <h2 style="margin: 0; color: var(--primary)">Painel de Gestão</h2>
+        <button
+          @click="iniciarTour"
+          class="btn-outline"
+          style="
+            font-size: 0.8rem;
+            color: var(--accent);
+            border-color: var(--accent);
+          "
+        >
+          💡 Ver Tutorial
+        </button>
       </div>
 
       <div class="admin-tabs">
@@ -90,9 +64,10 @@ onMounted(async () => {
           :class="{ active: abaAtual === 'relatorios' }"
           @click="abaAtual = 'relatorios'"
         >
-          📊 Visão Geral
+          📊 Relatórios
         </button>
         <button
+          id="tour-catalogo"
           class="btn-tab"
           :class="{ active: abaAtual === 'catalogo' }"
           @click="abaAtual = 'catalogo'"
@@ -107,6 +82,7 @@ onMounted(async () => {
           💰 Caixa
         </button>
         <button
+          id="tour-config"
           class="btn-tab"
           :class="{ active: abaAtual === 'config' }"
           @click="abaAtual = 'config'"
@@ -114,14 +90,7 @@ onMounted(async () => {
           ⚙️ Oficina
         </button>
         <button
-          class="btn-tab"
-          :class="{ active: abaAtual === 'conta' }"
-          @click="abaAtual = 'conta'"
-        >
-          🔐 Minha Conta
-        </button>
-
-        <button
+          id="tour-checklist"
           class="btn-tab"
           :class="{ active: abaAtual === 'checklist' }"
           @click="abaAtual = 'checklist'"
@@ -134,21 +103,7 @@ onMounted(async () => {
           @click="abaAtual = 'limpeza'"
           style="color: #ef4444"
         >
-          🚨 Zona de Perigo
-        </button>
-
-        <button
-          v-if="isSuperAdmin"
-          class="btn-tab"
-          :class="{ active: abaAtual === 'saas' }"
-          @click="abaAtual = 'saas'"
-          style="
-            background-color: var(--danger);
-            color: white;
-            border-color: var(--danger);
-          "
-        >
-          👑 Gestão SaaS (Master)
+          🚨 Limpeza
         </button>
       </div>
     </div>
@@ -161,8 +116,6 @@ onMounted(async () => {
       />
       <Financeiro v-if="abaAtual === 'financeiro'" @fechar="$emit('voltar')" />
       <Configuracoes v-if="abaAtual === 'config'" />
-      <MinhaConta v-if="abaAtual === 'conta'" />
-      <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
       <ConfigChecklist v-if="abaAtual === 'checklist'" />
       <LimpezaBanco v-if="abaAtual === 'limpeza'" />
     </div>
@@ -181,20 +134,14 @@ onMounted(async () => {
   padding: 12px;
   border: none;
   background: var(--bg-body);
-  color: var(--text-muted);
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
-  font-size: 0.95rem;
   transition: 0.2s;
-}
-.btn-tab:hover {
-  background: #e2e6ea;
 }
 .btn-tab.active {
   background: var(--primary);
   color: white;
-  box-shadow: var(--shadow);
 }
 .admin-content {
   margin-top: 20px;
