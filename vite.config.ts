@@ -1,34 +1,35 @@
-import { fileURLToPath, URL } from "node:url";
-
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-import vueDevTools from "vite-plugin-vue-devtools";
+import { VitePWA } from "vite-plugin-pwa";
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue(), vueDevTools()],
-  server: {
-    host: true,
-    port: 5173,
-  },
-  resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
-  },
-  build: {
-    chunkSizeWarningLimit: 1500,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("@supabase")) return "supabase";
-            if (id.includes("html2canvas")) return "html2canvas";
-            if (id.includes("vue")) return "vue-vendor";
-            return "vendor";
-          }
-        },
+  plugins: [
+    vue(),
+    VitePWA({
+      registerType: "autoUpdate", // Faz a app atualizar sozinha no telemóvel quando você mudar o código
+      includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
+      manifest: {
+        name: "Gestão Luthieria",
+        short_name: "Luthieria",
+        description: "Sistema de gestão para oficinas de luthieria",
+        theme_color: "#2c3e50", // A cor do topo do telemóvel (sua cor primária)
+        background_color: "#f4f6f8", // A cor do ecrã de carregamento
+        display: "standalone", // Faz com que pareça uma app nativa (esconde a barra do navegador)
+        orientation: "portrait",
+        icons: [
+          {
+            src: "/icon-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/icon-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
       },
-    },
-  },
+    }),
+  ],
 });
