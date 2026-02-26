@@ -1,79 +1,37 @@
+import imageCompression from "browser-image-compression";
+
 /**
- * ============================================================================
- * @file        imageUtils.js
- * @description Utilitário para redimensionar e comprimir imagens no cliente (navegador)
- * antes de fazer o upload, poupando armazenamento e dados móveis.
- * ============================================================================
+ * Comprime e redimensiona imagens para garantir performance e economia de storage.
+ * Otimizado para reduzir logos de MBs para KBs.
  */
+export async function comprimirImagem(file) {
+  // Se não for imagem, retorna o arquivo original
+  if (!file.type.startsWith("image/")) return file;
 
-export function comprimirImagem(
-  file,
-  maxWidth = 1200,
-  maxHeight = 1200,
-  quality = 0.8,
-) {
-  return new Promise((resolve, reject) => {
-    // Se não for uma imagem, devolve o ficheiro original intacto
-    if (!file.type.startsWith("image/")) {
-      resolve(file);
-      return;
-    }
+  const options = {
+    maxSizeMB: 0.2, // Alvo de 200KB (ideal para fotos de diário)
+    maxWidthOrHeight: 1000, // Redimensiona se a foto for gigantesca (4k, etc)
+    useWebWorker: true,
+    initialQuality: 0.6, // Qualidade inicial de 60%
+  };
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
+  // AJUSTE PARA LOGOS: Se o nome do arquivo sugerir um logo ou se você quiser
+  // que a compressão seja sempre mais forte, podemos baixar esses valores.
+  if (file.size > 2 * 1024 * 1024) {
+    // Se for maior que 2MB, apertamos mais
+    options.maxSizeMB = 0.1; // Alvo de 100KB
+    options.initialQuality = 0.5; // 50% de qualidade
+    options.maxWidthOrHeight = 600; // Logos não precisam de mais de 800px de largura
+  }
 
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        // Calcula a nova dimensão mantendo a proporção da imagem
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
-
-        // Cria um canvas invisível para redesenhar a imagem menor
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Mantém PNGs como PNGs para não perder o fundo transparente (ex: Logos)
-        // O resto (fotos da câmara) converte para JPEG comprimido
-        const mimeType = file.type === "image/png" ? "image/png" : "image/jpeg";
-
-        // Aplica a compressão
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const newFile = new File([blob], file.name, {
-                type: mimeType,
-                lastModified: Date.now(),
-              });
-              resolve(newFile);
-            } else {
-              reject(new Error("Erro ao comprimir imagem."));
-            }
-          },
-          mimeType,
-          quality,
-        );
-      };
-      img.onerror = (error) => reject(error);
-    };
-    reader.onerror = (error) => reject(error);
-  });
+  try {
+    const compressedFile = await imageCompression(file, options);
+    console.log(
+      `Compressão finalizada: de ${(file.size / 1024 / 1024).toFixed(2)}MB para ${(compressedFile.size / 1024).toFixed(0)}KB`,
+    );
+    return compressedFile;
+  } catch (error) {
+    console.error("Erro ao comprimir imagem:", error);
+    return file; // Em caso de erro, envia a original para não travar o app
+  }
 }
