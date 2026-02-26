@@ -7,22 +7,14 @@
  * através de gráficos e resumos de saldo líquido.
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - chart.js: Utilizado para a renderização do gráfico de linha temporal.
- * - supabaseClient: Acede à tabela 'transacoes'.
- * * @functions
- * - carregarDados(): Procura todas as movimentações financeiras do utilizador.
- * - renderizarGrafico(): Constrói o gráfico comparativo de Entradas vs Saídas.
- * - salvarDespesa(): Regista saídas manuais (aluguer, luz, ferramentas) no banco.
- * * @notes
- * - Inclui filtros de data dinâmicos que atualizam os cálculos e o gráfico em tempo real.
- * - Possui suporte a impressão de relatórios formatados via CSS @media print.
- * ============================================================================
  */
 
 import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import Chart from "chart.js/auto";
+import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
+
+const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
 
 const transacoes = ref([]);
 const carregando = ref(true);
@@ -64,7 +56,7 @@ async function carregarDados() {
   renderizarGrafico();
 }
 
-// FUNÇÃO DE IMPRESSÃO CORRIGIDA
+// FUNÇÃO DE IMPRESSÃO
 function acionarImpressao() {
   window.print();
 }
@@ -142,8 +134,11 @@ function renderizarGrafico() {
 }
 
 async function salvarDespesa() {
-  if (!novaDespesa.value.descricao || novaDespesa.value.valor <= 0)
-    return alert("Preencha a descrição e o valor.");
+  if (!novaDespesa.value.descricao || novaDespesa.value.valor <= 0) {
+    // SUBSTITUÍDO: alert() por triggerToast()
+    return triggerToast("Preencha a descrição e indique um valor maior que zero.", "error");
+  }
+
   const { error } = await supabase.from("transacoes").insert([
     {
       descricao: novaDespesa.value.descricao,
@@ -153,6 +148,7 @@ async function salvarDespesa() {
       data_pagamento: novaDespesa.value.data_pagamento,
     },
   ]);
+
   if (!error) {
     novaDespesa.value = {
       descricao: "",
@@ -160,7 +156,11 @@ async function salvarDespesa() {
       categoria: "Aluguel",
       data_pagamento: hoje,
     };
+    triggerToast("Despesa registada com sucesso!", "success"); // <-- MENSAGEM DE SUCESSO
     carregarDados();
+  } else {
+    // Caso haja erro no banco de dados
+    triggerToast("Erro ao gravar despesa: " + error.message, "error");
   }
 }
 
