@@ -1,70 +1,30 @@
 <script setup>
-/**
- * ============================================================================
- * @file        Auth.vue
- * @description Componente de autenticação do LuthierApp. Gere o acesso de
- * utilizadores através de e-mail e palavra-passe, permitindo tanto o login
- * de contas existentes como a criação de novos registos (Sign Up).
- * @project     LuthierApp
- * ============================================================================
- * @dependencies
- * - vue: Utilizado para estados reativos (ref).
- * - supabaseClient: Fornece os métodos `signInWithPassword` e `signUp`.
- * * @functions
- * - handleAuth(): Função principal que executa a lógica de autenticação.
- * Diferencia entre login e registo com base no estado `isSignUp`.
- * - toggleMode(): Alterna a interface entre os modos "Entrar" e "Criar Conta",
- * limpando mensagens de erro ou sucesso anteriores.
- * * @notes
- * - Implementa uma validação básica de comprimento de palavra-passe (mín. 6 caracteres).
- * - Utiliza estados de 'loading' para desativar botões durante a comunicação com o servidor.
- * ============================================================================
- */
-
 import { ref } from "vue";
 import { supabase } from "../lib/supabaseClient";
 
-// --- ESTADOS DO COMPONENTE ---
 const loading = ref(false);
 const email = ref("");
 const password = ref("");
-const isSignUp = ref(false); // Define se o utilizador está a tentar entrar ou registar-se
+const isLogin = ref(true); // Alterado para coincidir com o template
 const errorMsg = ref("");
 const successMsg = ref("");
 
-/**
- * Alterna entre o modo de Login e o modo de Registo.
- * Limpa as mensagens de feedback para o utilizador.
- */
-function toggleMode() {
-  isSignUp.value = !isSignUp.value;
-  errorMsg.value = "";
-  successMsg.value = "";
-}
-
-/**
- * Executa a autenticação via Supabase.
- * Se isSignUp for verdadeiro, tenta criar uma conta.
- * Caso contrário, tenta realizar o login.
- */
 async function handleAuth() {
   loading.value = true;
   errorMsg.value = "";
   successMsg.value = "";
 
   try {
-    if (isSignUp.value) {
-      // Validação simples antes de enviar para o servidor
+    if (!isLogin.value) {
       if (password.value.length < 6) {
-        throw new Error("A palavra-passe deve ter pelo menos 6 caracteres.");
+        throw new Error("A senha deve ter pelo menos 6 caracteres.");
       }
-
       const { error } = await supabase.auth.signUp({
         email: email.value,
         password: password.value,
       });
       if (error) throw error;
-      successMsg.value = "Conta criada! Verifique o seu e-mail para confirmar.";
+      successMsg.value = "Conta criada! Verifique o seu e-mail.";
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email: email.value,
@@ -73,7 +33,6 @@ async function handleAuth() {
       if (error) throw error;
     }
   } catch (error) {
-    // Captura e exibe erros retornados pelo Supabase ou validações locais
     errorMsg.value = error.message;
   } finally {
     loading.value = false;
@@ -94,7 +53,7 @@ async function handleAuth() {
           color: var(--text-muted);
         "
       >
-        {{ isLogin ? "Entrar" : "Criar Conta de Luthier" }}
+        {{ isLogin ? "Entrar" : "Criar Conta" }}
       </h3>
 
       <div class="form-group">
@@ -116,12 +75,9 @@ async function handleAuth() {
         {{ loading ? "⏳ Aguarde..." : isLogin ? "Entrar" : "Registar" }}
       </button>
 
-      <p
-        v-if="message"
-        class="auth-message"
-        :class="{ 'text-danger': message.includes('Erro') }"
-      >
-        {{ message }}
+      <p v-if="errorMsg" class="auth-message text-danger">{{ errorMsg }}</p>
+      <p v-if="successMsg" class="auth-message text-success">
+        {{ successMsg }}
       </p>
 
       <div style="text-align: center; margin-top: 20px">
@@ -130,37 +86,14 @@ async function handleAuth() {
           style="color: var(--accent); text-decoration: underline"
           @click="
             isLogin = !isLogin;
-            message = '';
+            errorMsg = '';
+            successMsg = '';
           "
         >
-          {{
-            isLogin ? "Não tem conta? Registe-se" : "Já tem conta? Fazer Login"
-          }}
+          {{ isLogin ? "Não tem conta? Registe-se" : "Já tem conta? Login" }}
         </button>
-        <h6>versão beta</h6>
+        <h6 style="margin-top: 10px; opacity: 0.5">versão beta</h6>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.auth-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: var(--bg-body);
-}
-.auth-card {
-  width: 100%;
-  max-width: 400px;
-  padding: 40px 30px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-}
-.auth-message {
-  text-align: center;
-  margin-top: 15px;
-  font-weight: bold;
-  color: var(--success);
-}
-</style>
