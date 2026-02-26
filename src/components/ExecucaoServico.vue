@@ -1,34 +1,13 @@
 <script setup>
-/**
- * ============================================================================
- * @file        ExecucaoServico.vue
- * @description O coração operacional do sistema. Gere o ciclo de vida de uma
- * Ordem de Serviço (O.S.), incluindo Diário de Bordo, Inspeção Técnica
- * (Checklist dinâmico de Chegada/Saída), Galeria de Fotos e Orçamentação.
- * @project     LuthierApp
- * ============================================================================
- * @dependencies
- * - vue: computed, ref, onMounted.
- * - supabaseClient: CRUD das tabelas de diário, checklists e itens.
- * - whatsappUtils / window.open: Para comunicação externa e impressão.
- * * @functions
- * - carregarTudo(): Orquestra o carregamento simultâneo de todas as dependências da O.S.
- * - carregarChecklist(): Gera dinamicamente os itens de inspeção baseados no padrão
- * definido na administração, caso a O.S. seja nova.
- * - enviarOrcamentoWhatsApp(): Formata e envia a proposta via API do WhatsApp.
- * - imprimirOrcamento(): Gera um documento HTML formatado com logo para PDF/Impressão.
- * - atualizarStatusChecklist(): Altera o estado (Boa/Ruim, Sim/Não) dos itens técnicos.
- * * @notes
- * - Implementa proteção contra 'NaN' em cálculos financeiros.
- * - Utiliza uma função de data "blindada" para evitar erros de fuso horário (T12:00:00).
- * ============================================================================
- */
-
 import { ref, computed, onMounted, watch } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { comprimirImagem } from "../lib/imageUtils";
+import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
 
 const props = defineProps(["servico"]);
 const emit = defineEmits(["voltar"]);
+
+const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
 
 const servicoLocal = ref({ ...props.servico });
 const carregandoDados = ref(true);
@@ -164,8 +143,15 @@ async function carregarConfig() {
 }
 
 async function carregarCatalogo() {
-  const { data } = await supabase.from("catalogo").select("*").order("nome");
-  if (data) catalogoOriginal.value = data;
+  const { data, error } = await supabase
+    .from("catalogo")
+    .select("*")
+    .order("nome");
+  if (error) {
+    triggerToast("Erro ao buscar o catálogo: " + error.message, "error");
+  } else if (data) {
+    catalogoOriginal.value = data;
+  }
 }
 
 async function carregarDiario() {
@@ -260,8 +246,9 @@ function importarDoCatalogoOriginal(event) {
 }
 
 async function adicionarItem() {
-  if (!novoItem.value.descricao)
-    return alert("Preencha a descrição do serviço ou peça.");
+  if (!novoItem.value.descricao) {
+    return triggerToast("Preencha a descrição do serviço ou peça.", "error");
+  }
   processandoOrcamento.value = true;
   const itemParaSalvar = {
     servico_id: servicoLocal.value.id,
@@ -273,10 +260,12 @@ async function adicionarItem() {
     .from("itens_servico")
     .insert([itemParaSalvar])
     .select();
-  if (error) alert("Erro ao salvar: " + error.message);
-  else if (data) {
+  if (error) {
+    triggerToast("Erro ao salvar: " + error.message, "error");
+  } else if (data) {
     itensOrcamento.value.push(data[0]);
     novoItem.value = { descricao: "", valor: null, tipo: "Mão de Obra" };
+    triggerToast("Item adicionado ao orçamento!", "success");
     const selectCat = document.getElementById("select-catalogo-original");
     if (selectCat) selectCat.value = "";
   }
@@ -286,6 +275,7 @@ async function adicionarItem() {
 async function removerItem(id) {
   await supabase.from("itens_servico").delete().eq("id", id);
   itensOrcamento.value = itensOrcamento.value.filter((i) => i.id !== id);
+  triggerToast("Item removido do orçamento.", "info");
 }
 
 // --- MATEMÁTICA DO CHECKOUT ---
@@ -327,8 +317,12 @@ const valorLiquidoPagamento = computed(() => {
 
 // Registrar e salvar a venda / pagamento
 async function registrarPagamento() {
-  if (novoPagamento.value.valor <= 0)
-    return alert("O valor do pagamento deve ser maior que zero.");
+  if (novoPagamento.value.valor <= 0) {
+    return triggerToast(
+      "O valor do pagamento deve ser maior que zero.",
+      "error",
+    );
+  }
   if (novoPagamento.value.valor > saldoDevedor.value + 0.05) {
     if (
       !confirm(
@@ -358,9 +352,13 @@ async function registrarPagamento() {
     .select();
 
   if (error) {
-    alert("Erro ao salvar pagamento: " + error.message);
+    triggerToast("Erro ao salvar pagamento: " + error.message, "error");
   } else if (data) {
     pagamentosOS.value.unshift(data[0]);
+    triggerToast(
+      `Recebimento de R$ ${novoPagamento.value.valor} registado!`,
+      "success",
+    );
 
     if (
       saldoDevedor.value <= 0 &&
@@ -374,10 +372,16 @@ async function registrarPagamento() {
       ) {
         await supabase
           .from("servicos")
-          .update({ status: "Finalizado", fase_projeto: "Pronto para Entrega" })
+          .update({
+            status: "Finalizado",
+            fase_projeto: "Pronto para Entrega",
+            data_conclusao: new Date().toISOString(),
+          })
           .eq("id", servicoLocal.value.id);
+
         servicoLocal.value.status = "Finalizado";
         servicoLocal.value.fase_projeto = "Pronto para Entrega";
+        triggerToast("Ordem de Serviço finalizada!", "success");
       }
     }
   }
@@ -393,6 +397,7 @@ async function removerPagamento(id) {
     return;
   await supabase.from("transacoes").delete().eq("id", id);
   pagamentosOS.value = pagamentosOS.value.filter((p) => p.id !== id);
+  triggerToast("Pagamento estornado com sucesso.", "info");
 }
 
 // ==========================================
@@ -400,8 +405,12 @@ async function removerPagamento(id) {
 // ==========================================
 function enviarOrcamentoWhatsApp() {
   const cliente = servicoLocal.value.instrumentos?.cliente;
-  if (!cliente || !cliente.telefone)
-    return alert("O cliente não possui um telefone cadastrado.");
+  if (!cliente || !cliente.telefone) {
+    return triggerToast(
+      "O cliente não possui um telefone cadastrado.",
+      "error",
+    );
+  }
   const numLimpo = cliente.telefone.replace(/\D/g, "");
   const telefoneZap = numLimpo.length <= 11 ? `55${numLimpo}` : numLimpo;
 
@@ -458,83 +467,123 @@ function imprimirOrcamento() {
 // AÇÕES DO CHECKLIST E DIÁRIO
 // ==========================================
 async function atualizarStatusChecklist(item, novoStatus) {
-  if (osFinalizada.value) return; // Trava contra cliques
+  if (osFinalizada.value) return;
   item.status = novoStatus;
   await supabase
     .from("checklist_servico")
     .update({ status: novoStatus })
     .eq("id", item.id);
 }
+
 async function uploadFotoChecklist(event) {
-  const arquivo = event.target.files[0];
-  if (!arquivo) return;
+  const arquivoOriginal = event.target.files[0];
+  if (!arquivoOriginal) return;
   subindoFotoChecklist.value = true;
-  const fileName = `checklist/${servicoLocal.value.id}/${Date.now()}_img`;
-  const { error: erroUpload } = await supabase.storage
-    .from("fotos-luthieria")
-    .upload(fileName, arquivo);
-  if (!erroUpload) {
-    const { data: urlData } = supabase.storage
+
+  try {
+    const arquivoComprimido = await comprimirImagem(arquivoOriginal);
+    const fileName = `checklist/${servicoLocal.value.id}/${Date.now()}_img`;
+    const { error: erroUpload } = await supabase.storage
       .from("fotos-luthieria")
-      .getPublicUrl(fileName);
-    const { data: novaFoto } = await supabase
-      .from("checklist_fotos")
-      .insert([
-        { servico_id: servicoLocal.value.id, foto_url: urlData.publicUrl },
-      ])
-      .select();
-    if (novaFoto) fotosChecklist.value.push(novaFoto[0]);
+      .upload(fileName, arquivoComprimido);
+
+    if (!erroUpload) {
+      const { data: urlData } = supabase.storage
+        .from("fotos-luthieria")
+        .getPublicUrl(fileName);
+      const { data: novaFoto } = await supabase
+        .from("checklist_fotos")
+        .insert([
+          { servico_id: servicoLocal.value.id, foto_url: urlData.publicUrl },
+        ])
+        .select();
+      if (novaFoto) {
+        fotosChecklist.value.push(novaFoto[0]);
+        triggerToast("Foto anexada à O.S. com sucesso!", "success");
+      }
+    } else {
+      triggerToast("Erro ao enviar foto: " + erroUpload.message, "error");
+    }
+  } catch (err) {
+    triggerToast("Erro ao processar e comprimir imagem.", "error");
+    console.error(err);
+  } finally {
+    subindoFotoChecklist.value = false;
   }
-  subindoFotoChecklist.value = false;
 }
+
 async function deletarFoto(id) {
   if (!confirm("Excluir esta foto?")) return;
   await supabase.from("checklist_fotos").delete().eq("id", id);
   fotosChecklist.value = fotosChecklist.value.filter((f) => f.id !== id);
+  triggerToast("Foto apagada.", "info");
 }
+
 function selecionarFotoDiario(event) {
   arquivoFotoDiario.value = event.target.files[0];
 }
+
 async function salvarEntradaDiario() {
-  if (!novaEntradaDiario.value.descricao) return;
+  if (!novaEntradaDiario.value.descricao) {
+    return triggerToast(
+      "Por favor, descreva o que foi feito na etapa.",
+      "error",
+    );
+  }
+
   subindoDiario.value = true;
   let urlFoto = null;
-  if (arquivoFotoDiario.value) {
-    const fileName = `diario/${servicoLocal.value.id}/${Date.now()}_img`;
-    const { error: errUp } = await supabase.storage
-      .from("fotos-luthieria")
-      .upload(fileName, arquivoFotoDiario.value);
-    if (!errUp) {
-      const { data } = supabase.storage
+
+  try {
+    if (arquivoFotoDiario.value) {
+      const arquivoComprimido = await comprimirImagem(arquivoFotoDiario.value);
+      const fileName = `diario/${servicoLocal.value.id}/${Date.now()}_img`;
+      const { error: errUp } = await supabase.storage
         .from("fotos-luthieria")
-        .getPublicUrl(fileName);
-      urlFoto = data.publicUrl;
+        .upload(fileName, arquivoComprimido);
+      if (!errUp) {
+        const { data } = supabase.storage
+          .from("fotos-luthieria")
+          .getPublicUrl(fileName);
+        urlFoto = data.publicUrl;
+      }
     }
+
+    const entrada = {
+      servico_id: servicoLocal.value.id,
+      descricao: novaEntradaDiario.value.descricao,
+      fase_projeto: novaEntradaDiario.value.fase_projeto,
+      data_registro: novaEntradaDiario.value.data_registro,
+      foto_url: urlFoto,
+    };
+
+    const { data, error } = await supabase
+      .from("diario_servico")
+      .insert([entrada])
+      .select();
+
+    if (!error && data) {
+      diario.value.unshift(data[0]);
+      await supabase
+        .from("servicos")
+        .update({ fase_projeto: entrada.fase_projeto })
+        .eq("id", servicoLocal.value.id);
+      servicoLocal.value.fase_projeto = entrada.fase_projeto;
+      novaEntradaDiario.value.descricao = "";
+      arquivoFotoDiario.value = null;
+      triggerToast("Nova etapa registada no Diário de Bordo!", "success");
+
+      const inpFoto = document.getElementById("foto-diario");
+      if (inpFoto) inpFoto.value = "";
+    } else {
+      triggerToast("Erro ao gravar etapa: " + error.message, "error");
+    }
+  } catch (err) {
+    triggerToast("Erro ao processar ficheiro da etapa.", "error");
+    console.error(err);
+  } finally {
+    subindoDiario.value = false;
   }
-  const entrada = {
-    servico_id: servicoLocal.value.id,
-    descricao: novaEntradaDiario.value.descricao,
-    fase_projeto: novaEntradaDiario.value.fase_projeto,
-    data_registro: novaEntradaDiario.value.data_registro,
-    foto_url: urlFoto,
-  };
-  const { data, error } = await supabase
-    .from("diario_servico")
-    .insert([entrada])
-    .select();
-  if (!error && data) {
-    diario.value.unshift(data[0]);
-    await supabase
-      .from("servicos")
-      .update({ fase_projeto: entrada.fase_projeto })
-      .eq("id", servicoLocal.value.id);
-    servicoLocal.value.fase_projeto = entrada.fase_projeto;
-    novaEntradaDiario.value.descricao = "";
-    arquivoFotoDiario.value = null;
-    const inpFoto = document.getElementById("foto-diario");
-    if (inpFoto) inpFoto.value = "";
-  }
-  subindoDiario.value = false;
 }
 
 onMounted(carregarTudo);
@@ -1341,7 +1390,7 @@ onMounted(carregarTudo);
   border-radius: 8px;
 }
 
-/* NOVO: BOTÕES BLOQUEADOS */
+/* BOTÕES BLOQUEADOS */
 .toggle-group.bloqueado {
   pointer-events: none;
   opacity: 0.7;

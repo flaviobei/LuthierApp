@@ -11,6 +11,7 @@
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { comprimirImagem } from "../lib/imageUtils";
 
 const { triggerToast } = useToast();
 
@@ -107,30 +108,43 @@ async function salvarConfiguracoes() {
 }
 
 async function uploadLogo(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+  const arquivoOriginal = event.target.files[0];
+  if (!arquivoOriginal) return;
   carregandoFoto.value = true;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const userId = session?.user?.id || "luthier";
+  try {
+    // Comprime o Logo (tamanho máx 800px)
+    const arquivoComprimido = await comprimirImagem(
+      arquivoOriginal,
+      800,
+      800,
+      0.85,
+    );
 
-  const fileName = `${userId}/logo_${Date.now()}`;
-  const { error } = await supabase.storage
-    .from("fotos-luthieria")
-    .upload(fileName, file);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const userId = session?.user?.id || "luthier";
 
-  if (error) {
-    triggerToast("Erro a enviar a logomarca: " + error.message, "error");
-  } else {
-    const { data } = supabase.storage
+    const fileName = `${userId}/logo_${Date.now()}`;
+    const { error } = await supabase.storage
       .from("fotos-luthieria")
-      .getPublicUrl(fileName);
-    form.value.logo_url = data.publicUrl;
-    triggerToast("Logomarca carregada com sucesso!", "success");
+      .upload(fileName, arquivoComprimido);
+
+    if (error) {
+      triggerToast("Erro a enviar a logomarca: " + error.message, "error");
+    } else {
+      const { data } = supabase.storage
+        .from("fotos-luthieria")
+        .getPublicUrl(fileName);
+      form.value.logo_url = data.publicUrl;
+      triggerToast("Logomarca carregada com sucesso!", "success");
+    }
+  } catch (err) {
+    triggerToast("Erro ao processar imagem.", "error");
+  } finally {
+    carregandoFoto.value = false;
   }
-  carregandoFoto.value = false;
 }
 
 function removerLogo() {

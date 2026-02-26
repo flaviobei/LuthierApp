@@ -8,28 +8,17 @@
  * para o módulo de execução técnica.
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - vue: ref, onMounted, computed.
- * - supabaseClient: CRUD da tabela 'servicos' com joins em 'instrumentos'.
- * * @functions
- * - carregarServicos(): Busca todas as O.S. ativas e concluídas do luthier.
- * - salvarServico(): Registra uma nova O.S., gerando automaticamente o número
- * sequencial da ordem.
- * - abrirExecucao(): Seleciona uma O.S. específica e emite um evento para
- * carregar o componente de execução detalhada.
- * - deletarServico(): Remove uma O.S. do sistema após confirmação do usuário.
- * * @notes
- * - Implementa um sistema de busca em tempo real por número de O.S. ou marca.
- * - Faz o vínculo obrigatório entre Cliente -> Instrumento -> Ordem de Serviço.
- * ============================================================================
  */
 
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import ExecucaoServico from "./ExecucaoServico.vue";
+import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
 
 const props = defineProps(["instrumento"]);
 const emit = defineEmits(["voltar"]);
+
+const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
 
 const servicos = ref([]);
 const loading = ref(false);
@@ -48,17 +37,18 @@ async function buscarServicos() {
     .from("servicos")
     .select("*")
     .eq("instrumento_id", props.instrumento.id)
-    .order("data_entrada", { ascending: false }); // Ordena pela data de entrada real
+    .order("data_entrada", { ascending: false });
   if (data) servicos.value = data;
 }
 
 async function abrirOS() {
-  if (!novaOS.value.descricao_cliente)
-    return alert("Descreva o pedido do cliente.");
+  if (!novaOS.value.descricao_cliente) {
+    // SUBSTITUÍDO: alert() por triggerToast()
+    return triggerToast("Descreva o pedido ou problema do cliente.", "error");
+  }
 
   loading.value = true;
 
-  // CORREÇÃO: Usamos a data_entrada que você escolheu no formulário
   const entradaFinal =
     novaOS.value.data_entrada || new Date().toISOString().substring(0, 10);
 
@@ -68,7 +58,7 @@ async function abrirOS() {
       status: "Aberto",
       fase_projeto: "Fila de Espera",
       descricao_cliente: novaOS.value.descricao_cliente,
-      data_entrada: entradaFinal, // Agora aceita datas antigas!
+      data_entrada: entradaFinal,
       data_previsao_entrega: novaOS.value.data_previsao_entrega || null,
       tolerancia_dias: novaOS.value.tolerancia_dias || 0,
       data_previsao_pecas: novaOS.value.data_previsao_pecas || null,
@@ -78,7 +68,6 @@ async function abrirOS() {
   loading.value = false;
 
   if (!error) {
-    // Reset do formulário mantendo a data de hoje para o próximo
     novaOS.value = {
       descricao_cliente: "",
       data_entrada: new Date().toISOString().substring(0, 10),
@@ -86,9 +75,11 @@ async function abrirOS() {
       tolerancia_dias: 0,
       data_previsao_pecas: "",
     };
+    triggerToast("Ordem de Serviço aberta com sucesso!", "success"); // <-- MENSAGEM DE SUCESSO
     buscarServicos();
   } else {
-    alert("Erro: " + error.message);
+    // SUBSTITUÍDO: alert() por triggerToast()
+    triggerToast("Erro ao abrir O.S: " + error.message, "error");
   }
 }
 
@@ -98,7 +89,6 @@ function abrirExecucao(os) {
 
 function formatarData(dataString) {
   if (!dataString) return "-";
-  // O T12:00:00 evita que o fuso horário mude o dia para o anterior
   return new Date(dataString + "T12:00:00").toLocaleDateString("pt-BR");
 }
 
@@ -220,7 +210,11 @@ onMounted(() => buscarServicos());
               <td>
                 <span
                   class="status-pill"
-                  :class="os.status === 'Entregue' ? 'success' : 'warning'"
+                  :class="
+                    os.status === 'Entregue' || os.status === 'Finalizado'
+                      ? 'success'
+                      : 'warning'
+                  "
                 >
                   {{ os.status }} </span
                 ><br />
