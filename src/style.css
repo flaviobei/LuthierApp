@@ -1,0 +1,227 @@
+/* ==========================================================================
+   CSS GLOBAL DO LUTHIER APP (style.css)
+   ========================================================================== */
+
+:root {
+  --primary: #2c3e50;
+  --accent: #d35400;
+  --accent-hover: #e67e22;
+  --bg-body: #f4f6f8;
+  --bg-card: #ffffff;
+  --text-main: #333333;
+  --text-muted: #6c757d;
+  --border: #e1e4e8;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  --success: #27ae60;
+  --danger: #c0392b;
+  --warning: #f39c12;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+/* CAIXAS E ESTRUTURA */
+.card,
+.box,
+.servico-box,
+.execucao-container,
+.catalogo-container {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.title-section {
+  margin-top: 0;
+  color: var(--primary);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 10px;
+}
+
+/* FORMULÁRIOS */
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  background-color: #fff;
+  transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15);
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+/* BOTÕES GERAIS */
+button {
+  font-family: inherit;
+  border-radius: var(--radius-sm);
+  transition: 0.2s;
+  box-sizing: border-box;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  background: #1a252f;
+  opacity: 0.9;
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-accent:hover {
+  filter: brightness(1.1);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  padding: 8px 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-outline:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.btn-icon:hover {
+  background: #eee;
+}
+
+/* TABELAS */
+.tabela-responsiva {
+  overflow-x: auto;
+}
+.tabela-padrao {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 500px;
+}
+.tabela-padrao th {
+  background: var(--bg-body);
+  color: var(--text-muted);
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--border);
+}
+.tabela-padrao td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+/* UTILITÁRIOS TEXTO E COR */
+.text-muted {
+  color: var(--text-muted);
+}
+.text-success {
+  color: var(--success);
+}
+.text-danger {
+  color: var(--danger);
+}
+.text-center {
+  text-align: center;
+}
+.mb-1 {
+  margin-bottom: 5px;
+}
+.bg-light {
+  background: #f8f9fa;
+}
+
+/* 📱 MÁGICA: TABELAS RESPONSIVAS (Virão cartões no telemóvel) */
+@media (max-width: 768px) {
+  .tabela-padrao,
+  .tabela-padrao tbody,
+  .tabela-padrao tr,
+  .tabela-padrao td {
+    display: block;
+    width: 100%;
+  }
+  .tabela-padrao thead {
+    display: none;
+  } /* Esconde o cabeçalho no mobile */
+  .tabela-padrao tr {
+    margin-bottom: 15px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  }
+  .tabela-padrao td {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .tabela-padrao td:last-child {
+    border-bottom: none;
+  }
+  .tabela-padrao td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 10px;
+    width: 45%;
+    text-align: left;
+    font-weight: bold;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+}

@@ -30,7 +30,6 @@ import { useToast } from "./composables/useToast";
 
 const { triggerToast } = useToast();
 
-// --- ESTADOS GERAIS ---
 const session = ref(null);
 const aVerificarAcesso = ref(true);
 const clientes = ref([]);
@@ -51,15 +50,11 @@ const configLuthieria = ref({
 const assinatura = ref(null);
 const diasTrialRestantes = ref(0);
 
-// --- FUNÇÕES DE LÓGICA ---
-
 async function processarLeituraQR(textoLido) {
   mostrarScanner.value = false;
-
   try {
     const url = new URL(textoLido);
     const osId = url.searchParams.get("os");
-
     if (osId) {
       aVerificarAcesso.value = true;
       const { data, error } = await supabase
@@ -67,7 +62,6 @@ async function processarLeituraQR(textoLido) {
         .select(`*, instrumentos (*, cliente:clientes (*))`)
         .eq("id", osId)
         .single();
-
       if (data && !error) {
         servicoDireto.value = data;
         triggerToast("Ordem de Serviço carregada!", "success");
@@ -93,9 +87,7 @@ async function carregarAssinatura() {
       const fim = new Date(data.data_fim_trial);
       const diffTime = fim - hoje;
       diasTrialRestantes.value = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diasTrialRestantes.value <= 0) {
-        assinatura.value.status = "expirado";
-      }
+      if (diasTrialRestantes.value <= 0) assinatura.value.status = "expirado";
     }
   }
 }
@@ -119,7 +111,6 @@ async function fazerLogout() {
   configLuthieria.value = { nome_luthieria: "Gestão Luthieria", logo_url: "" };
   assinatura.value = null;
   session.value = null;
-
   document.documentElement.style.setProperty("--primary", "#2c3e50");
   document.documentElement.style.setProperty("--accent", "#d35400");
   triggerToast("Sessão encerrada com sucesso.", "info");
@@ -162,26 +153,22 @@ async function buscarClientes() {
 onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const osIdDoQrCode = urlParams.get("os");
-
   if (osIdDoQrCode) {
     const { data, error } = await supabase
       .from("servicos")
       .select(`*, instrumentos (*, cliente:clientes (*))`)
       .eq("id", osIdDoQrCode)
       .single();
-
     if (data && !error) {
       servicoDireto.value = data;
       window.history.replaceState({}, document.title, "/");
     }
   }
-
   supabase.auth.getSession().then(({ data }) => {
     session.value = data.session;
     if (session.value) inicializarApp();
     else aVerificarAcesso.value = false;
   });
-
   supabase.auth.onAuthStateChange((_event, _session) => {
     session.value = _session;
     if (_session) inicializarApp();
@@ -201,39 +188,31 @@ function irParaInicio() {
 function fecharTelasSecundarias() {
   irParaInicio();
 }
-
 function selecionarCliente(c) {
   clienteSelecionado.value = c;
 }
-
 function selecionarInstrumento(i) {
   instrumentoSelecionado.value = i;
 }
-
 function abrirServicoPeloDashboard(osCompleta) {
   servicoDireto.value = osCompleta;
 }
-
 function fecharServicoDireto() {
   servicoDireto.value = null;
   buscarClientes();
 }
-
 function iniciarEdicaoCliente(cliente) {
   clienteEditandoId.value = cliente.id;
   clienteEditado.value = { ...cliente };
 }
-
 function cancelarEdicaoCliente() {
   clienteEditandoId.value = null;
   clienteEditado.value = {};
 }
 
 async function salvarEdicaoCliente() {
-  if (!clienteEditado.value.nome) {
+  if (!clienteEditado.value.nome)
     return triggerToast("O nome do cliente não pode ficar em branco.", "error");
-  }
-
   const { error } = await supabase
     .from("clientes")
     .update({
@@ -243,11 +222,10 @@ async function salvarEdicaoCliente() {
       cpf_cnpj: clienteEditado.value.cpf_cnpj,
     })
     .eq("id", clienteEditandoId.value);
-
   if (!error) {
     buscarClientes();
     cancelarEdicaoCliente();
-    triggerToast("Dados do cliente atualizados com sucesso!", "success");
+    triggerToast("Dados do cliente atualizados!", "success");
   } else {
     triggerToast("Erro ao guardar cliente: " + error.message, "error");
   }
@@ -264,7 +242,6 @@ function formatarLinkZap(telefone) {
   <div class="app-container">
     <SpeedInsights />
     <Analytics />
-
     <ToastNotification />
 
     <div v-if="aVerificarAcesso" class="loader-container">
@@ -290,12 +267,7 @@ function formatarLinkZap(telefone) {
       </div>
 
       <div class="main-header card global-header">
-        <div
-          class="brand-area"
-          @click="irParaInicio"
-          style="cursor: pointer"
-          title="Voltar ao Início"
-        >
+        <div class="brand-area" @click="irParaInicio" title="Voltar ao Início">
           <img
             v-if="configLuthieria.logo_url"
             :src="configLuthieria.logo_url"
@@ -308,7 +280,7 @@ function formatarLinkZap(telefone) {
         <div class="header-buttons">
           <button
             @click="irParaInicio"
-            class="btn-outline btn-home"
+            class="btn-menu"
             :class="{
               active:
                 modoAtual === 'bancada' &&
@@ -316,11 +288,7 @@ function formatarLinkZap(telefone) {
                 !clienteSelecionado,
             }"
           >
-            🏠 Início
-          </button>
-
-          <button @click="mostrarScanner = true" class="btn-primary scan-btn">
-            📷 QR
+            <span class="icon">🏠</span> <span class="lbl">Início</span>
           </button>
 
           <button
@@ -329,10 +297,14 @@ function formatarLinkZap(telefone) {
               servicoDireto = null;
               clienteSelecionado = null;
             "
-            class="btn-outline"
+            class="btn-menu"
             :class="{ active: modoAtual === 'calendario' }"
           >
-            📅 Agenda
+            <span class="icon">📅</span> <span class="lbl">Agenda</span>
+          </button>
+
+          <button @click="mostrarScanner = true" class="btn-menu scan-btn">
+            <span class="icon">📷</span>
           </button>
 
           <button
@@ -341,10 +313,10 @@ function formatarLinkZap(telefone) {
               servicoDireto = null;
               clienteSelecionado = null;
             "
-            class="btn-outline"
+            class="btn-menu"
             :class="{ active: modoAtual === 'historico' }"
           >
-            📦 Arquivo
+            <span class="icon">📦</span> <span class="lbl">Arquivo</span>
           </button>
 
           <button
@@ -353,14 +325,17 @@ function formatarLinkZap(telefone) {
               servicoDireto = null;
               clienteSelecionado = null;
             "
-            class="btn-primary"
+            class="btn-menu"
             :class="{ active: modoAtual === 'admin' }"
           >
-            ⚙️ Admin
+            <span class="icon">⚙️</span> <span class="lbl">Admin</span>
           </button>
 
-          <button @click="fazerLogout" class="btn-outline text-danger">
-            🚪 Sair
+          <button
+            @click="fazerLogout"
+            class="btn-menu text-danger btn-sair-mobile"
+          >
+            <span class="icon">🚪</span> <span class="lbl">Sair</span>
           </button>
         </div>
       </div>
@@ -375,7 +350,6 @@ function formatarLinkZap(telefone) {
         <div v-if="modoAtual === 'admin'">
           <AdminArea @voltar="fecharTelasSecundarias" />
         </div>
-
         <div v-else-if="modoAtual === 'calendario'">
           <ExecucaoServico
             v-if="servicoDireto"
@@ -388,7 +362,6 @@ function formatarLinkZap(telefone) {
             @abrirOS="abrirServicoPeloDashboard"
           />
         </div>
-
         <div v-else-if="modoAtual === 'historico'">
           <ExecucaoServico
             v-if="servicoDireto"
@@ -401,7 +374,6 @@ function formatarLinkZap(telefone) {
             @abrirOS="abrirServicoPeloDashboard"
           />
         </div>
-
         <div v-else>
           <div v-if="servicoDireto">
             <ExecucaoServico
@@ -409,14 +381,12 @@ function formatarLinkZap(telefone) {
               @voltar="fecharServicoDireto"
             />
           </div>
-
           <div v-else-if="instrumentoSelecionado">
             <ServicoManager
               :instrumento="instrumentoSelecionado"
               @voltar="instrumentoSelecionado = null"
             />
           </div>
-
           <div v-else-if="clienteSelecionado">
             <button @click="clienteSelecionado = null" class="btn-outline mb-1">
               &larr; Voltar para Bancada
@@ -427,10 +397,8 @@ function formatarLinkZap(telefone) {
               @selecionarInstrumento="selecionarInstrumento"
             />
           </div>
-
           <div v-else>
             <DashboardAtividades @abrirOS="abrirServicoPeloDashboard" />
-
             <div class="controle-clientes">
               <button
                 class="btn-toggle-clientes"
@@ -443,7 +411,6 @@ function formatarLinkZap(telefone) {
                 }}
               </button>
             </div>
-
             <div v-show="mostrarClientes" class="clientes-grid">
               <div class="col-form">
                 <ClienteForm @clienteSalvo="buscarClientes" />
@@ -462,31 +429,31 @@ function formatarLinkZap(telefone) {
                     <tbody>
                       <tr v-for="cliente in clientes" :key="cliente.id">
                         <template v-if="clienteEditandoId === cliente.id">
-                          <td>
-                            <input v-model="clienteEditado.nome" class="mb-1" />
+                          <td data-label="Nome">
                             <input
+                              v-model="clienteEditado.nome"
+                              class="mb-1"
+                            /><input
                               v-model="clienteEditado.cpf_cnpj"
                               placeholder="CPF/CNPJ"
                             />
                           </td>
-                          <td>
+                          <td data-label="Contato">
                             <input
                               v-model="clienteEditado.telefone"
                               class="mb-1"
-                            />
-                            <input
+                            /><input
                               v-model="clienteEditado.email"
                               placeholder="E-mail"
                             />
                           </td>
-                          <td align="center">
+                          <td data-label="Ações" align="center">
                             <button
                               @click="salvarEdicaoCliente"
                               class="btn-icon text-success"
                             >
-                              💾
-                            </button>
-                            <button
+                              💾</button
+                            ><button
                               @click="cancelarEdicaoCliente"
                               class="btn-icon text-danger"
                             >
@@ -495,10 +462,10 @@ function formatarLinkZap(telefone) {
                           </td>
                         </template>
                         <template v-else>
-                          <td>
+                          <td data-label="Nome">
                             <strong>{{ cliente.nome }}</strong>
                           </td>
-                          <td>
+                          <td data-label="Contato">
                             <a
                               v-if="cliente.telefone"
                               :href="
@@ -510,14 +477,13 @@ function formatarLinkZap(telefone) {
                               >📱 WhatsApp</a
                             >
                           </td>
-                          <td align="center">
+                          <td data-label="Ações" align="center">
                             <button
                               class="btn-icon"
                               @click="selecionarCliente(cliente)"
                             >
-                              🎸
-                            </button>
-                            <button
+                              🎸</button
+                            ><button
                               class="btn-icon"
                               @click="iniciarEdicaoCliente(cliente)"
                             >
@@ -543,30 +509,7 @@ function formatarLinkZap(telefone) {
   </div>
 </template>
 
-<style>
-/* CSS GLOBAL */
-:root {
-  --primary: #2c3e50;
-  --accent: #d35400;
-  --accent-hover: #e67e22;
-  --bg-body: #f4f6f8;
-  --bg-card: #ffffff;
-  --text-main: #333333;
-  --text-muted: #6c757d;
-  --border: #e1e4e8;
-  --radius: 8px;
-  --radius-sm: 4px;
-  --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  --success: #27ae60;
-  --danger: #c0392b;
-  --warning: #f39c12;
-}
-body {
-  margin: 0;
-  background-color: var(--bg-body);
-  color: var(--text-main);
-  font-family: "Inter", "Segoe UI", sans-serif;
-}
+<style scoped>
 .app-container {
   padding: 20px;
   max-width: 1100px;
@@ -574,7 +517,6 @@ body {
   width: 100%;
   box-sizing: border-box;
 }
-
 .banner-trial {
   background: #fff3cd;
   color: #856404;
@@ -599,164 +541,15 @@ body {
   cursor: pointer;
 }
 
-.card,
-.box,
-.servico-box,
-.execucao-container,
-.catalogo-container {
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  padding: 20px;
-  box-sizing: border-box;
-}
-.title-section {
-  margin-top: 0;
-  color: var(--primary);
-  border-bottom: 2px solid var(--border);
-  padding-bottom: 10px;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: 0.95rem;
-  color: var(--text-main);
-  background-color: #fff;
-  transition: all 0.2s ease-in-out;
-  box-sizing: border-box;
-}
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15);
-}
-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: bold;
-  color: var(--text-muted);
-  margin-bottom: 5px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-button {
-  font-family: inherit;
-  border-radius: var(--radius-sm);
-  transition: 0.2s;
-  box-sizing: border-box;
-}
-.btn-primary {
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  padding: 10px 16px;
-  font-weight: bold;
-  cursor: pointer;
-}
-.btn-primary:hover {
-  background: #1a252f;
-  opacity: 0.9;
-}
-.btn-accent {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  padding: 10px 16px;
-  font-weight: bold;
-  cursor: pointer;
-}
-.btn-accent:hover {
-  filter: brightness(1.1);
-}
-.btn-outline {
-  background: transparent;
-  color: var(--primary);
-  border: 2px solid var(--primary);
-  padding: 8px 16px;
-  font-weight: bold;
-  cursor: pointer;
-}
-.btn-outline:hover,
-.btn-outline.active {
-  background: var(--primary);
-  color: #fff;
-}
-.btn-icon {
-  background: transparent;
-  border: none;
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1.1rem;
-}
-.btn-icon:hover {
-  background: #eee;
-}
-
-.tabela-responsiva {
-  overflow-x: auto;
-}
-.tabela-padrao {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 500px;
-}
-.tabela-padrao th {
-  background: var(--bg-body);
-  color: var(--text-muted);
-  padding: 12px 10px;
-  text-align: left;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  border-bottom: 2px solid var(--border);
-}
-.tabela-padrao td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.text-muted {
-  color: var(--text-muted);
-}
-.text-success {
-  color: var(--success);
-}
-.text-danger {
-  color: var(--danger);
-}
-.text-center {
-  text-align: center;
-}
-.mb-1 {
-  margin-bottom: 5px;
-}
-.bg-light {
-  background: #f8f9fa;
-}
-
-/* CABEÇALHO GLOBAL */
+/* CABEÇALHO GLOBAL ESTILOS DESKTOP */
 .global-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
-  flex-wrap: wrap;
-  gap: 15px;
-  border-bottom: 4px solid var(--accent);
   padding: 15px 20px;
+  border-bottom: 4px solid var(--accent);
+  background: var(--bg-card);
   position: sticky;
   top: 10px;
   z-index: 100;
@@ -765,6 +558,7 @@ button {
   display: flex;
   align-items: center;
   gap: 15px;
+  cursor: pointer;
   transition: opacity 0.2s;
 }
 .brand-area:hover {
@@ -781,15 +575,34 @@ button {
   color: var(--primary);
   white-space: nowrap;
 }
+
 .header-buttons {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-.scan-btn {
+.btn-menu {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  padding: 8px 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-menu:hover,
+.btn-menu.active {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-menu.scan-btn {
   background: var(--accent);
   border-color: var(--accent);
+  color: white;
 }
 
 .controle-clientes {
@@ -811,7 +624,6 @@ button {
   border-color: var(--primary);
   color: var(--primary);
 }
-
 .clientes-grid {
   display: flex;
   gap: 20px;
@@ -836,35 +648,91 @@ button {
   font-weight: bold;
   font-size: 0.85rem;
 }
-.badge-zap:hover {
-  background: #c8e6c9;
-}
 
+/* ========================================================= */
+/* 📱 MODO MOBILE: BOTTOM TAB BAR */
+/* ========================================================= */
 @media (max-width: 850px) {
   .global-header {
-    flex-direction: column;
-    text-align: center;
-    position: relative;
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-bottom: none;
     top: 0;
   }
-  .header-buttons {
-    justify-content: center;
-    width: 100%;
+  .btn-sair-mobile {
+    display: none !important;
   }
-  .header-buttons button {
-    flex: 1;
-    min-width: 100px;
-    font-size: 0.85rem;
-    padding: 8px;
-  }
-  .btn-home {
-    order: -1;
-    width: 100%;
-    flex: none !important;
-  }
-}
 
-@media (max-width: 768px) {
+  /* A Barra vai para o fundo */
+  .header-buttons {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.08);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 5px 5px 20px 5px; /* Safebox iPhone */
+    gap: 0;
+    z-index: 999;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Os botões viram ícones com texto abaixo */
+  .header-buttons .btn-menu {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-muted) !important;
+    font-size: 0.7rem;
+    padding: 8px 0;
+    min-height: 55px;
+    border-radius: 8px;
+    box-shadow: none !important;
+  }
+  .header-buttons .btn-menu .icon {
+    font-size: 1.3rem;
+  }
+
+  /* Botão QR Flutuante (Floating Action Button) */
+  .header-buttons .scan-btn {
+    position: relative;
+    top: -15px;
+    background: var(--accent) !important;
+    color: white !important;
+    border-radius: 50% !important;
+    min-height: 55px !important;
+    max-width: 55px !important;
+    flex: 0 0 55px !important;
+    box-shadow: 0 4px 10px rgba(211, 84, 0, 0.4) !important;
+  }
+  .header-buttons .scan-btn .lbl {
+    display: none;
+  }
+  .header-buttons .scan-btn .icon {
+    font-size: 1.5rem;
+    margin-top: 2px;
+  }
+
+  /* Cor do menu ativo */
+  .header-buttons .btn-menu.active {
+    color: var(--primary) !important;
+  }
+  .header-buttons .btn-menu.active .icon {
+    transform: scale(1.15);
+    transition: 0.2s;
+  }
+
+  .app-container {
+    padding-bottom: 90px;
+  }
   .clientes-grid {
     flex-direction: column;
   }

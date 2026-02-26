@@ -126,8 +126,8 @@ async function apagarDados(tipo) {
       <p style="color: #991b1b">
         Esta área permite-lhe apagar os <strong>seus registos</strong> em massa
         para limpar testes ou começar a oficina do zero.
-        <strong>Esta ação é irreversível.</strong> Os serviços do catálogo e
-        configurações não serão afetados.
+        <strong>Esta ação é irreversível.</strong> <br />Os serviços/produtos do
+        catálogo e configurações não serão afetados.
       </p>
 
       <div
@@ -178,7 +178,7 @@ async function apagarDados(tipo) {
         :disabled="!podeLimpar || processando"
         @click="apagarDados('instrumentos')"
       >
-        🎸 2. Limpar Meus Instrumentos
+        🎸 2. Limpar Todos Instrumentos
       </button>
       <button
         class="btn-clean"
@@ -192,7 +192,7 @@ async function apagarDados(tipo) {
         :disabled="!podeLimpar || processando"
         @click="apagarDados('clientes')"
       >
-        👤 4. Limpar Meus Clientes
+        👤 4. Limpar Base de Clientes (Cuidado!)
       </button>
 
       <button
@@ -201,7 +201,7 @@ async function apagarDados(tipo) {
         @click="apagarDados('tudo')"
         style="grid-column: 1 / -1"
       >
-        ☢️ APAGAR TUDO (O.S, Instrumentos, Financeiro e Clientes)
+        ☢️ APAGAR TUDO (O.S, Instrumentos, Financeiro e Clientes) ☢️
       </button>
     </div>
 
