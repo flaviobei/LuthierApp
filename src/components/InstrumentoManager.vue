@@ -6,22 +6,16 @@
  * modelos e números de série, vinculando cada instrumento a um cliente.
  * @project     LuthierApp
  * ============================================================================
- * @dependencies
- * - vue: ref, onMounted.
- * - supabaseClient: Acesso à tabela 'instrumentos' e 'clientes'.
- * * @functions
- * - carregarDados(): Carrega a lista de instrumentos e a lista de clientes para vínculo.
- * - salvarInstrumento(): Registra o instrumento no banco associado ao dono.
- * * @notes
- * - Funciona como uma etapa intermediária obrigatória para a abertura de uma O.S.
- * ============================================================================
  */
 
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
 
 const props = defineProps(["clienteId", "clienteNome"]);
 const emit = defineEmits(["fechar", "selecionarInstrumento"]);
+
+const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
 
 const instrumentos = ref([]);
 const form = ref({
@@ -42,9 +36,14 @@ async function buscarInstrumentos() {
 }
 
 async function adicionarInstrumento() {
-  if (!form.value.marca || !form.value.modelo)
-    return alert("Preencha marca e modelo");
+  if (!form.value.marca || !form.value.modelo) {
+    // SUBSTITUÍDO: alert() por triggerToast()
+    triggerToast("Preencha a marca e o modelo do instrumento.", "error");
+    return;
+  }
+    
   loading.value = true;
+  
   const { error } = await supabase.from("instrumentos").insert([
     {
       cliente_id: props.clienteId,
@@ -55,13 +54,19 @@ async function adicionarInstrumento() {
       afinacao_padrao: form.value.afinacao,
     },
   ]);
+  
   loading.value = false;
+  
   if (!error) {
     form.value.marca = "";
     form.value.modelo = "";
     form.value.numero_serie = "";
+    triggerToast("Instrumento registado com sucesso!", "success"); // <-- MENSAGEM DE SUCESSO
     buscarInstrumentos();
-  } else alert(error.message);
+  } else {
+    // SUBSTITUÍDO: alert() por triggerToast()
+    triggerToast("Erro ao guardar instrumento: " + error.message, "error");
+  }
 }
 
 onMounted(() => buscarInstrumentos());
