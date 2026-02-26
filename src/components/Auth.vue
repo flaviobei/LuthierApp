@@ -1,18 +1,23 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        Auth.vue
+ * @description Componente de autenticação. Corrigido para sincronizar
+ * variáveis de estado com o template (isLogin e message).
+ * ============================================================================
+ */
 import { ref } from "vue";
 import { supabase } from "../lib/supabaseClient";
 
 const loading = ref(false);
 const email = ref("");
 const password = ref("");
-const isLogin = ref(true); // Alterado para coincidir com o template
-const errorMsg = ref("");
-const successMsg = ref("");
+const isLogin = ref(true);
+const message = ref(""); // Centralizado para exibir sucessos e erros
 
 async function handleAuth() {
   loading.value = true;
-  errorMsg.value = "";
-  successMsg.value = "";
+  message.value = "";
 
   try {
     if (!isLogin.value) {
@@ -24,7 +29,7 @@ async function handleAuth() {
         password: password.value,
       });
       if (error) throw error;
-      successMsg.value = "Conta criada! Verifique o seu e-mail.";
+      message.value = "Conta criada! Verifique o seu e-mail para confirmar.";
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email: email.value,
@@ -33,7 +38,7 @@ async function handleAuth() {
       if (error) throw error;
     }
   } catch (error) {
-    errorMsg.value = error.message;
+    message.value = "Erro: " + error.message;
   } finally {
     loading.value = false;
   }
@@ -53,7 +58,7 @@ async function handleAuth() {
           color: var(--text-muted);
         "
       >
-        {{ isLogin ? "Entrar" : "Criar Conta" }}
+        {{ isLogin ? "Entrar" : "Criar Conta de Luthier" }}
       </h3>
 
       <div class="form-group">
@@ -75,9 +80,12 @@ async function handleAuth() {
         {{ loading ? "⏳ Aguarde..." : isLogin ? "Entrar" : "Registar" }}
       </button>
 
-      <p v-if="errorMsg" class="auth-message text-danger">{{ errorMsg }}</p>
-      <p v-if="successMsg" class="auth-message text-success">
-        {{ successMsg }}
+      <p
+        v-if="message"
+        class="auth-message"
+        :class="{ 'text-danger': message.includes('Erro') }"
+      >
+        {{ message }}
       </p>
 
       <div style="text-align: center; margin-top: 20px">
@@ -86,14 +94,37 @@ async function handleAuth() {
           style="color: var(--accent); text-decoration: underline"
           @click="
             isLogin = !isLogin;
-            errorMsg = '';
-            successMsg = '';
+            message = '';
           "
         >
-          {{ isLogin ? "Não tem conta? Registe-se" : "Já tem conta? Login" }}
+          {{
+            isLogin ? "Não tem conta? Registe-se" : "Já tem conta? Fazer Login"
+          }}
         </button>
         <h6 style="margin-top: 10px; opacity: 0.5">versão beta</h6>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.auth-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--bg-body);
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 30px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+.auth-message {
+  text-align: center;
+  margin-top: 15px;
+  font-weight: bold;
+  color: var(--success);
+}
+</style>
