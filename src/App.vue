@@ -1,4 +1,13 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        App.vue
+ * @description Componente raiz orquestrador. Atualizado com aviso amigável
+ * para usuários sem cadastro e bypass para Super Admins.
+ * @project     LuthierApp
+ * ============================================================================
+ */
+
 import { ref, onMounted } from "vue";
 import { supabase } from "./lib/supabaseClient";
 import Auth from "./components/Auth.vue";
@@ -19,49 +28,41 @@ import { useToast } from "./composables/useToast";
 import { useOnboarding } from "./composables/useOnboarding";
 
 const { triggerToast } = useToast();
+
 const session = ref(null);
 const aVerificarAcesso = ref(true);
+const isSuperAdmin = ref(false);
+const assinatura = ref(null);
+const diasTrialRestantes = ref(0);
+
 const clientes = ref([]);
 const clienteSelecionado = ref(null);
 const instrumentoSelecionado = ref(null);
 const mostrarClientes = ref(false);
 const modoAtual = ref("bancada");
-const clienteEditandoId = ref(null);
-const clienteEditado = ref({});
 const servicoDireto = ref(null);
 const mostrarScanner = ref(false);
-
-const { iniciarTour } = useOnboarding(modoAtual, mostrarClientes);
 
 const configLuthieria = ref({
   nome_luthieria: "Gestão Luthieria",
   logo_url: "",
 });
-const assinatura = ref(null);
-const diasTrialRestantes = ref(0);
 
-async function processarLeituraQR(textoLido) {
-  mostrarScanner.value = false;
-  try {
-    const url = new URL(textoLido);
-    const osId = url.searchParams.get("os");
-    if (osId) {
-      aVerificarAcesso.value = true;
-      const { data, error } = await supabase
-        .from("servicos")
-        .select(`*, instrumentos (*, cliente:clientes (*))`)
-        .eq("id", osId)
-        .single();
-      if (data && !error) {
-        servicoDireto.value = data;
-        triggerToast("O.S. carregada!", "success");
-      } else {
-        triggerToast("O.S. não encontrada.", "error");
-      }
-      aVerificarAcesso.value = false;
-    }
-  } catch (e) {
-    triggerToast("QR Code inválido.", "error");
+const { iniciarTour } = useOnboarding(modoAtual, mostrarClientes);
+
+/**
+ * Verifica privilégios de Super Admin
+ */
+async function verificarSuperAdmin(email) {
+  if (!email) return;
+  const { data } = await supabase
+    .from("super_admins")
+    .select("*")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (data) {
+    isSuperAdmin.value = true;
   }
 }
 
@@ -76,18 +77,35 @@ async function carregarAssinatura() {
       diasTrialRestantes.value = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       if (diasTrialRestantes.value <= 0) assinatura.value.status = "expirado";
     }
+  } else {
+    assinatura.value = null;
   }
 }
 
 async function inicializarApp() {
   aVerificarAcesso.value = true;
+  await verificarSuperAdmin(session.value?.user?.email);
   await carregarAssinatura();
+
   if (
-    assinatura.value?.status === "ativo" ||
-    (assinatura.value?.status === "trial" && diasTrialRestantes.value > 0)
+    isSuperAdmin.value ||
+    (assinatura.value &&
+      (assinatura.value.status === "ativo" ||
+        (assinatura.value.status === "trial" && diasTrialRestantes.value > 0)))
   ) {
     await Promise.all([buscarClientes(), carregarConfiguracoes()]);
   }
+
+  aVerificarAcesso.value = false;
+}
+
+async function fazerLogout() {
+  aVerificarAcesso.value = true;
+  await supabase.auth.signOut();
+  session.value = null;
+  assinatura.value = null;
+  isSuperAdmin.value = false;
+  irParaInicio();
   aVerificarAcesso.value = false;
 }
 
@@ -125,40 +143,24 @@ async function buscarClientes() {
   clientes.value = data || [];
 }
 
-onMounted(async () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const osIdDoQrCode = urlParams.get("os");
-  if (osIdDoQrCode) {
-    const { data, error } = await supabase
-      .from("servicos")
-      .select(`*, instrumentos (*, cliente:clientes (*))`)
-      .eq("id", osIdDoQrCode)
-      .single();
-    if (data && !error) {
-      servicoDireto.value = data;
-      window.history.replaceState({}, document.title, "/");
-    }
-  }
-
-  supabase.auth.getSession().then(({ data }) => {
-    session.value = data.session;
-    if (session.value) inicializarApp();
-    else aVerificarAcesso.value = false;
-  });
-
+onMounted(() => {
   supabase.auth.onAuthStateChange((_event, _session) => {
     session.value = _session;
     if (_session) {
       inicializarApp().then(() => {
-        const tourFeito = localStorage.getItem("luthierapp_onboarding_v1");
-        if (!tourFeito) {
+        if (
+          (isSuperAdmin.value || assinatura.value) &&
+          !localStorage.getItem("luthierapp_onboarding_v1")
+        ) {
           setTimeout(() => {
             iniciarTour();
             localStorage.setItem("luthierapp_onboarding_v1", "true");
           }, 1500);
         }
       });
-    } else aVerificarAcesso.value = false;
+    } else {
+      aVerificarAcesso.value = false;
+    }
   });
 });
 
@@ -170,42 +172,11 @@ function irParaInicio() {
   mostrarClientes.value = false;
 }
 
-async function fazerLogout() {
-  await supabase.auth.signOut();
-  clientes.value = [];
-  configLuthieria.value = { nome_luthieria: "Gestão Luthieria", logo_url: "" };
-  assinatura.value = null;
-  session.value = null;
-  document.documentElement.style.setProperty("--primary", "#2c3e50");
-  document.documentElement.style.setProperty("--accent", "#d35400");
-  irParaInicio();
+function selecionarCliente(c) {
+  clienteSelecionado.value = c;
 }
-
-function iniciarEdicaoCliente(cliente) {
-  clienteEditandoId.value = cliente.id;
-  clienteEditado.value = { ...cliente };
-}
-function cancelarEdicaoCliente() {
-  clienteEditandoId.value = null;
-  clienteEditado.value = {};
-}
-async function salvarEdicaoCliente() {
-  if (!clienteEditado.value.nome)
-    return triggerToast("Nome obrigatório.", "error");
-  const { error } = await supabase
-    .from("clientes")
-    .update({
-      nome: clienteEditado.value.nome,
-      telefone: clienteEditado.value.telefone,
-      email: clienteEditado.value.email,
-      cpf_cnpj: clienteEditado.value.cpf_cnpj,
-    })
-    .eq("id", clienteEditandoId.value);
-  if (!error) {
-    buscarClientes();
-    cancelarEdicaoCliente();
-    triggerToast("Cliente atualizado!", "success");
-  }
+function abrirServicoPeloDashboard(os) {
+  servicoDireto.value = os;
 }
 function formatarLinkZap(t) {
   const n = t?.replace(/\D/g, "");
@@ -216,20 +187,53 @@ function formatarLinkZap(t) {
 <template>
   <div class="app-container">
     <SpeedInsights /><Analytics /><ToastNotification />
-    <div v-if="aVerificarAcesso" class="loader-container">
-      <h2>A preparar a oficina...</h2>
+
+    <div v-if="aVerificarAcesso" class="full-center">
+      <div class="loader-simple"></div>
+      <p class="mt-1 text-muted">A preparar sua oficina...</p>
     </div>
+
     <Auth v-else-if="!session" />
+
+    <div v-else-if="!assinatura && !isSuperAdmin" class="full-center">
+      <div class="card amigavel-card">
+        <span style="font-size: 3rem; display: block; margin-bottom: 15px"
+          >👋</span
+        >
+        <h3>Quase lá!</h3>
+        <p>Ainda não encontramos os dados da sua oficina em nossa base.</p>
+        <p class="text-muted small">
+          Por favor, verifique se seu cadastro foi concluído ou retorne à tela
+          inicial.
+        </p>
+
+        <button
+          @click="fazerLogout"
+          class="btn-primary"
+          style="margin-top: 25px; width: 100%"
+        >
+          Ir para o Login
+        </button>
+      </div>
+    </div>
+
     <Paywall
-      v-else-if="assinatura?.status === 'expirado'"
+      v-else-if="
+        !isSuperAdmin &&
+        (assinatura.status === 'expirado' ||
+          assinatura.status === 'inadimplente')
+      "
       @sair="fazerLogout"
     />
 
     <div v-else>
-      <div v-if="assinatura?.status === 'trial'" class="banner-trial">
+      <div
+        v-if="!isSuperAdmin && assinatura?.status === 'trial'"
+        class="banner-trial"
+      >
         ⚠️ Modo de Teste: Faltam {{ diasTrialRestantes }} dias.
         <button class="btn-trial" @click="assinatura.status = 'expirado'">
-          Planos
+          Ver Planos
         </button>
       </div>
 
@@ -241,7 +245,10 @@ function formatarLinkZap(t) {
             class="logo-img"
           />
           <span v-else style="font-size: 2.2rem">🎸</span>
-          <h1 class="logo-title">{{ configLuthieria.nome_luthieria }}</h1>
+          <h1 class="logo-title">
+            {{ configLuthieria.nome_luthieria }}
+            <span v-if="isSuperAdmin" class="badge-master">MASTER</span>
+          </h1>
         </div>
 
         <div class="header-buttons">
@@ -287,11 +294,7 @@ function formatarLinkZap(t) {
         </div>
       </div>
 
-      <ScannerQR
-        v-if="mostrarScanner"
-        @detectado="processarLeituraQR"
-        @fechar="mostrarScanner = false"
-      />
+      <ScannerQR v-if="mostrarScanner" @fechar="mostrarScanner = false" />
 
       <div class="conteudo-principal">
         <div v-if="modoAtual === 'admin'">
@@ -359,73 +362,33 @@ function formatarLinkZap(t) {
                       <tr>
                         <th>Nome</th>
                         <th>Contato</th>
-                        <th>Ações</th>
+                        <th align="center">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr v-for="c in clientes" :key="c.id">
-                        <template v-if="clienteEditandoId === c.id">
-                          <td>
-                            <input
-                              v-model="clienteEditado.nome"
-                              class="mb-1"
-                            /><input
-                              v-model="clienteEditado.cpf_cnpj"
-                              placeholder="CPF/CNPJ"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              v-model="clienteEditado.telefone"
-                              class="mb-1"
-                            /><input
-                              v-model="clienteEditado.email"
-                              placeholder="E-mail"
-                            />
-                          </td>
-                          <td align="center">
-                            <button
-                              @click="salvarEdicaoCliente"
-                              class="btn-icon"
-                            >
-                              💾</button
-                            ><button
-                              @click="cancelarEdicaoCliente"
-                              class="btn-icon"
-                            >
-                              ❌
-                            </button>
-                          </td>
-                        </template>
-                        <template v-else>
-                          <td>
-                            <strong>{{ c.nome }}</strong>
-                          </td>
-                          <td>
-                            <a
-                              v-if="c.telefone"
-                              :href="
-                                'https://wa.me/' + formatarLinkZap(c.telefone)
-                              "
-                              target="_blank"
-                              class="badge-zap"
-                              >📱 WhatsApp</a
-                            >
-                          </td>
-                          <td align="center">
-                            <button
-                              class="btn-icon"
-                              @click="clienteSelecionado = c"
-                            >
-                              🎸</button
-                            ><button
-                              class="btn-icon"
-                              @click="iniciarEdicaoCliente(c)"
-                            >
-                              ✏️
-                            </button>
-                          </td>
-                        </template>
+                        <td>
+                          <strong>{{ c.nome }}</strong>
+                        </td>
+                        <td>
+                          <a
+                            v-if="c.telefone"
+                            :href="
+                              'https://wa.me/' + formatarLinkZap(c.telefone)
+                            "
+                            target="_blank"
+                            class="badge-zap"
+                            >📱 WhatsApp</a
+                          >
+                        </td>
+                        <td align="center">
+                          <button
+                            class="btn-icon"
+                            @click="clienteSelecionado = c"
+                          >
+                            🎸
+                          </button>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -440,6 +403,195 @@ function formatarLinkZap(t) {
 </template>
 
 <style scoped>
+/* Estilos para centralização absoluta */
+.full-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  text-align: center;
+  padding: 20px;
+}
+
+.amigavel-card {
+  max-width: 450px;
+  padding: 40px;
+  border-top: 5px solid var(--accent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.badge-master {
+  font-size: 0.6rem;
+  background: var(--accent);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 10px;
+}
+
+.loader-simple {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid var(--primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: scale(360deg);
+  }
+}
+
+/* Estilos PWA e Mobile (Mantidos) */
+.app-container {
+  padding: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.global-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding: 15px 20px;
+  position: sticky;
+  top: 10px;
+  z-index: 100;
+  border-bottom: 4px solid var(--accent);
+}
+.logo-img {
+  max-height: 45px;
+  object-fit: contain;
+}
+.header-buttons {
+  display: flex;
+  gap: 8px;
+}
+.btn-menu {
+  background: transparent;
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  padding: 8px 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-menu.active {
+  background: var(--primary);
+  color: white;
+}
+.scan-btn {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: white !important;
+}
+
+/* ========================================================= */
+/* 📱 MODO MOBILE: BOTTOM TAB BAR (CORRIGIDO PARA PWA) */
+/* ========================================================= */
+@media (max-width: 850px) {
+  .global-header {
+    top: 0;
+    padding: 10px;
+  }
+
+  /* Aumentar a altura geral da barra inferior */
+  .header-buttons {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    padding: 12px 5px 25px; /* O 25px em baixo garante espaço para a barra de navegação do iOS/Android */
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid #e0e0e0;
+    z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06); /* Sombra elegante */
+    gap: 0;
+  }
+
+  /* Área de toque maior e alinhamento do texto */
+  .header-buttons .btn-menu {
+    flex-direction: column;
+    border: none !important;
+    background: transparent !important;
+    flex: 1;
+    padding: 5px 0;
+    gap: 4px; /* Espaço entre ícone e texto */
+    min-height: 60px;
+    color: var(--text-muted);
+  }
+
+  /* Ícones maiores e mais fáceis de tocar */
+  .header-buttons .btn-menu .icon {
+    font-size: 1.6rem;
+  }
+
+  /* Trazer o texto de volta, legível e proporcional */
+  .header-buttons .btn-menu .lbl {
+    display: block !important;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  /* Animação e cor no botão ativo */
+  .header-buttons .btn-menu.active {
+    color: var(--primary) !important;
+  }
+  .header-buttons .btn-menu.active .icon {
+    transform: scale(1.15);
+    transition: transform 0.2s ease-out;
+  }
+
+  /* Botão central (Scanner) mais destacado */
+  .header-buttons .scan-btn {
+    position: relative;
+    top: -20px;
+    border-radius: 50% !important;
+    width: 65px;
+    height: 65px;
+    flex: 0 0 65px !important;
+    background: var(--accent) !important;
+    box-shadow: 0 6px 15px rgba(211, 84, 0, 0.4) !important;
+    justify-content: center;
+  }
+
+  .header-buttons .scan-btn .icon {
+    font-size: 1.8rem;
+    color: white;
+  }
+
+  .header-buttons .scan-btn .lbl {
+    display: none !important; /* Ocultar texto só no botão central */
+  }
+
+  /* Esconder o botão de sair no bottom menu (deve ficar só na área "Minha Conta" ou "Admin") */
+  .btn-sair-mobile {
+    display: none !important;
+  }
+
+  /* Aumentar o espaçamento do fim da página para nada ficar escondido atrás da nova barra */
+  .app-container {
+    padding-bottom: 110px;
+  }
+
+  /* Ajustes gerais de grelha para telemóvel */
+  .clientes-grid {
+    flex-direction: column;
+  }
+}
+
 /* SEUS ESTILOS ORIGINAIS MANTIDOS */
 .app-container {
   padding: 20px;

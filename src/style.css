@@ -1,5 +1,6 @@
 /* ==========================================================================
    CSS GLOBAL DO LUTHIER APP (style.css)
+   Padrão: PWA UI/UX (Touch-friendly & Alinhamento Pixel-Perfect)
    ========================================================================== */
 
 :root {
@@ -11,22 +12,34 @@
   --text-main: #333333;
   --text-muted: #6c757d;
   --border: #e1e4e8;
-  --radius: 8px;
-  --radius-sm: 4px;
-  --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  --radius: 12px; /* Aumentado para bordas mais suaves e modernas */
+  --radius-sm: 8px; /* Aumentado para botões e inputs */
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); /* Sombra mais elegante e subtil */
   --success: #27ae60;
   --danger: #c0392b;
   --warning: #f39c12;
+}
+
+/* ========================================================= */
+/* 1. FUNDAÇÃO & RESET */
+/* ========================================================= */
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   background-color: var(--bg-body);
   color: var(--text-main);
-  font-family: "Inter", "Segoe UI", sans-serif;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* CAIXAS E ESTRUTURA */
+/* ========================================================= */
+/* 2. CAIXAS E ESTRUTURA (Mais respiro interno) */
+/* ========================================================= */
 .card,
 .box,
 .servico-box,
@@ -36,31 +49,51 @@ body {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  padding: 20px;
-  box-sizing: border-box;
+  padding: 24px; /* Mais padding para o conteúdo respirar */
+  margin-bottom: 20px;
 }
 
 .title-section {
   margin-top: 0;
+  margin-bottom: 20px;
   color: var(--primary);
   border-bottom: 2px solid var(--border);
-  padding-bottom: 10px;
+  padding-bottom: 12px;
+  font-size: 1.25rem;
 }
 
-/* FORMULÁRIOS */
+/* ========================================================= */
+/* 3. FORMULÁRIOS & INPUTS (Padrão 44px de Hit Target) */
+/* ========================================================= */
+.form-group {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
 input,
 select,
 textarea {
   width: 100%;
-  padding: 10px 12px;
+  min-height: 44px; /* Padrão Apple/Google para touch */
+  padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--text-main);
   background-color: #fff;
-  transition: all 0.2s ease-in-out;
-  box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 input:focus,
@@ -68,104 +101,122 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15);
+  box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15); /* Efeito de foco visual mantido */
 }
 
-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: bold;
-  color: var(--text-muted);
-  margin-bottom: 5px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-/* BOTÕES GERAIS */
+/* ========================================================= */
+/* 4. BOTÕES (Alinhamento perfeito com Inputs) */
+/* ========================================================= */
 button {
   font-family: inherit;
   border-radius: var(--radius-sm);
-  transition: 0.2s;
-  box-sizing: border-box;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Espaço padronizado entre ícone e texto */
+}
+
+.btn-primary,
+.btn-accent,
+.btn-outline {
+  min-height: 44px; /* Nivela a altura com os inputs */
+  padding: 0 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
 }
 
 .btn-primary {
   background: var(--primary);
   color: #fff;
   border: none;
-  padding: 10px 16px;
-  font-weight: bold;
-  cursor: pointer;
 }
+
 .btn-primary:hover {
   background: #1a252f;
-  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 .btn-accent {
   background: var(--accent);
   color: #fff;
   border: none;
-  padding: 10px 16px;
-  font-weight: bold;
-  cursor: pointer;
 }
+
 .btn-accent:hover {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
+  transform: translateY(-1px);
 }
 
 .btn-outline {
   background: transparent;
   color: var(--primary);
   border: 2px solid var(--primary);
-  padding: 8px 16px;
-  font-weight: bold;
-  cursor: pointer;
-}
-.btn-outline:hover {
-  background: var(--primary);
-  color: #fff;
 }
 
+.btn-outline:hover {
+  background: rgba(44, 62, 80, 0.05); /* Hover subtil em vez de fundo sólido */
+}
+
+/* Botões de Ação Pequenos (Tabelas e Cards) */
 .btn-icon {
   background: transparent;
-  border: none;
-  padding: 6px 8px;
-  border-radius: 4px;
+  border: 1px solid transparent;
+  min-width: 44px; /* Hit target otimizado */
+  min-height: 44px; /* Hit target otimizado */
+  padding: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 1.1rem;
-}
-.btn-icon:hover {
-  background: #eee;
+  font-size: 1.2rem;
 }
 
-/* TABELAS */
+.btn-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: var(--border);
+}
+
+/* ========================================================= */
+/* 5. TABELAS DE DADOS (Mais legíveis e aeradas) */
+/* ========================================================= */
 .tabela-responsiva {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 }
+
 .tabela-padrao {
   width: 100%;
   border-collapse: collapse;
   min-width: 500px;
-}
-.tabela-padrao th {
-  background: var(--bg-body);
-  color: var(--text-muted);
-  padding: 12px 10px;
   text-align: left;
+}
+
+.tabela-padrao th {
+  background: #f8fafc; /* Fundo leve para destacar o cabeçalho */
+  color: var(--text-muted);
+  padding: 14px 16px; /* Aumentado */
   font-size: 0.85rem;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
   border-bottom: 2px solid var(--border);
 }
+
 .tabela-padrao td {
-  padding: 12px 10px;
+  padding: 14px 16px; /* Aumentado para não esmagar o texto */
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
-/* UTILITÁRIOS TEXTO E COR */
+.tabela-padrao tbody tr:hover {
+  background-color: #fcfcfc; /* Highlight de leitura da linha */
+}
+
+/* ========================================================= */
+/* 6. UTILITÁRIOS E ALINHAMENTOS (FLEXBOX) */
+/* ========================================================= */
 .text-muted {
   color: var(--text-muted);
 }
@@ -179,16 +230,48 @@ button {
   text-align: center;
 }
 .mb-1 {
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+}
+.mb-2 {
+  margin-bottom: 16px;
+}
+.mt-1 {
+  margin-top: 8px;
+}
+.mt-2 {
+  margin-top: 16px;
+}
+.w-full {
+  width: 100%;
 }
 .bg-light {
   background: #f8f9fa;
 }
 
-/* 📱 MÁGICA: TABELAS RESPONSIVAS (Virão cartões no telemóvel) */
+/* Utilitários Flexbox para alinhar campos ao lado de botões facilmente */
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+.flex-gap-10 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.flex-gap-15 {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+/* ========================================================= */
+/* 7. 📱 MÁGICA: TABELAS RESPONSIVAS (Modo Cartão PWA) */
+/* ========================================================= */
 @media (max-width: 768px) {
   .tabela-padrao {
-    min-width: 100% !important; /* <-- ISTO CORRIGE O ESTOURO DA LARGURA */
+    min-width: 100% !important;
   }
 
   .tabela-padrao,
@@ -197,29 +280,30 @@ button {
   .tabela-padrao td {
     display: block;
     width: 100%;
-    box-sizing: border-box; /* Impede que o espaçamento interno some na largura */
   }
 
   .tabela-padrao thead {
     display: none;
-  } /* Esconde o cabeçalho no mobile */
+  }
 
   .tabela-padrao tr {
     margin-bottom: 15px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 10px;
+    padding: 12px; /* Aumentado */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
   }
 
   .tabela-padrao td {
     text-align: right;
-    padding-left: 45%; /* Dá espaço para a label da esquerda */
+    padding-left: 45%;
+    padding-top: 12px;
+    padding-bottom: 12px;
     position: relative;
     border: none;
     border-bottom: 1px solid #f1f5f9;
-    word-break: break-word; /* <-- ISTO IMPEDE QUE E-MAILS LONGOS ESTOUREM A TELA */
-    min-height: 40px;
+    word-break: break-word;
+    min-height: 44px; /* Hit target garantido no modo mobile */
   }
 
   .tabela-padrao td:last-child {
@@ -229,12 +313,14 @@ button {
   .tabela-padrao td::before {
     content: attr(data-label);
     position: absolute;
-    left: 10px;
+    left: 12px;
+    top: 50%; /* Centralização vertical precisa da label */
+    transform: translateY(-50%); /* Centralização vertical precisa da label */
     width: 40%;
     text-align: left;
-    font-weight: bold;
+    font-weight: 600;
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     white-space: normal;
   }
 }
