@@ -92,7 +92,7 @@ async function carregarDiario() {
     .select("*")
     .eq("servico_id", servicoLocal.value.id)
     .order("data_registro", { ascending: false });
-  if (error) triggerToast("Erro ao carregar diário", "error");
+  if (error) triggerToast("Erro ao carregar diário: " + error.message, "error");
   if (data) diario.value = data;
 }
 
@@ -102,8 +102,40 @@ async function carregarChecklist() {
     .select("*")
     .eq("servico_id", servicoLocal.value.id)
     .order("id", { ascending: true });
-  if (error) triggerToast("Erro ao carregar checklist", "error");
-  if (data) checklistItens.value = data;
+
+  if (error) {
+    return triggerToast(
+      "Erro ao carregar checklist: " + error.message,
+      "error",
+    );
+  }
+
+  // CORREÇÃO: Se a O.S. for nova e não tiver checklist, puxa do Padrão
+  if (!data || data.length === 0) {
+    const { data: padrao } = await supabase
+      .from("checklist_padrao")
+      .select("*");
+
+    if (padrao && padrao.length > 0) {
+      const novosItens = padrao.map((p) => ({
+        servico_id: servicoLocal.value.id,
+        descricao: p.item_nome,
+        status: "Ok", // Status inicial padrão
+      }));
+
+      const { data: inseridos, error: errInsert } = await supabase
+        .from("checklist_servico")
+        .insert(novosItens)
+        .select();
+
+      if (!errInsert && inseridos) {
+        checklistItens.value = inseridos;
+        return;
+      }
+    }
+  }
+
+  checklistItens.value = data || [];
 }
 
 async function carregarFotosChecklist() {
@@ -112,7 +144,7 @@ async function carregarFotosChecklist() {
     .select("*")
     .eq("servico_id", servicoLocal.value.id)
     .order("created_at", { ascending: false });
-  if (error) console.error(error);
+  if (error) console.error("Erro fotos:", error.message);
   if (data) fotosChecklist.value = data;
 }
 
@@ -122,7 +154,7 @@ async function carregarOrcamento() {
     .select("*")
     .eq("servico_id", servicoLocal.value.id)
     .order("created_at", { ascending: true });
-  if (error) console.error(error);
+  if (error) console.error("Erro orçamento:", error.message);
   if (data) itensOrcamento.value = data;
 }
 
@@ -140,7 +172,7 @@ async function carregarPagamentos() {
     .select("*")
     .eq("servico_id", servicoLocal.value.id)
     .order("data_pagamento", { ascending: false });
-  if (error) console.error(error);
+  if (error) console.error("Erro pagamentos:", error.message);
   if (data) pagamentosOS.value = data;
 }
 
@@ -159,6 +191,7 @@ async function uploadFotoChecklist(event) {
   const arquivoOriginal = event.target.files[0];
   if (!arquivoOriginal) return;
   carregandoFoto.value = true;
+
   try {
     const arquivoComprimido = await comprimirImagem(
       arquivoOriginal,
@@ -171,13 +204,14 @@ async function uploadFotoChecklist(event) {
     const { error: uploadError } = await supabase.storage
       .from("fotos-luthieria")
       .upload(fileName, arquivoComprimido);
+
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage
       .from("fotos-luthieria")
       .getPublicUrl(fileName);
 
-    // CORREÇÃO AQUI: Mudado de 'url' para 'foto_url' conforme o erro avisou
+    // CORREÇÃO: Usa foto_url no lugar de url
     const { data: insertData, error: dbError } = await supabase
       .from("checklist_fotos")
       .insert([
@@ -202,7 +236,8 @@ async function deletarFoto(id) {
       .from("checklist_fotos")
       .delete()
       .eq("id", id);
-    if (error) return triggerToast("Erro ao excluir.", "error");
+    if (error)
+      return triggerToast("Erro ao excluir: " + error.message, "error");
     fotosChecklist.value = fotosChecklist.value.filter((f) => f.id !== id);
     idFotoConfirmar.value = null;
     triggerToast("Foto removida.", "info");
@@ -220,6 +255,7 @@ async function deletarFoto(id) {
 async function adicionarEntradaDiario() {
   if (!novaEntradaDiario.value.descricao)
     return triggerToast("Anotação não pode estar vazia.", "error");
+
   const { data, error } = await supabase
     .from("diario_servico")
     .insert([
@@ -250,6 +286,7 @@ async function adicionarEntradaDiario() {
 // FUNÇÕES DE ORÇAMENTO (CORRIGIDAS)
 // ==========================================
 function usarItemCatalogo() {
+  // CORREÇÃO DO AUTOCOMPLETE: Encontra o ID correto
   const selecionado = catalogoOriginal.value.find(
     (c) => c.id === idItemCatalogo.value,
   );
@@ -276,8 +313,9 @@ async function adicionarItemOrcamento() {
     ])
     .select();
 
+  // AVISO DE ERRO EM VEZ DE FALHA SILENCIOSA
   if (error)
-    return triggerToast("Erro ao salvar item: " + error.message, "error");
+    return triggerToast("Erro BD Orçamento: " + error.message, "error");
 
   if (data) {
     itensOrcamento.value.push(data[0]);
@@ -292,7 +330,7 @@ async function removerItemOrcamento(id) {
     .from("orcamento_itens")
     .delete()
     .eq("id", id);
-  if (error) return triggerToast("Erro ao remover.", "error");
+  if (error) return triggerToast("Erro ao remover: " + error.message, "error");
   itensOrcamento.value = itensOrcamento.value.filter((i) => i.id !== id);
   triggerToast("Item removido.", "info");
 }
@@ -330,7 +368,7 @@ async function registrarPagamento() {
     pgtoExcedenteConfirmado.value = true;
     return triggerToast(
       "Valor maior que o saldo. Clique novamente para confirmar.",
-      "info",
+      "warning",
     );
   }
 
@@ -348,11 +386,9 @@ async function registrarPagamento() {
     .insert([transacao])
     .select();
 
+  // AVISO DE ERRO EM VEZ DE FALHA SILENCIOSA
   if (error)
-    return triggerToast(
-      "Erro ao registar pagamento: " + error.message,
-      "error",
-    );
+    return triggerToast("Erro BD Pagamento: " + error.message, "error");
 
   if (data) {
     pagamentosOS.value.unshift(data[0]);
@@ -366,7 +402,8 @@ async function registrarPagamento() {
 async function estornarPagamento(id) {
   if (idPgtoConfirmar.value === id) {
     const { error } = await supabase.from("transacoes").delete().eq("id", id);
-    if (error) return triggerToast("Erro ao estornar.", "error");
+    if (error)
+      return triggerToast("Erro ao estornar: " + error.message, "error");
     pagamentosOS.value = pagamentosOS.value.filter((p) => p.id !== id);
     idPgtoConfirmar.value = null;
     triggerToast("Pagamento estornado.", "info");
@@ -387,7 +424,8 @@ async function finalizarOSManual() {
       data_conclusao: new Date().toISOString(),
     })
     .eq("id", servicoLocal.value.id);
-  if (error) return triggerToast("Erro ao finalizar.", "error");
+  if (error)
+    return triggerToast("Erro ao finalizar: " + error.message, "error");
   servicoLocal.value.status = "Finalizado";
   servicoLocal.value.fase_projeto = "Pronto para Entrega";
   mostrarBannerFinalizacao.value = false;
