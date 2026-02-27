@@ -2,8 +2,7 @@
 /**
  * ============================================================================
  * @file        AdminArea.vue
- * @description Contentor da área administrativa com bypass de Super Admin
- * restaurado e logs de depuração.
+ * @description Contentor da área administrativa. Botão 'Minha Conta' restaurado.
  * ============================================================================
  */
 import { ref, onMounted } from "vue";
@@ -33,7 +32,6 @@ onMounted(async () => {
     } = await supabase.auth.getSession();
 
     if (session?.user?.email) {
-      // Verifica se o e-mail logado consta na tabela de privilégios master
       const { data, error } = await supabase
         .from("super_admins")
         .select("*")
@@ -42,9 +40,6 @@ onMounted(async () => {
 
       if (data && !error) {
         isSuperAdmin.value = true;
-        console.log("✅ Modo Super Admin Ativo para:", session.user.email);
-      } else {
-        console.warn("⚠️ Acesso Master negado para:", session.user.email);
       }
     }
   } catch (err) {
@@ -132,6 +127,14 @@ onMounted(async () => {
         </button>
 
         <button
+          class="btn-tab"
+          :class="{ active: abaAtual === 'conta' }"
+          @click="abaAtual = 'conta'"
+        >
+          🔐 Minha Conta
+        </button>
+
+        <button
           v-if="isSuperAdmin"
           class="btn-tab"
           :class="{ active: abaAtual === 'saas' }"
@@ -173,8 +176,10 @@ onMounted(async () => {
         />
         <Configuracoes v-if="abaAtual === 'config'" />
         <ConfigChecklist v-if="abaAtual === 'checklist'" />
-        <LimpezaBanco v-if="abaAtual === 'limpeza'" />
 
+        <MinhaConta v-if="abaAtual === 'conta'" />
+
+        <LimpezaBanco v-if="abaAtual === 'limpeza'" />
         <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
       </template>
     </div>

@@ -2,8 +2,7 @@
 /**
  * ============================================================================
  * @file        App.vue
- * @description Componente raiz orquestrador. Atualizado com aviso amigável
- * para usuários sem cadastro e bypass para Super Admins.
+ * @description Componente raiz orquestrador com suporte a Ícones Dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -50,9 +49,6 @@ const configLuthieria = ref({
 
 const { iniciarTour } = useOnboarding(modoAtual, mostrarClientes);
 
-/**
- * Verifica privilégios de Super Admin
- */
 async function verificarSuperAdmin(email) {
   if (!email) return;
   const { data } = await supabase
@@ -60,10 +56,7 @@ async function verificarSuperAdmin(email) {
     .select("*")
     .eq("email", email)
     .maybeSingle();
-
-  if (data) {
-    isSuperAdmin.value = true;
-  }
+  if (data) isSuperAdmin.value = true;
 }
 
 async function carregarAssinatura() {
@@ -95,7 +88,6 @@ async function inicializarApp() {
   ) {
     await Promise.all([buscarClientes(), carregarConfiguracoes()]);
   }
-
   aVerificarAcesso.value = false;
 }
 
@@ -114,24 +106,44 @@ async function carregarConfiguracoes() {
     .from("configuracoes")
     .select("*")
     .maybeSingle();
+
   if (data) {
     configLuthieria.value.nome_luthieria =
       data.nome_luthieria || "Gestão Luthieria";
     configLuthieria.value.logo_url = data.logo_url || "";
+
+    const root = document.documentElement;
+
     if (data.cor_primaria)
-      document.documentElement.style.setProperty(
-        "--primary",
-        data.cor_primaria,
-      );
+      root.style.setProperty("--primary", data.cor_primaria);
     if (data.cor_secundaria)
-      document.documentElement.style.setProperty(
-        "--accent",
-        data.cor_secundaria,
-      );
-    if (data.cor_fundo)
-      document.documentElement.style.setProperty("--bg-body", data.cor_fundo);
+      root.style.setProperty("--accent", data.cor_secundaria);
+    if (data.cor_fundo) root.style.setProperty("--bg-body", data.cor_fundo);
+    if (data.text_color) root.style.setProperty("--text-main", data.text_color);
+
+    if (data.btn_primary_bg)
+      root.style.setProperty("--btn-primary-bg", data.btn_primary_bg);
+    if (data.btn_primary_text)
+      root.style.setProperty("--btn-primary-text", data.btn_primary_text);
+    if (data.btn_accent_bg)
+      root.style.setProperty("--btn-accent-bg", data.btn_accent_bg);
+    if (data.btn_accent_text)
+      root.style.setProperty("--btn-accent-text", data.btn_accent_text);
+
     if (data.fonte_principal)
       document.body.style.fontFamily = data.fonte_principal;
+
+    // INJETAR A FAMÍLIA DE ÍCONES DINÂMICA
+    if (data.estilo_icones)
+      root.style.setProperty("--icon-family", `"${data.estilo_icones}"`);
+
+    if (data.radius_perc !== undefined && data.radius_perc !== null) {
+      root.style.setProperty("--radius", `${data.radius_perc}px`);
+      root.style.setProperty(
+        "--radius-sm",
+        `${Math.max(4, data.radius_perc - 4)}px`,
+      );
+    }
   }
 }
 
@@ -202,11 +214,6 @@ function formatarLinkZap(t) {
         >
         <h3>Quase lá!</h3>
         <p>Ainda não encontramos os dados da sua oficina em nossa base.</p>
-        <p class="text-muted small">
-          Por favor, verifique se seu cadastro foi concluído ou retorne à tela
-          inicial.
-        </p>
-
         <button
           @click="fazerLogout"
           class="btn-primary"
@@ -245,10 +252,10 @@ function formatarLinkZap(t) {
             class="logo-img"
           />
           <span v-else style="font-size: 2.2rem">🎸</span>
-          <h1 class="logo-title">
+          <h4 class="logo-title">
             {{ configLuthieria.nome_luthieria }}
             <span v-if="isSuperAdmin" class="badge-master">MASTER</span>
-          </h1>
+          </h4>
         </div>
 
         <div class="header-buttons">
@@ -258,24 +265,28 @@ function formatarLinkZap(t) {
             class="btn-menu"
             :class="{ active: modoAtual === 'bancada' && !servicoDireto }"
           >
-            <span class="icon">🏠</span> <span class="lbl">Início</span>
+            <span class="icon-dinamico">home</span>
+            <span class="lbl">Início</span>
           </button>
           <button
             @click="modoAtual = 'calendario'"
             class="btn-menu"
             :class="{ active: modoAtual === 'calendario' }"
           >
-            <span class="icon">📅</span> <span class="lbl">Agenda</span>
+            <span class="icon-dinamico">calendar_month</span>
+            <span class="lbl">Agenda</span>
           </button>
           <button @click="mostrarScanner = true" class="btn-menu scan-btn">
-            <span class="icon">📷</span>
+            <span class="icon-dinamico">qr_code_scanner</span>
+            <span class="lbl">QR Scan</span>
           </button>
           <button
             @click="modoAtual = 'historico'"
             class="btn-menu"
             :class="{ active: modoAtual === 'historico' }"
           >
-            <span class="icon">📦</span> <span class="lbl">Arquivo</span>
+            <span class="icon-dinamico">inventory_2</span>
+            <span class="lbl">Arquivo</span>
           </button>
           <button
             id="tour-admin"
@@ -283,13 +294,15 @@ function formatarLinkZap(t) {
             class="btn-menu"
             :class="{ active: modoAtual === 'admin' }"
           >
-            <span class="icon">⚙️</span> <span class="lbl">Admin</span>
+            <span class="icon-dinamico">settings</span>
+            <span class="lbl">Admin</span>
           </button>
           <button
             @click="fazerLogout"
             class="btn-menu text-danger btn-sair-mobile"
           >
-            <span class="icon">🚪</span>
+            <span class="icon-dinamico">logout</span>
+            <span class="lbl">Sair</span>
           </button>
         </div>
       </div>
@@ -343,10 +356,11 @@ function formatarLinkZap(t) {
                 class="btn-toggle-clientes"
                 @click="mostrarClientes = !mostrarClientes"
               >
+                <span class="icon-dinamico">{{
+                  mostrarClientes ? "expand_less" : "group"
+                }}</span>
                 {{
-                  mostrarClientes
-                    ? "⬆️ Ocultar Clientes"
-                    : "👥 Gerenciar Clientes"
+                  mostrarClientes ? "Ocultar Clientes" : "Gerenciar Clientes"
                 }}
               </button>
             </div>
@@ -355,7 +369,12 @@ function formatarLinkZap(t) {
                 <ClienteForm @clienteSalvo="buscarClientes" />
               </div>
               <div class="col-lista card">
-                <h3 class="title-section">📂 Lista de Clientes</h3>
+                <h3 class="title-section">
+                  <span class="icon-dinamico" style="vertical-align: middle"
+                    >folder_open</span
+                  >
+                  Lista de Clientes
+                </h3>
                 <div class="tabela-responsiva">
                   <table class="tabela-padrao">
                     <thead>
@@ -378,7 +397,12 @@ function formatarLinkZap(t) {
                             "
                             target="_blank"
                             class="badge-zap"
-                            >📱 WhatsApp</a
+                            ><span
+                              class="icon-dinamico"
+                              style="font-size: 1rem; vertical-align: bottom"
+                              >chat</span
+                            >
+                            WhatsApp</a
                           >
                         </td>
                         <td align="center">
@@ -386,7 +410,7 @@ function formatarLinkZap(t) {
                             class="btn-icon"
                             @click="clienteSelecionado = c"
                           >
-                            🎸
+                            <span class="icon-dinamico">electric_guitar</span>
                           </button>
                         </td>
                       </tr>
@@ -413,14 +437,12 @@ function formatarLinkZap(t) {
   text-align: center;
   padding: 20px;
 }
-
 .amigavel-card {
   max-width: 450px;
   padding: 40px;
   border-top: 5px solid var(--accent);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
-
 .badge-master {
   font-size: 0.6rem;
   background: var(--accent);
@@ -430,7 +452,6 @@ function formatarLinkZap(t) {
   vertical-align: middle;
   margin-left: 10px;
 }
-
 .loader-simple {
   border: 4px solid #f3f3f3;
   border-top: 4px solid var(--primary);
@@ -439,7 +460,6 @@ function formatarLinkZap(t) {
   height: 40px;
   animation: spin 1s linear infinite;
 }
-
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -449,150 +469,7 @@ function formatarLinkZap(t) {
   }
 }
 
-/* Estilos PWA e Mobile (Mantidos) */
-.app-container {
-  padding: 20px;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-.global-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
-  padding: 15px 20px;
-  position: sticky;
-  top: 10px;
-  z-index: 100;
-  border-bottom: 4px solid var(--accent);
-}
-.logo-img {
-  max-height: 45px;
-  object-fit: contain;
-}
-.header-buttons {
-  display: flex;
-  gap: 8px;
-}
-.btn-menu {
-  background: transparent;
-  border: 2px solid var(--primary);
-  color: var(--primary);
-  padding: 8px 16px;
-  font-weight: bold;
-  cursor: pointer;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.btn-menu.active {
-  background: var(--primary);
-  color: white;
-}
-.scan-btn {
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-  color: white !important;
-}
-
-/* ========================================================= */
-/* 📱 MODO MOBILE: BOTTOM TAB BAR (CORRIGIDO PARA PWA) */
-/* ========================================================= */
-@media (max-width: 850px) {
-  .global-header {
-    top: 0;
-    padding: 10px;
-  }
-
-  /* Aumentar a altura geral da barra inferior */
-  .header-buttons {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: #ffffff;
-    padding: 12px 5px 25px; /* O 25px em baixo garante espaço para a barra de navegação do iOS/Android */
-    justify-content: space-around;
-    align-items: center;
-    border-top: 1px solid #e0e0e0;
-    z-index: 1000;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06); /* Sombra elegante */
-    gap: 0;
-  }
-
-  /* Área de toque maior e alinhamento do texto */
-  .header-buttons .btn-menu {
-    flex-direction: column;
-    border: none !important;
-    background: transparent !important;
-    flex: 1;
-    padding: 5px 0;
-    gap: 4px; /* Espaço entre ícone e texto */
-    min-height: 60px;
-    color: var(--text-muted);
-  }
-
-  /* Ícones maiores e mais fáceis de tocar */
-  .header-buttons .btn-menu .icon {
-    font-size: 1.6rem;
-  }
-
-  /* Trazer o texto de volta, legível e proporcional */
-  .header-buttons .btn-menu .lbl {
-    display: block !important;
-    font-size: 0.7rem;
-    font-weight: 600;
-  }
-
-  /* Animação e cor no botão ativo */
-  .header-buttons .btn-menu.active {
-    color: var(--primary) !important;
-  }
-  .header-buttons .btn-menu.active .icon {
-    transform: scale(1.15);
-    transition: transform 0.2s ease-out;
-  }
-
-  /* Botão central (Scanner) mais destacado */
-  .header-buttons .scan-btn {
-    position: relative;
-    top: -20px;
-    border-radius: 50% !important;
-    width: 65px;
-    height: 65px;
-    flex: 0 0 65px !important;
-    background: var(--accent) !important;
-    box-shadow: 0 6px 15px rgba(211, 84, 0, 0.4) !important;
-    justify-content: center;
-  }
-
-  .header-buttons .scan-btn .icon {
-    font-size: 1.8rem;
-    color: white;
-  }
-
-  .header-buttons .scan-btn .lbl {
-    display: none !important; /* Ocultar texto só no botão central */
-  }
-
-  /* Esconder o botão de sair no bottom menu (deve ficar só na área "Minha Conta" ou "Admin") */
-  .btn-sair-mobile {
-    display: none !important;
-  }
-
-  /* Aumentar o espaçamento do fim da página para nada ficar escondido atrás da nova barra */
-  .app-container {
-    padding-bottom: 110px;
-  }
-
-  /* Ajustes gerais de grelha para telemóvel */
-  .clientes-grid {
-    flex-direction: column;
-  }
-}
-
-/* SEUS ESTILOS ORIGINAIS MANTIDOS */
+/* Estilos Globais e Header */
 .app-container {
   padding: 20px;
   max-width: 1100px;
@@ -616,7 +493,7 @@ function formatarLinkZap(t) {
   cursor: pointer;
 }
 .logo-img {
-  max-height: 45px;
+  max-height: 60px;
   object-fit: contain;
 }
 .header-buttons {
@@ -643,6 +520,30 @@ function formatarLinkZap(t) {
   background: var(--accent) !important;
   border-color: var(--accent) !important;
   color: white !important;
+}
+
+/* Dashboard e Clientes */
+.controle-clientes {
+  text-align: center;
+  margin: 40px 0 20px 0;
+  border-top: 2px dashed var(--border);
+  padding-top: 20px;
+}
+.btn-toggle-clientes {
+  background: transparent;
+  color: var(--text-muted);
+  border: 2px solid var(--border);
+  padding: 10px 20px;
+  font-weight: bold;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-toggle-clientes:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .clientes-grid {
   display: flex;
@@ -674,6 +575,9 @@ function formatarLinkZap(t) {
   margin-bottom: 20px;
 }
 
+/* ========================================================= */
+/* 📱 MODO MOBILE: BOTTOM TAB BAR (PWA) */
+/* ========================================================= */
 @media (max-width: 850px) {
   .global-header {
     top: 0;
@@ -684,28 +588,65 @@ function formatarLinkZap(t) {
     bottom: 0;
     left: 0;
     width: 100%;
-    background: white;
-    padding: 10px 5px 25px;
+    background: #ffffff;
+    padding: 12px 5px 25px;
     justify-content: space-around;
-    border-top: 1px solid #eee;
+    align-items: center;
+    border-top: 1px solid #e0e0e0;
+    z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+    gap: 0;
   }
-  .btn-menu {
+  .header-buttons .btn-menu {
     flex-direction: column;
     border: none !important;
+    background: transparent !important;
+    flex: 1;
+    padding: 5px 0;
+    gap: 4px;
+    min-height: 60px;
+    color: var(--text-muted);
+  }
+  .header-buttons .btn-menu .icon-dinamico {
+    font-size: 1.6rem;
+  }
+  .header-buttons .btn-menu .lbl {
+    display: block !important;
     font-size: 0.7rem;
+    font-weight: 600;
   }
-  .scan-btn {
+  .header-buttons .btn-menu.active {
+    color: var(--primary) !important;
+  }
+  .header-buttons .btn-menu.active .icon-dinamico {
+    transform: scale(1.15);
+    transition: transform 0.2s ease-out;
+  }
+
+  .header-buttons .scan-btn {
     position: relative;
-    top: -15px;
+    top: -20px;
     border-radius: 50% !important;
-    width: 60px;
-    height: 60px;
+    width: 65px;
+    height: 65px;
+    flex: 0 0 65px !important;
+    background: var(--accent) !important;
+    box-shadow: 0 6px 15px rgba(211, 84, 0, 0.4) !important;
+    justify-content: center;
   }
-  .lbl {
-    display: none;
+  .header-buttons .scan-btn .icon-dinamico {
+    font-size: 1.8rem;
+    color: white;
   }
+  .header-buttons .scan-btn .lbl {
+    display: none !important;
+  }
+  .btn-sair-mobile {
+    display: none !important;
+  }
+
   .app-container {
-    padding-bottom: 80px;
+    padding-bottom: 110px;
   }
   .clientes-grid {
     flex-direction: column;

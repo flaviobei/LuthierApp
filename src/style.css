@@ -4,18 +4,26 @@
    ========================================================================== */
 
 :root {
+  /* Cores estruturais base (Podem ser sobrescritas via Vue) */
   --primary: #2c3e50;
   --accent: #d35400;
-  --accent-hover: #e67e22;
   --bg-body: #f4f6f8;
   --bg-card: #ffffff;
   --text-main: #333333;
+
+  /* Cores dinâmicas de botões (Injetadas pelo Configuracoes.vue) */
+  --btn-primary-bg: var(--primary);
+  --btn-primary-text: #ffffff;
+  --btn-accent-bg: var(--accent);
+  --btn-accent-text: #ffffff;
+
+  /* Variáveis estáticas de UI */
   --text-muted: #6c757d;
   --border: #e1e4e8;
-  --radius: 12px; /* Aumentado para bordas mais suaves e modernas */
-  --radius-sm: 8px; /* Aumentado para botões e inputs */
+  --radius: 12px;
+  --radius-sm: 8px;
   --shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); /* Sombra mais elegante e subtil */
+    0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --success: #27ae60;
   --danger: #c0392b;
   --warning: #f39c12;
@@ -38,7 +46,7 @@ body {
 }
 
 /* ========================================================= */
-/* 2. CAIXAS E ESTRUTURA (Mais respiro interno) */
+/* 2. CAIXAS E ESTRUTURA */
 /* ========================================================= */
 .card,
 .box,
@@ -49,7 +57,7 @@ body {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  padding: 24px; /* Mais padding para o conteúdo respirar */
+  padding: 24px;
   margin-bottom: 20px;
 }
 
@@ -83,7 +91,7 @@ input,
 select,
 textarea {
   width: 100%;
-  min-height: 44px; /* Padrão Apple/Google para touch */
+  min-height: 44px;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -101,7 +109,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15); /* Efeito de foco visual mantido */
+  box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15);
 }
 
 /* ========================================================= */
@@ -114,13 +122,13 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px; /* Espaço padronizado entre ícone e texto */
+  gap: 8px;
 }
 
 .btn-primary,
 .btn-accent,
 .btn-outline {
-  min-height: 44px; /* Nivela a altura com os inputs */
+  min-height: 44px;
   padding: 0 20px;
   font-weight: 600;
   font-size: 0.95rem;
@@ -128,43 +136,43 @@ button {
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: #fff;
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   border: none;
 }
 
 .btn-primary:hover {
-  background: #1a252f;
+  filter: brightness(0.9);
   transform: translateY(-1px);
 }
 
 .btn-accent {
-  background: var(--accent);
-  color: #fff;
+  background-color: var(--btn-accent-bg);
+  color: var(--btn-accent-text);
   border: none;
 }
 
 .btn-accent:hover {
-  background: var(--accent-hover);
+  filter: brightness(1.1);
   transform: translateY(-1px);
 }
 
 .btn-outline {
-  background: transparent;
+  background-color: transparent;
   color: var(--primary);
   border: 2px solid var(--primary);
 }
 
 .btn-outline:hover {
-  background: rgba(44, 62, 80, 0.05); /* Hover subtil em vez de fundo sólido */
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* Botões de Ação Pequenos (Tabelas e Cards) */
 .btn-icon {
   background: transparent;
   border: 1px solid transparent;
-  min-width: 44px; /* Hit target otimizado */
-  min-height: 44px; /* Hit target otimizado */
+  min-width: 44px;
+  min-height: 44px;
   padding: 8px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -194,9 +202,9 @@ button {
 }
 
 .tabela-padrao th {
-  background: #f8fafc; /* Fundo leve para destacar o cabeçalho */
+  background: #f8fafc;
   color: var(--text-muted);
-  padding: 14px 16px; /* Aumentado */
+  padding: 14px 16px;
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -205,13 +213,13 @@ button {
 }
 
 .tabela-padrao td {
-  padding: 14px 16px; /* Aumentado para não esmagar o texto */
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
 .tabela-padrao tbody tr:hover {
-  background-color: #fcfcfc; /* Highlight de leitura da linha */
+  background-color: #fcfcfc;
 }
 
 /* ========================================================= */
@@ -248,7 +256,7 @@ button {
   background: #f8f9fa;
 }
 
-/* Utilitários Flexbox para alinhar campos ao lado de botões facilmente */
+/* Utilitários Flexbox */
 .flex-between {
   display: flex;
   justify-content: space-between;
@@ -290,7 +298,7 @@ button {
     margin-bottom: 15px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 12px; /* Aumentado */
+    padding: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
   }
 
@@ -303,7 +311,7 @@ button {
     border: none;
     border-bottom: 1px solid #f1f5f9;
     word-break: break-word;
-    min-height: 44px; /* Hit target garantido no modo mobile */
+    min-height: 44px;
   }
 
   .tabela-padrao td:last-child {
@@ -314,8 +322,8 @@ button {
     content: attr(data-label);
     position: absolute;
     left: 12px;
-    top: 50%; /* Centralização vertical precisa da label */
-    transform: translateY(-50%); /* Centralização vertical precisa da label */
+    top: 50%;
+    transform: translateY(-50%);
     width: 40%;
     text-align: left;
     font-weight: 600;
@@ -323,4 +331,20 @@ button {
     font-size: 0.85rem;
     white-space: normal;
   }
+}
+
+/* Adicione no seu style.css */
+.icon-dinamico {
+  font-family: var(--icon-family, "Material Symbols Outlined");
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px; /* Tamanho do ícone */
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
 }
