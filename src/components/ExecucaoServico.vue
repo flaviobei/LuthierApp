@@ -5,7 +5,7 @@
  * @description Gestão da O.S. (Checklist, Diário, Orçamento e Pagamento).
  * ============================================================================
  */
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { comprimirImagem } from "../lib/imageUtils";
 import { useToast } from "../composables/useToast";
@@ -18,7 +18,6 @@ const servicoLocal = ref({ ...props.servico });
 const carregandoDados = ref(true);
 const abaAtual = ref("orcamento");
 
-// Estados de Confirmação (UX PWA)
 const idFotoConfirmar = ref(null);
 const idPgtoConfirmar = ref(null);
 const pgtoExcedenteConfirmado = ref(false);
@@ -27,13 +26,20 @@ const mostrarBannerFinalizacao = ref(false);
 const configLuthieria = ref({
   nome_luthieria: "Luthieria",
   tipo_impressora: "padrao",
+  taxa_pix: 0,
+  taxa_dinheiro: 0,
+  taxa_credito: 0,
+  taxa_debito: 0,
 });
 
+// ================= DIÁRIO =================
 const diario = ref([]);
 const novaEntradaDiario = ref({
   descricao: "",
   fase_projeto: servicoLocal.value.fase_projeto || "Na Bancada",
 });
+const fotoDiarioUpload = ref(null);
+const carregandoFotoDiario = ref(false);
 const fasesPermitidas = [
   "Fila de Espera",
   "Aguardando Peças",
@@ -43,17 +49,21 @@ const fasesPermitidas = [
   "Pronto para Entrega",
 ];
 
+// ================= CHECKLIST =================
 const checklistItens = ref([]);
 const fotosChecklist = ref([]);
 const carregandoFoto = ref(false);
 
+// ================= ORÇAMENTO =================
 const itensOrcamento = ref([]);
 const catalogoOriginal = ref([]);
-const idItemCatalogo = ref(""); // Para o autocomplete funcionar
-const novoItem = ref({ descricao: "", valor: null, tipo: "Mão de Obra" });
+const idItemCatalogo = ref("");
+const novoItem = ref({ descricao: "", valor: null, tipo: "Serviço" });
 
+// ================= FINANCEIRO E IMPRESSÃO =================
 const pagamentosOS = ref([]);
 const novoPagamento = ref({ valor: 0, metodo: "PIX" });
+const tipoImpressao = ref("orcamento"); // Controla o que vai aparecer no papel
 
 const osFinalizada = computed(
   () =>
@@ -62,15 +72,15 @@ const osFinalizada = computed(
 );
 
 // ==========================================
-// FUNÇÕES DE CARREGAMENTO DO BANCO DE DADOS
+// 1. CARREGAMENTO INICIAL
 // ==========================================
 async function carregarTudo() {
   carregandoDados.value = true;
-  await Promise.all([
+  await Promise.allSettled([
     carregarConfig(),
-    carregarDiario(),
     carregarChecklist(),
     carregarFotosChecklist(),
+    carregarDiario(),
     carregarOrcamento(),
     carregarCatalogo(),
     carregarPagamentos(),
@@ -79,119 +89,103 @@ async function carregarTudo() {
 }
 
 async function carregarConfig() {
-  const { data } = await supabase
-    .from("configuracoes")
-    .select("*")
-    .maybeSingle();
-  if (data) configLuthieria.value = { ...configLuthieria.value, ...data };
+  try {
+    const { data } = await supabase
+      .from("configuracoes")
+      .select("*")
+      .maybeSingle();
+    if (data) configLuthieria.value = { ...configLuthieria.value, ...data };
+  } catch (err) {}
 }
 
-async function carregarDiario() {
-  const { data, error } = await supabase
-    .from("diario_servico")
-    .select("*")
-    .eq("servico_id", servicoLocal.value.id)
-    .order("data_registro", { ascending: false });
-  if (error) triggerToast("Erro ao carregar diário: " + error.message, "error");
-  if (data) diario.value = data;
-}
-
+// ==========================================
+// 2. CHECKLIST
+// ==========================================
 async function carregarChecklist() {
-  const { data, error } = await supabase
-    .from("checklist_servico")
-    .select("*")
-    .eq("servico_id", servicoLocal.value.id)
-    .order("id", { ascending: true });
+  try {
+    const { data: itensOS, error: errOS } = await supabase
+      .from("checklist")
+      .select("*")
+      .eq("servico_id", servicoLocal.value.id)
+      .order("id", { ascending: true });
+    if (errOS) throw errOS;
 
-  if (error) {
-    return triggerToast(
-      "Erro ao carregar checklist: " + error.message,
-      "error",
-    );
-  }
+    if (itensOS && itensOS.length > 0) {
+      checklistItens.value = itensOS;
+      return;
+    }
 
-  // CORREÇÃO: Se a O.S. for nova e não tiver checklist, puxa do Padrão
-  if (!data || data.length === 0) {
-    const { data: padrao } = await supabase
+    const { data: padrao, error: errPadrao } = await supabase
       .from("checklist_padrao")
       .select("*");
+    if (errPadrao) throw errPadrao;
 
     if (padrao && padrao.length > 0) {
       const novosItens = padrao.map((p) => ({
         servico_id: servicoLocal.value.id,
-        descricao: p.item_nome,
-        status: "Ok", // Status inicial padrão
+        etapa: p.tipo || "Geral",
+        area: p.item_nome || "Item sem nome",
+        condicao: "Pendente",
+        observacao: "",
       }));
-
       const { data: inseridos, error: errInsert } = await supabase
-        .from("checklist_servico")
+        .from("checklist")
         .insert(novosItens)
         .select();
-
-      if (!errInsert && inseridos) {
-        checklistItens.value = inseridos;
-        return;
-      }
+      if (errInsert) throw errInsert;
+      checklistItens.value = inseridos || [];
+    } else {
+      checklistItens.value = [];
     }
+  } catch (error) {
+    triggerToast("Erro ao carregar checklist: " + error.message, "error");
   }
-
-  checklistItens.value = data || [];
 }
 
+async function atualizarStatusChecklist(item, statusOpcao) {
+  try {
+    const { error } = await supabase
+      .from("checklist")
+      .update({ condicao: statusOpcao })
+      .eq("id", item.id);
+    if (error) throw error;
+    item.condicao = statusOpcao;
+  } catch (err) {
+    triggerToast("Falha ao atualizar item: " + err.message, "error");
+  }
+}
+
+const checklistsAgrupados = computed(() => {
+  const grupos = {};
+  checklistItens.value.forEach((item) => {
+    const etapaNome = item.etapa || "Geral";
+    if (!grupos[etapaNome]) grupos[etapaNome] = [];
+    grupos[etapaNome].push(item);
+  });
+  return Object.keys(grupos).map((etapa) => ({ etapa, itens: grupos[etapa] }));
+});
+
+// ==========================================
+// 3. FOTOS DO CHECKLIST
+// ==========================================
 async function carregarFotosChecklist() {
-  const { data, error } = await supabase
-    .from("checklist_fotos")
-    .select("*")
-    .eq("servico_id", servicoLocal.value.id)
-    .order("created_at", { ascending: false });
-  if (error) console.error("Erro fotos:", error.message);
-  if (data) fotosChecklist.value = data;
-}
-
-async function carregarOrcamento() {
-  const { data, error } = await supabase
-    .from("orcamento_itens")
-    .select("*")
-    .eq("servico_id", servicoLocal.value.id)
-    .order("created_at", { ascending: true });
-  if (error) console.error("Erro orçamento:", error.message);
-  if (data) itensOrcamento.value = data;
-}
-
-async function carregarCatalogo() {
-  const { data } = await supabase
-    .from("catalogo")
-    .select("*")
-    .order("nome", { ascending: true });
-  if (data) catalogoOriginal.value = data;
-}
-
-async function carregarPagamentos() {
-  const { data, error } = await supabase
-    .from("transacoes")
-    .select("*")
-    .eq("servico_id", servicoLocal.value.id)
-    .order("data_pagamento", { ascending: false });
-  if (error) console.error("Erro pagamentos:", error.message);
-  if (data) pagamentosOS.value = data;
-}
-
-// ==========================================
-// FUNÇÕES DE CHECKLIST E FOTOS
-// ==========================================
-async function atualizarStatusChecklist(item) {
-  const { error } = await supabase
-    .from("checklist_servico")
-    .update({ status: item.status })
-    .eq("id", item.id);
-  if (error) triggerToast("Erro ao salvar status: " + error.message, "error");
+  try {
+    const { data, error } = await supabase
+      .from("checklist_fotos")
+      .select("*")
+      .eq("servico_id", servicoLocal.value.id)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    fotosChecklist.value = data || [];
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 async function uploadFotoChecklist(event) {
   const arquivoOriginal = event.target.files[0];
   if (!arquivoOriginal) return;
   carregandoFoto.value = true;
-
   try {
     const arquivoComprimido = await comprimirImagem(
       arquivoOriginal,
@@ -199,32 +193,27 @@ async function uploadFotoChecklist(event) {
       1200,
       0.8,
     );
-    const fileName = `${servicoLocal.value.id}/${Date.now()}.jpg`;
-
+    const fileName = `${servicoLocal.value.id}/checklist_${Date.now()}.jpg`;
     const { error: uploadError } = await supabase.storage
       .from("fotos-luthieria")
       .upload(fileName, arquivoComprimido);
-
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage
       .from("fotos-luthieria")
       .getPublicUrl(fileName);
-
-    // CORREÇÃO: Usa foto_url no lugar de url
     const { data: insertData, error: dbError } = await supabase
       .from("checklist_fotos")
       .insert([
         { servico_id: servicoLocal.value.id, foto_url: urlData.publicUrl },
       ])
       .select();
-
     if (dbError) throw dbError;
 
     if (insertData) fotosChecklist.value.unshift(insertData[0]);
-    triggerToast("Foto anexada com sucesso!", "success");
+    triggerToast("Foto anexada!", "success");
   } catch (err) {
-    triggerToast("Erro ao enviar foto: " + err.message, "error");
+    triggerToast("Erro ao gravar foto: " + err.message, "error");
   } finally {
     carregandoFoto.value = false;
   }
@@ -232,15 +221,17 @@ async function uploadFotoChecklist(event) {
 
 async function deletarFoto(id) {
   if (idFotoConfirmar.value === id) {
-    const { error } = await supabase
-      .from("checklist_fotos")
-      .delete()
-      .eq("id", id);
-    if (error)
-      return triggerToast("Erro ao excluir: " + error.message, "error");
-    fotosChecklist.value = fotosChecklist.value.filter((f) => f.id !== id);
-    idFotoConfirmar.value = null;
-    triggerToast("Foto removida.", "info");
+    try {
+      const { error } = await supabase
+        .from("checklist_fotos")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      fotosChecklist.value = fotosChecklist.value.filter((f) => f.id !== id);
+      idFotoConfirmar.value = null;
+    } catch (err) {
+      triggerToast("Erro ao excluir: " + err.message, "error");
+    }
   } else {
     idFotoConfirmar.value = id;
     setTimeout(() => {
@@ -250,94 +241,204 @@ async function deletarFoto(id) {
 }
 
 // ==========================================
-// FUNÇÕES DE DIÁRIO
+// 4. DIÁRIO
 // ==========================================
+async function carregarDiario() {
+  try {
+    const { data } = await supabase
+      .from("diario_servico")
+      .select("*")
+      .eq("servico_id", servicoLocal.value.id)
+      .order("data_registro", { ascending: false });
+    diario.value = data || [];
+  } catch (e) {}
+}
+
+function setFotoDiario(event) {
+  fotoDiarioUpload.value = event.target.files[0];
+}
+
 async function adicionarEntradaDiario() {
   if (!novaEntradaDiario.value.descricao)
     return triggerToast("Anotação não pode estar vazia.", "error");
-
-  const { data, error } = await supabase
-    .from("diario_servico")
-    .insert([
-      {
-        servico_id: servicoLocal.value.id,
-        descricao: novaEntradaDiario.value.descricao,
-        fase_projeto: novaEntradaDiario.value.fase_projeto,
-      },
-    ])
-    .select();
-
-  if (error)
-    return triggerToast("Erro ao salvar diário: " + error.message, "error");
-
-  if (data) {
-    diario.value.unshift(data[0]);
-    await supabase
-      .from("servicos")
-      .update({ fase_projeto: novaEntradaDiario.value.fase_projeto })
-      .eq("id", servicoLocal.value.id);
-    servicoLocal.value.fase_projeto = novaEntradaDiario.value.fase_projeto;
-    novaEntradaDiario.value.descricao = "";
-    triggerToast("Diário atualizado!", "success");
+  carregandoFotoDiario.value = true;
+  let urlFotoDiario = null;
+  try {
+    if (fotoDiarioUpload.value) {
+      const arquivoComprimido = await comprimirImagem(
+        fotoDiarioUpload.value,
+        1200,
+        1200,
+        0.8,
+      );
+      const fileName = `${servicoLocal.value.id}/diario_${Date.now()}.jpg`;
+      await supabase.storage
+        .from("fotos-luthieria")
+        .upload(fileName, arquivoComprimido);
+      urlFotoDiario = supabase.storage
+        .from("fotos-luthieria")
+        .getPublicUrl(fileName).data.publicUrl;
+    }
+    const payload = {
+      servico_id: servicoLocal.value.id,
+      descricao: novaEntradaDiario.value.descricao,
+      fase_projeto: novaEntradaDiario.value.fase_projeto,
+      foto_url: urlFotoDiario,
+    };
+    const { data, error } = await supabase
+      .from("diario_servico")
+      .insert([payload])
+      .select();
+    if (error) throw error;
+    if (data) {
+      diario.value.unshift(data[0]);
+      await supabase
+        .from("servicos")
+        .update({ fase_projeto: novaEntradaDiario.value.fase_projeto })
+        .eq("id", servicoLocal.value.id);
+      servicoLocal.value.fase_projeto = novaEntradaDiario.value.fase_projeto;
+      novaEntradaDiario.value.descricao = "";
+      fotoDiarioUpload.value = null;
+      triggerToast("Anotação salva!", "success");
+    }
+  } catch (err) {
+    triggerToast("Erro no diário: " + err.message, "error");
+  } finally {
+    carregandoFotoDiario.value = false;
   }
 }
 
 // ==========================================
-// FUNÇÕES DE ORÇAMENTO (CORRIGIDAS)
+// 5. ORÇAMENTO
 // ==========================================
+async function carregarOrcamento() {
+  try {
+    const { data } = await supabase
+      .from("orcamento_itens")
+      .select("*")
+      .eq("servico_id", servicoLocal.value.id)
+      .order("created_at", { ascending: true });
+    itensOrcamento.value = data || [];
+  } catch (e) {}
+}
+
+async function carregarCatalogo() {
+  try {
+    const { data } = await supabase
+      .from("catalogo")
+      .select("*")
+      .neq("tipo", "Insumo")
+      .order("nome", { ascending: true });
+    catalogoOriginal.value = data || [];
+  } catch (e) {}
+}
+
 function usarItemCatalogo() {
-  // CORREÇÃO DO AUTOCOMPLETE: Encontra o ID correto
   const selecionado = catalogoOriginal.value.find(
     (c) => c.id === idItemCatalogo.value,
   );
   if (selecionado) {
     novoItem.value.descricao = selecionado.nome;
-    novoItem.value.valor = selecionado.preco_base;
-    novoItem.value.tipo = selecionado.tipo || "Mão de Obra";
+    novoItem.value.valor = selecionado.preco_padrao;
+    novoItem.value.tipo = selecionado.tipo === "Peça" ? "Peça" : "Serviço";
   }
 }
 
 async function adicionarItemOrcamento() {
-  if (!novoItem.value.descricao || !novoItem.value.valor)
-    return triggerToast("Preencha descrição e valor.", "error");
-
-  const { data, error } = await supabase
-    .from("orcamento_itens")
-    .insert([
-      {
-        servico_id: servicoLocal.value.id,
-        descricao: novoItem.value.descricao,
-        valor: novoItem.value.valor,
-        tipo: novoItem.value.tipo,
-      },
-    ])
-    .select();
-
-  // AVISO DE ERRO EM VEZ DE FALHA SILENCIOSA
-  if (error)
-    return triggerToast("Erro BD Orçamento: " + error.message, "error");
-
-  if (data) {
-    itensOrcamento.value.push(data[0]);
-    novoItem.value = { descricao: "", valor: null, tipo: "Mão de Obra" };
-    idItemCatalogo.value = ""; // Reseta o select
-    triggerToast("Item adicionado ao orçamento.", "success");
+  if (!novoItem.value.descricao || !novoItem.value.valor) return;
+  try {
+    const { data, error } = await supabase
+      .from("orcamento_itens")
+      .insert([
+        {
+          servico_id: servicoLocal.value.id,
+          descricao: novoItem.value.descricao,
+          valor: novoItem.value.valor,
+          tipo: novoItem.value.tipo,
+        },
+      ])
+      .select();
+    if (error) throw error;
+    if (data) {
+      itensOrcamento.value.push(data[0]);
+      novoItem.value = { descricao: "", valor: null, tipo: "Serviço" };
+      idItemCatalogo.value = "";
+    }
+  } catch (err) {
+    triggerToast("Erro Orçamento", "error");
   }
 }
 
 async function removerItemOrcamento(id) {
-  const { error } = await supabase
-    .from("orcamento_itens")
-    .delete()
-    .eq("id", id);
-  if (error) return triggerToast("Erro ao remover: " + error.message, "error");
+  await supabase.from("orcamento_itens").delete().eq("id", id);
   itensOrcamento.value = itensOrcamento.value.filter((i) => i.id !== id);
-  triggerToast("Item removido.", "info");
+}
+
+async function enviarOrcamentoWhatsApp() {
+  if (itensOrcamento.value.length === 0) {
+    return triggerToast("Adicione itens ao orçamento primeiro.", "warning");
+  }
+
+  try {
+    const { data: servicoData, error } = await supabase
+      .from("servicos")
+      .select("instrumentos(clientes(nome, telefone))")
+      .eq("id", servicoLocal.value.id)
+      .single();
+
+    if (error) throw error;
+
+    const cliente = servicoData?.instrumentos?.clientes;
+    if (!cliente || !cliente.telefone) {
+      return triggerToast("Telefone do cliente não encontrado.", "error");
+    }
+
+    let mensagem = `Olá, ${cliente.nome}! Aqui está o orçamento da O.S. #${servicoLocal.value.numero_os}:\n\n`;
+    itensOrcamento.value.forEach((item) => {
+      mensagem += `- ${item.descricao}: R$ ${Number(item.valor).toFixed(2)}\n`;
+    });
+    mensagem += `\n*Total: R$ ${totalOrcamento.value.toFixed(2)}*\n\n`;
+    mensagem += `Qualquer dúvida, estamos à disposição!`;
+
+    const numeroLimpo = cliente.telefone.replace(/\D/g, "");
+    const numeroFinal =
+      numeroLimpo.length <= 11 ? `55${numeroLimpo}` : numeroLimpo;
+
+    const url = `https://wa.me/${numeroFinal}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, "_blank");
+  } catch (err) {
+    triggerToast("Erro ao gerar link do WhatsApp.", "error");
+    console.error(err);
+  }
+}
+
+// MÉTODOS DE IMPRESSÃO CORRIGIDOS PARA BLOQUEAR A UI
+async function imprimirOrcamento() {
+  tipoImpressao.value = "orcamento";
+  await nextTick(); // Aguarda o Vue atualizar a DOM
+  window.print();
+}
+
+async function gerarRecibo() {
+  tipoImpressao.value = "recibo";
+  await nextTick(); // Aguarda o Vue atualizar a DOM
+  window.print();
 }
 
 // ==========================================
-// FINANCEIRO E RECEBIMENTO
+// 6. FINANCEIRO E RECEBIMENTO
 // ==========================================
+async function carregarPagamentos() {
+  try {
+    const { data } = await supabase
+      .from("transacoes")
+      .select("*")
+      .eq("servico_id", servicoLocal.value.id)
+      .order("data_pagamento", { ascending: false });
+    pagamentosOS.value = data || [];
+  } catch (e) {}
+}
+
 const totalOrcamento = computed(() =>
   itensOrcamento.value.reduce((acc, i) => acc + (Number(i.valor) || 0), 0),
 );
@@ -359,54 +460,62 @@ watch(
 );
 
 async function registrarPagamento() {
-  if (novoPagamento.value.valor <= 0)
-    return triggerToast("Valor inválido.", "error");
+  if (novoPagamento.value.valor <= 0) return;
   if (
     novoPagamento.value.valor > saldoDevedor.value + 0.05 &&
     !pgtoExcedenteConfirmado.value
   ) {
     pgtoExcedenteConfirmado.value = true;
     return triggerToast(
-      "Valor maior que o saldo. Clique novamente para confirmar.",
+      "Valor excede o saldo. Clique para confirmar.",
       "warning",
     );
   }
+  try {
+    let percentualTaxa = 0;
+    if (novoPagamento.value.metodo === "PIX")
+      percentualTaxa = configLuthieria.value.taxa_pix;
+    else if (novoPagamento.value.metodo === "Dinheiro")
+      percentualTaxa = configLuthieria.value.taxa_dinheiro;
+    else if (novoPagamento.value.metodo === "Cartão de Crédito")
+      percentualTaxa = configLuthieria.value.taxa_credito;
+    else if (novoPagamento.value.metodo === "Cartão de Débito")
+      percentualTaxa = configLuthieria.value.taxa_debito;
 
-  const transacao = {
-    servico_id: servicoLocal.value.id,
-    descricao: `Pgto O.S. #${servicoLocal.value.numero_os} - ${novoPagamento.value.metodo}`,
-    valor_bruto: novoPagamento.value.valor,
-    tipo: "Entrada",
-    categoria: "Servico",
-    data_pagamento: new Date().toISOString().substring(0, 10),
-  };
+    const valorDaTaxa =
+      (novoPagamento.value.valor * (percentualTaxa || 0)) / 100;
 
-  const { data, error } = await supabase
-    .from("transacoes")
-    .insert([transacao])
-    .select();
-
-  // AVISO DE ERRO EM VEZ DE FALHA SILENCIOSA
-  if (error)
-    return triggerToast("Erro BD Pagamento: " + error.message, "error");
-
-  if (data) {
-    pagamentosOS.value.unshift(data[0]);
-    triggerToast(`Recebido: R$ ${novoPagamento.value.valor}`, "success");
-    pgtoExcedenteConfirmado.value = false;
-    if (saldoDevedor.value <= 0 && !osFinalizada.value)
-      mostrarBannerFinalizacao.value = true;
+    const transacao = {
+      servico_id: servicoLocal.value.id,
+      descricao: `Pgto O.S. #${servicoLocal.value.numero_os} - ${novoPagamento.value.metodo}`,
+      valor_bruto: novoPagamento.value.valor,
+      taxa_taxa: valorDaTaxa,
+      tipo: "Entrada",
+      categoria: "Servico",
+      forma_pagamento: novoPagamento.value.metodo,
+      data_pagamento: new Date().toISOString().substring(0, 10),
+    };
+    const { data, error } = await supabase
+      .from("transacoes")
+      .insert([transacao])
+      .select();
+    if (error) throw error;
+    if (data) {
+      pagamentosOS.value.unshift(data[0]);
+      pgtoExcedenteConfirmado.value = false;
+      if (saldoDevedor.value <= 0 && !osFinalizada.value)
+        mostrarBannerFinalizacao.value = true;
+    }
+  } catch (err) {
+    triggerToast("Erro Pagamento: " + err.message, "error");
   }
 }
 
 async function estornarPagamento(id) {
   if (idPgtoConfirmar.value === id) {
-    const { error } = await supabase.from("transacoes").delete().eq("id", id);
-    if (error)
-      return triggerToast("Erro ao estornar: " + error.message, "error");
+    await supabase.from("transacoes").delete().eq("id", id);
     pagamentosOS.value = pagamentosOS.value.filter((p) => p.id !== id);
     idPgtoConfirmar.value = null;
-    triggerToast("Pagamento estornado.", "info");
   } else {
     idPgtoConfirmar.value = id;
     setTimeout(() => {
@@ -416,7 +525,7 @@ async function estornarPagamento(id) {
 }
 
 async function finalizarOSManual() {
-  const { error } = await supabase
+  await supabase
     .from("servicos")
     .update({
       status: "Finalizado",
@@ -424,20 +533,9 @@ async function finalizarOSManual() {
       data_conclusao: new Date().toISOString(),
     })
     .eq("id", servicoLocal.value.id);
-  if (error)
-    return triggerToast("Erro ao finalizar: " + error.message, "error");
   servicoLocal.value.status = "Finalizado";
   servicoLocal.value.fase_projeto = "Pronto para Entrega";
   mostrarBannerFinalizacao.value = false;
-  triggerToast("O.S. Finalizada!", "success");
-}
-
-function gerarRecibo() {
-  triggerToast(
-    `Imprimindo no formato: ${configLuthieria.value.tipo_impressora}`,
-    "info",
-  );
-  window.print();
 }
 
 onMounted(carregarTudo);
@@ -468,25 +566,45 @@ onMounted(carregarTudo);
           :class="{ active: abaAtual === 'checklist' }"
           @click="abaAtual = 'checklist'"
         >
-          📋 Checklists
+          <span
+            class="icon-dinamico"
+            style="font-size: 1.1rem; vertical-align: middle"
+            >fact_check</span
+          >
+          Checklist
         </button>
         <button
           :class="{ active: abaAtual === 'diario' }"
           @click="abaAtual = 'diario'"
         >
-          📓 Diário
+          <span
+            class="icon-dinamico"
+            style="font-size: 1.1rem; vertical-align: middle"
+            >menu_book</span
+          >
+          Diário
         </button>
         <button
           :class="{ active: abaAtual === 'orcamento' }"
           @click="abaAtual = 'orcamento'"
         >
-          💰 Orçamento
+          <span
+            class="icon-dinamico"
+            style="font-size: 1.1rem; vertical-align: middle"
+            >request_quote</span
+          >
+          Orçamento
         </button>
         <button
           :class="{ active: abaAtual === 'checkout' }"
           @click="abaAtual = 'checkout'"
         >
-          💳 Recebimento
+          <span
+            class="icon-dinamico"
+            style="font-size: 1.1rem; vertical-align: middle"
+            >point_of_sale</span
+          >
+          Receber
         </button>
       </div>
 
@@ -500,42 +618,92 @@ onMounted(carregarTudo);
       </div>
 
       <div v-if="abaAtual === 'checklist'">
-        <div class="card mb-2">
-          <h4 class="title-section">Checklist de Inspeção</h4>
-          <div v-if="checklistItens.length === 0" class="text-muted">
-            Nenhum item configurado nesta O.S.
-          </div>
-          <div
-            v-for="item in checklistItens"
-            :key="item.id"
-            class="checklist-row"
+        <div
+          v-if="checklistsAgrupados.length === 0"
+          class="card mb-2 text-muted text-center py-5"
+        >
+          <span
+            class="icon-dinamico"
+            style="font-size: 3rem; color: var(--text-muted)"
+            >sentiment_dissatisfied</span
+          ><br />
+          Nenhuma regra de checklist encontrada.<br /><small
+            >Configure regras em "Admin > Checklist".</small
           >
-            <span>{{ item.descricao }}</span>
-            <select
-              v-model="item.status"
-              @change="atualizarStatusChecklist(item)"
-              :disabled="osFinalizada"
-              :class="{
-                'text-danger': item.status === 'Com Defeito',
-                'text-success': item.status === 'Ok',
-              }"
+        </div>
+
+        <div class="checklists-grid mb-2">
+          <div
+            v-for="grupo in checklistsAgrupados"
+            :key="grupo.etapa"
+            class="card"
+            style="margin-bottom: 0"
+          >
+            <h4
+              class="title-section"
+              style="margin-top: 0; font-size: 1rem; color: var(--text-main)"
             >
-              <option value="Ok">✅ Ok</option>
-              <option value="Com Defeito">❌ Com Defeito</option>
-              <option value="Ausente">➖ Ausente</option>
-            </select>
+              <span class="icon-dinamico" style="vertical-align: middle"
+                >checklist</span
+              >
+              {{ grupo.etapa }}
+            </h4>
+
+            <div v-for="item in grupo.itens" :key="item.id" class="compact-row">
+              <span class="item-name">{{ item.area }}</span>
+
+              <div class="item-actions">
+                <button
+                  class="btn-check"
+                  :class="{ active: item.condicao === '✅ Sim' }"
+                  @click="
+                    !osFinalizada && atualizarStatusChecklist(item, '✅ Sim')
+                  "
+                  :disabled="osFinalizada"
+                  title="Sim / Ok"
+                >
+                  <span class="icon-dinamico" style="font-size: 1.1rem"
+                    >check</span
+                  >
+                </button>
+
+                <button
+                  class="btn-close"
+                  :class="{ active: item.condicao === '❌ Não' }"
+                  @click="
+                    !osFinalizada && atualizarStatusChecklist(item, '❌ Não')
+                  "
+                  :disabled="osFinalizada"
+                  title="Não / Defeito"
+                >
+                  <span class="icon-dinamico" style="font-size: 1.1rem"
+                    >close</span
+                  >
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="card">
           <div class="flex-between mb-1">
-            <h4 style="margin: 0">Fotos e Evidências</h4>
+            <h4 style="margin: 0; font-size: 1rem">
+              <span class="icon-dinamico" style="vertical-align: middle"
+                >photo_library</span
+              >
+              Evidências
+            </h4>
             <label
               v-if="!osFinalizada"
               class="btn-outline"
               style="cursor: pointer; font-size: 0.8rem; padding: 5px 10px"
             >
-              {{ carregandoFoto ? "⏳ Enviando..." : "📷 Adicionar Foto" }}
+              <span
+                class="icon-dinamico"
+                style="font-size: 1rem; vertical-align: bottom"
+                >add_a_photo</span
+              >
+              {{ carregandoFoto ? "Aguarde..." : "Anexar" }}
               <input
                 type="file"
                 accept="image/*"
@@ -545,11 +713,11 @@ onMounted(carregarTudo);
               />
             </label>
           </div>
-
           <div class="galeria-fotos">
             <div
               v-if="fotosChecklist.length === 0"
               class="text-muted text-center w-full"
+              style="font-size: 0.85rem"
             >
               Nenhuma foto anexada.
             </div>
@@ -558,14 +726,16 @@ onMounted(carregarTudo);
               :key="foto.id"
               class="foto-card"
             >
-              <img :src="foto.foto_url || foto.url" class="img-preview" />
+              <a :href="foto.foto_url" target="_blank"
+                ><img :src="foto.foto_url" class="img-preview"
+              /></a>
               <button
                 v-if="!osFinalizada"
                 class="btn-delete-confirm w-full"
                 @click="deletarFoto(foto.id)"
                 :class="{ confirming: idFotoConfirmar === foto.id }"
               >
-                {{ idFotoConfirmar === foto.id ? "Tem a certeza?" : "Excluir" }}
+                {{ idFotoConfirmar === foto.id ? "Confirma?" : "Excluir" }}
               </button>
             </div>
           </div>
@@ -574,26 +744,66 @@ onMounted(carregarTudo);
 
       <div v-if="abaAtual === 'diario'">
         <div class="card mb-2" v-if="!osFinalizada">
-          <h4 style="margin-top: 0">Nova Anotação</h4>
+          <h4 style="margin-top: 0">
+            <span class="icon-dinamico" style="vertical-align: middle"
+              >edit_note</span
+            >
+            Nova Anotação
+          </h4>
           <textarea
             v-model="novaEntradaDiario.descricao"
             rows="2"
             placeholder="O que foi feito hoje?"
           ></textarea>
-          <div class="flex-gap-10 mt-1">
-            <select v-model="novaEntradaDiario.fase_projeto" class="flex-1">
+
+          <div class="flex-gap-10 mt-1" style="flex-wrap: wrap">
+            <select
+              v-model="novaEntradaDiario.fase_projeto"
+              class="flex-1 min-w-140"
+            >
               <option v-for="fase in fasesPermitidas" :key="fase" :value="fase">
                 {{ fase }}
               </option>
             </select>
-            <button class="btn-primary" @click="adicionarEntradaDiario">
-              Salvar Anotação
+
+            <label
+              class="btn-outline"
+              style="cursor: pointer; padding: 0 15px; font-size: 0.85rem"
+              :title="
+                fotoDiarioUpload ? 'Foto Pronta para Envio' : 'Anexar Foto'
+              "
+            >
+              <span
+                class="icon-dinamico"
+                style="vertical-align: middle; font-size: 1rem"
+                >{{ fotoDiarioUpload ? "check_circle" : "add_a_photo" }}</span
+              >
+              {{ fotoDiarioUpload ? "Foto Pronta" : "Juntar Foto" }}
+              <input
+                type="file"
+                accept="image/*"
+                @change="setFotoDiario"
+                hidden
+              />
+            </label>
+
+            <button
+              class="btn-primary"
+              @click="adicionarEntradaDiario"
+              :disabled="carregandoFotoDiario"
+            >
+              {{ carregandoFotoDiario ? "A enviar..." : "Salvar Anotação" }}
             </button>
           </div>
         </div>
 
         <div class="card">
-          <h4 class="title-section">Histórico da Bancada</h4>
+          <h4 class="title-section">
+            <span class="icon-dinamico" style="vertical-align: middle"
+              >history</span
+            >
+            Histórico da Bancada
+          </h4>
           <div v-if="diario.length === 0" class="text-muted">
             Nenhuma anotação registada.
           </div>
@@ -606,6 +816,17 @@ onMounted(carregarTudo);
               <div class="timeline-content">
                 <span class="badge-fase">{{ nota.fase_projeto }}</span>
                 <p>{{ nota.descricao }}</p>
+                <a v-if="nota.foto_url" :href="nota.foto_url" target="_blank">
+                  <img
+                    :src="nota.foto_url"
+                    style="
+                      max-height: 80px;
+                      margin-top: 10px;
+                      border-radius: 4px;
+                      border: 1px solid var(--border);
+                    "
+                  />
+                </a>
               </div>
             </div>
           </div>
@@ -614,7 +835,12 @@ onMounted(carregarTudo);
 
       <div v-if="abaAtual === 'orcamento'">
         <div class="card mb-2" v-if="!osFinalizada">
-          <h4 style="margin-top: 0">Adicionar Serviço / Peça</h4>
+          <h4 style="margin-top: 0">
+            <span class="icon-dinamico" style="vertical-align: middle"
+              >add_shopping_cart</span
+            >
+            Adicionar Item
+          </h4>
           <div class="form-group mb-1">
             <label>Buscar do Catálogo:</label>
             <select v-model="idItemCatalogo" @change="usarItemCatalogo">
@@ -624,7 +850,7 @@ onMounted(carregarTudo);
                 :key="cat.id"
                 :value="cat.id"
               >
-                {{ cat.nome }} (R$ {{ cat.preco_base }})
+                {{ cat.nome }} (R$ {{ cat.preco_padrao }})
               </option>
             </select>
           </div>
@@ -634,7 +860,7 @@ onMounted(carregarTudo);
               placeholder="Descrição manual"
             />
             <select v-model="novoItem.tipo">
-              <option value="Mão de Obra">Mão de Obra</option>
+              <option value="Serviço">Serviço</option>
               <option value="Peça">Peça</option>
             </select>
             <input
@@ -649,13 +875,47 @@ onMounted(carregarTudo);
         </div>
 
         <div class="card">
-          <div class="flex-between mb-1">
+          <div class="flex-between mb-1" style="flex-wrap: wrap; gap: 10px">
             <h4 class="title-section" style="margin: 0; border: none">
+              <span class="icon-dinamico" style="vertical-align: middle"
+                >receipt_long</span
+              >
               Itens da O.S.
             </h4>
-            <h3 style="margin: 0; color: var(--success)">
-              Total: R$ {{ totalOrcamento.toFixed(2) }}
-            </h3>
+
+            <div style="display: flex; gap: 8px; align-items: center">
+              <button
+                class="btn-outline"
+                @click="imprimirOrcamento"
+                title="Imprimir Orçamento"
+                style="padding: 6px 10px; font-size: 0.85rem"
+              >
+                <span
+                  class="icon-dinamico"
+                  style="font-size: 1.1rem; vertical-align: middle"
+                  >print</span
+                >
+                Imprimir
+              </button>
+              <button
+                class="btn-outline"
+                @click="enviarOrcamentoWhatsApp"
+                title="Enviar por WhatsApp"
+                style="
+                  padding: 6px 10px;
+                  font-size: 0.85rem;
+                  border-color: #25d366;
+                  color: #25d366;
+                "
+              >
+                <span
+                  class="icon-dinamico"
+                  style="font-size: 1.1rem; vertical-align: middle"
+                  >chat</span
+                >
+                WhatsApp
+              </button>
+            </div>
           </div>
 
           <table class="tabela-padrao">
@@ -683,6 +943,19 @@ onMounted(carregarTudo);
               </td>
             </tr>
           </table>
+
+          <div
+            class="text-right mt-2"
+            style="
+              border-top: 2px dashed var(--border);
+              padding-top: 15px;
+              text-align: right;
+            "
+          >
+            <h3 style="margin: 0; color: var(--success)">
+              Total: R$ {{ totalOrcamento.toFixed(2) }}
+            </h3>
+          </div>
         </div>
       </div>
 
@@ -735,7 +1008,12 @@ onMounted(carregarTudo);
             v-if="saldoDevedor > 0 && !osFinalizada"
             class="form-pagamento mb-2"
           >
-            <h4 style="margin-top: 0">Registrar Pagamento</h4>
+            <h4 style="margin-top: 0">
+              <span class="icon-dinamico" style="vertical-align: middle"
+                >payments</span
+              >
+              Registrar Pagamento
+            </h4>
             <div class="flex-gap-10">
               <select v-model="novoPagamento.metodo" style="flex: 2">
                 <option value="PIX">PIX</option>
@@ -800,6 +1078,158 @@ onMounted(carregarTudo);
           </table>
         </div>
       </div>
+
+      <div id="print-area" class="print-only">
+        <div
+          class="print-header"
+          style="text-align: center; margin-bottom: 20px"
+        >
+          <img
+            v-if="configLuthieria.logo_url"
+            :src="configLuthieria.logo_url"
+            style="max-height: 80px; margin-bottom: 10px"
+          />
+
+          <h2 style="margin: 0">
+            {{ configLuthieria.nome_luthieria || "Luthieria" }}
+          </h2>
+          <p style="margin: 5px 0 0 0" v-if="configLuthieria.telefone">
+            WhatsApp: {{ configLuthieria.telefone }}
+          </p>
+          <p style="margin: 5px 0 0 0" v-if="configLuthieria.endereco">
+            {{ configLuthieria.endereco }}
+          </p>
+        </div>
+
+        <hr style="border: 1px dashed #000; margin: 15px 0" />
+
+        <div class="print-info">
+          <h3 style="text-align: center; margin: 0 0 15px 0">
+            {{
+              tipoImpressao === "orcamento"
+                ? "ORÇAMENTO DE SERVIÇO"
+                : "RECIBO DE PAGAMENTO"
+            }}
+          </h3>
+          <p style="margin: 5px 0">
+            <strong>O.S. Nº:</strong> {{ servicoLocal.numero_os }}
+          </p>
+          <p style="margin: 5px 0">
+            <strong>Data:</strong> {{ new Date().toLocaleDateString() }}
+          </p>
+        </div>
+
+        <hr style="border: 1px dashed #000; margin: 15px 0" />
+
+        <div v-if="tipoImpressao === 'orcamento' || tipoImpressao === 'recibo'">
+          <h4 style="margin: 0 0 10px 0">Itens da O.S.</h4>
+          <table style="width: 100%; border-collapse: collapse">
+            <thead>
+              <tr>
+                <th
+                  align="left"
+                  style="border-bottom: 1px solid #ccc; padding: 6px 0"
+                >
+                  Descrição
+                </th>
+                <th
+                  align="right"
+                  style="border-bottom: 1px solid #ccc; padding: 6px 0"
+                >
+                  Valor (R$)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in itensOrcamento" :key="item.id">
+                <td style="border-bottom: 1px dashed #eee; padding: 6px 0">
+                  {{ item.descricao }}
+                </td>
+                <td
+                  align="right"
+                  style="border-bottom: 1px dashed #eee; padding: 6px 0"
+                >
+                  {{ Number(item.valor).toFixed(2) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="text-align: right; margin-top: 15px; font-size: 1.1rem">
+            <strong>Total: R$ {{ totalOrcamento.toFixed(2) }}</strong>
+          </div>
+        </div>
+
+        <div v-if="tipoImpressao === 'recibo'" style="margin-top: 20px">
+          <hr style="border: 1px dashed #000; margin: 15px 0" />
+          <h4 style="margin: 0 0 10px 0">Histórico de Pagamentos</h4>
+          <table style="width: 100%; border-collapse: collapse">
+            <thead>
+              <tr>
+                <th
+                  align="left"
+                  style="border-bottom: 1px solid #ccc; padding: 6px 0"
+                >
+                  Pgto / Data
+                </th>
+                <th
+                  align="right"
+                  style="border-bottom: 1px solid #ccc; padding: 6px 0"
+                >
+                  Valor (R$)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in pagamentosOS" :key="p.id">
+                <td style="border-bottom: 1px dashed #eee; padding: 6px 0">
+                  {{ p.forma_pagamento || p.descricao }}
+                  <small
+                    >({{
+                      new Date(p.data_pagamento).toLocaleDateString()
+                    }})</small
+                  >
+                </td>
+                <td
+                  align="right"
+                  style="border-bottom: 1px dashed #eee; padding: 6px 0"
+                >
+                  {{ Number(p.valor_bruto).toFixed(2) }}
+                </td>
+              </tr>
+              <tr v-if="pagamentosOS.length === 0">
+                <td
+                  colspan="2"
+                  style="text-align: center; font-style: italic; padding: 10px"
+                >
+                  Nenhum pagamento efetuado.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 15px">
+            <p style="margin: 5px 0">
+              <strong>Total Pago:</strong> R$ {{ totalPago.toFixed(2) }}
+            </p>
+            <p style="margin: 5px 0">
+              <strong>Falta Receber:</strong> R$ {{ saldoDevedor.toFixed(2) }}
+            </p>
+          </div>
+        </div>
+
+        <div v-if="servicoLocal.obs_fechamento" style="margin-top: 20px">
+          <hr style="border: 1px dashed #000; margin: 15px 0" />
+          <p style="margin: 5px 0"><strong>Notas Importantes:</strong></p>
+          <p style="margin: 5px 0; white-space: pre-wrap">
+            {{ servicoLocal.obs_fechamento }}
+          </p>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center; font-size: 0.9rem">
+          <p style="margin: 0">Obrigado pela preferência!</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -820,6 +1250,9 @@ onMounted(carregarTudo);
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: bold;
+}
+.min-w-140 {
+  min-width: 140px;
 }
 
 /* ABAS (TABS) */
@@ -843,6 +1276,10 @@ onMounted(carregarTudo);
   font-weight: 600;
   font-size: 0.9rem;
   transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .tabs-clean button.active {
   background: white;
@@ -865,21 +1302,79 @@ onMounted(carregarTudo);
   color: #fff !important;
 }
 
-/* CHECKLIST & FOTOS */
-.checklist-row {
+/* ========================================= */
+/* CHECKLIST CSS NOVO (2 COLUNAS & COMPACTO) */
+/* ========================================= */
+.checklists-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.compact-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
+  padding: 8px 0;
   border-bottom: 1px dashed var(--border);
 }
-.checklist-row select {
-  width: auto;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-  font-weight: bold;
+.compact-row:last-child {
+  border-bottom: none;
 }
+
+.item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-check,
+.btn-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+
+.btn-check:hover:not(:disabled) {
+  border-color: #10b981;
+  color: #10b981;
+}
+.btn-check.active {
+  background: #dcfce7;
+  border-color: #10b981;
+  color: #166534;
+}
+
+.btn-close:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.btn-close.active {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.btn-check:disabled,
+.btn-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* GALERIA FOTOS */
 .galeria-fotos {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -1042,6 +1537,9 @@ onMounted(carregarTudo);
 
 /* MOBILE RESPONSIVO */
 @media (max-width: 768px) {
+  .checklists-grid {
+    grid-template-columns: 1fr;
+  }
   .grid-orcamento {
     grid-template-columns: 1fr;
   }
@@ -1056,6 +1554,37 @@ onMounted(carregarTudo);
   .form-pagamento button {
     width: 100%;
     flex: none;
+  }
+}
+</style>
+
+<style>
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Esconde TUDO do aplicativo */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Mas deixa o Recibo e os itens dentro do Recibo visíveis */
+  .print-only,
+  .print-only * {
+    visibility: visible !important;
+  }
+
+  /* Posiciona o recibo no canto superior esquerdo do papel, com fundo branco */
+  .print-only {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block !important;
+    background: #fff;
+    color: #000;
+    font-family: sans-serif;
   }
 }
 </style>
