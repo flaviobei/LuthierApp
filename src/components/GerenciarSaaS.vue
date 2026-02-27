@@ -2,17 +2,9 @@
 /**
  * ============================================================================
  * @file        GerenciarSaaS.vue
- * @description Painel de controle do administrador master. Permite gerenciar
- * os utilizadores do sistema, planos de subscrição e limites de conta.
+ * @description Painel de controle do administrador master. Corrigido para
+ * manipular corretamente datas no formato ISO para input date.
  * @project     LuthierApp
- * ============================================================================
- * @dependencies
- * - supabaseClient: Acesso a tabelas globais de usuários e planos.
- * * @functions
- * - carregarUsuarios(): Lista todos os luthiers cadastrados na plataforma.
- * - alterarPlano(): Modifica o nível de acesso (Basic/Pro) de um utilizador.
- * * @notes
- * - Protegido por verificação de e-mail na tabela 'super_admins'.
  * ============================================================================
  */
 
@@ -25,23 +17,35 @@ const mensagem = ref("");
 
 async function carregarAssinantes() {
   loading.value = true;
-  // Como você é Super Admin, esta busca vai trazer TODOS os utilizadores do SaaS
   const { data, error } = await supabase
     .from("assinaturas")
     .select("*")
     .order("data_inicio_trial", { ascending: false });
 
-  if (!error && data) assinantes.value = data;
+  if (!error && data) {
+    // 🛠️ CORREÇÃO 1: Limpa as datas para o formato do input type="date"
+    assinantes.value = data.map((assinante) => {
+      return {
+        ...assinante,
+        data_fim_trial: assinante.data_fim_trial
+          ? assinante.data_fim_trial.substring(0, 10)
+          : "",
+      };
+    });
+  }
   loading.value = false;
 }
 
 async function atualizarStatus(assinante) {
   mensagem.value = "A guardar...";
+
+  // 🛠️ CORREÇÃO 2: Envia todos os campos que foram potencialmente editados na linha
   const { error } = await supabase
     .from("assinaturas")
     .update({
       status: assinante.status,
-      data_fim_trial: assinante.data_fim_trial, // Permite estender o trial
+      plano_id: assinante.plano_id, // Adicionado para gravar se você mudar o plano no select
+      data_fim_trial: assinante.data_fim_trial || null,
     })
     .eq("user_id", assinante.user_id);
 
