@@ -75,15 +75,15 @@ function acionarImpressao() {
   window.print();
 }
 
-// --- FUNÇÃO DE EXPORTAÇÃO (AGORA COM MAIS DADOS E CÁLCULO LÍQUIDO) ---
+// --- FUNÇÃO DE EXPORTAÇÃO (AGORA USANDO AS COLUNAS REAIS DO BANCO) ---
 function exportarParaCSV() {
   if (transacoesFiltradas.value.length === 0) {
     return triggerToast("Não há dados para exportar neste período.", "error");
   }
 
-  // 1. Criar o cabeçalho do arquivo (novas colunas adicionadas)
+  // 1. Cabeçalho com Taxa em R$ e Líquido
   let csvContent =
-    "Data Pagamento;Descricao;Categoria;Tipo Movimentacao;O.S.;Cliente;Instrumento;Taxa Maquina (%);Valor Bruto (R$);Valor Liquido (R$)\n";
+    "Data Pagamento;Descricao;Categoria;Tipo Movimentacao;O.S.;Cliente;Instrumento;Taxa (R$);Valor Bruto (R$);Valor Liquido (R$)\n";
 
   // 2. Preencher com os dados filtrados
   transacoesFiltradas.value.forEach((t) => {
@@ -95,42 +95,31 @@ function exportarParaCSV() {
       ? t.descricao.replace(/;/g, ",").replace(/\n/g, " ")
       : "Sem descrição";
 
-    // Extração de dados Relacionais (Se a transação for de uma O.S.)
+    // Extração de dados Relacionais
     const osNum = t.servicos?.numero_os ? `#${t.servicos.numero_os}` : "--";
     const clienteNome = t.servicos?.instrumentos?.cliente?.nome || "--";
     const instrumentoInfo = t.servicos?.instrumentos
       ? `${t.servicos.instrumentos.marca} ${t.servicos.instrumentos.modelo}`
       : "--";
 
-    // CÁLCULO DE VALOR LÍQUIDO
-    let taxaPorcentagem = 0;
-    // Tenta encontrar "Taxa da Maquininha: X%" no texto da descrição
-    const matchTaxa = t.descricao?.match(/Taxa da Maquininha:\s*([\d.]+)%/);
-    if (matchTaxa && matchTaxa[1]) {
-      taxaPorcentagem = parseFloat(matchTaxa[1]);
-    }
-
+    // CÁLCULO DE VALORES COM BASE NAS COLUNAS REAIS DA TABELA TRANSACOES
     let valorBrutoNum = Number(t.valor_bruto) || 0;
-    let valorLiquidoNum = valorBrutoNum;
+    let valorTaxaNum = Number(t.taxa_taxa) || 0;
+    let valorLiquidoNum =
+      t.valor_liquido !== null
+        ? Number(t.valor_liquido)
+        : valorBrutoNum - valorTaxaNum;
 
-    // Se for uma entrada e tiver taxa, calcula o líquido
-    if (t.tipo === "Entrada" && taxaPorcentagem > 0) {
-      valorLiquidoNum = valorBrutoNum - valorBrutoNum * (taxaPorcentagem / 100);
-    }
-
-    // Formatação amigável para o Excel (R$) e (%)
+    // Formatação amigável para o Excel (R$)
     const vBrutoStr = valorBrutoNum.toFixed(2).replace(".", ",");
+    const vTaxaStr = valorTaxaNum.toFixed(2).replace(".", ",");
     const vLiquidoStr = valorLiquidoNum.toFixed(2).replace(".", ",");
-    const taxaStr =
-      taxaPorcentagem > 0
-        ? taxaPorcentagem.toString().replace(".", ",") + "%"
-        : "0%";
 
     // Concatena a linha
-    csvContent += `${dataFormatada};${descLimpa};${t.categoria};${t.tipo};${osNum};${clienteNome};${instrumentoInfo};${taxaStr};${vBrutoStr};${vLiquidoStr}\n`;
+    csvContent += `${dataFormatada};${descLimpa};${t.categoria};${t.tipo};${osNum};${clienteNome};${instrumentoInfo};${vTaxaStr};${vBrutoStr};${vLiquidoStr}\n`;
   });
 
-  // 3. Adicionar o BOM (Byte Order Mark) para o Excel reconhecer acentos (ç, ã, é)
+  // 3. Adicionar o BOM (Byte Order Mark) para o Excel reconhecer acentos
   const blob = new Blob(["\uFEFF" + csvContent], {
     type: "text/csv;charset=utf-8;",
   });
@@ -161,15 +150,24 @@ const transacoesFiltradas = computed(() => {
   });
 });
 
+// SOMATÓRIA AGORA USA O VALOR LÍQUIDO
 const totalEntradas = computed(() =>
   transacoesFiltradas.value
     .filter((t) => t.tipo === "Entrada")
-    .reduce((acc, t) => acc + Number(t.valor_bruto), 0),
+    .reduce(
+      (acc, t) =>
+        acc +
+        (t.valor_liquido !== null
+          ? Number(t.valor_liquido)
+          : Number(t.valor_bruto) - Number(t.taxa_taxa || 0)),
+      0,
+    ),
 );
-const totalSaidas = computed(() =>
-  transacoesFiltradas.value
-    .filter((t) => t.tipo === "Saida")
-    .reduce((acc, t) => acc + Number(t.valor_bruto), 0),
+const totalSaidas = computed(
+  () =>
+    transacoesFiltradas.value
+      .filter((t) => t.tipo === "Saida")
+      .reduce((acc, t) => acc + Number(t.valor_bruto), 0), // Saídas costumam ser cheias
 );
 
 function renderizarGrafico() {
@@ -179,10 +177,19 @@ function renderizarGrafico() {
   const labels = [
     ...new Set(transacoesFiltradas.value.map((t) => t.data_pagamento)),
   ].sort();
+
+  // GRAFICO AGORA USA VALOR LÍQUIDO
   const dadosEntradas = labels.map((date) =>
     transacoesFiltradas.value
       .filter((t) => t.data_pagamento === date && t.tipo === "Entrada")
-      .reduce((acc, t) => acc + Number(t.valor_bruto), 0),
+      .reduce(
+        (acc, t) =>
+          acc +
+          (t.valor_liquido !== null
+            ? Number(t.valor_liquido)
+            : Number(t.valor_bruto) - Number(t.taxa_taxa || 0)),
+        0,
+      ),
   );
   const dadosSaidas = labels.map((date) =>
     transacoesFiltradas.value
@@ -201,7 +208,7 @@ function renderizarGrafico() {
       ),
       datasets: [
         {
-          label: "Entradas",
+          label: "Entradas (Líquidas)",
           data: dadosEntradas,
           borderColor: "#27ae60",
           backgroundColor: "#27ae6022",
@@ -318,15 +325,15 @@ onMounted(carregarDados);
 
     <div class="resumo-grid mb-2">
       <div class="resumo-card verde">
-        <small>Faturamento</small
-        ><strong>R$ {{ totalEntradas.toFixed(2) }}</strong>
+        <small>Faturamento (Líquido)</small>
+        <strong>R$ {{ totalEntradas.toFixed(2) }}</strong>
       </div>
       <div class="resumo-card vermelho">
         <small>Despesas</small><strong>R$ {{ totalSaidas.toFixed(2) }}</strong>
       </div>
       <div class="resumo-card azul">
-        <small>Saldo Líquido</small
-        ><strong>R$ {{ (totalEntradas - totalSaidas).toFixed(2) }}</strong>
+        <small>Saldo Líquido</small>
+        <strong>R$ {{ (totalEntradas - totalSaidas).toFixed(2) }}</strong>
       </div>
     </div>
 
@@ -334,13 +341,13 @@ onMounted(carregarDados);
       <div class="card col-form-fin tela-nao-imprimivel">
         <h4 class="title-section">💸 Lançar Despesa</h4>
         <div class="form-group">
-          <label>Descrição</label
-          ><input v-model="novaDespesa.descricao" placeholder="Ex: Aluguel" />
+          <label>Descrição</label>
+          <input v-model="novaDespesa.descricao" placeholder="Ex: Aluguel" />
         </div>
         <div style="display: flex; gap: 10px; margin-bottom: 10px">
           <div style="flex: 1">
-            <label>Valor (R$)</label
-            ><input
+            <label>Valor (R$)</label>
+            <input
               v-model.number="novaDespesa.valor"
               type="number"
               step="0.01"
@@ -358,8 +365,8 @@ onMounted(carregarDados);
           </div>
         </div>
         <div class="form-group">
-          <label>Data</label
-          ><input v-model="novaDespesa.data_pagamento" type="date" />
+          <label>Data</label>
+          <input v-model="novaDespesa.data_pagamento" type="date" />
         </div>
         <button
           class="btn-primary"
@@ -378,13 +385,15 @@ onMounted(carregarDados);
               <tr>
                 <th>Data</th>
                 <th>Descrição</th>
-                <th align="right">Valor Bruto</th>
+                <th align="right">Bruto</th>
+                <th align="right">Taxa</th>
+                <th align="right">Líquido</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="transacoesFiltradas.length === 0">
                 <td
-                  colspan="3"
+                  colspan="5"
                   class="text-center text-muted"
                   style="padding: 20px"
                 >
@@ -410,13 +419,31 @@ onMounted(carregarDados);
                     {{ t.servicos.instrumentos.marca }}
                   </small>
                 </td>
+
+                <td align="right" class="text-muted" style="font-size: 0.9em">
+                  R$ {{ Number(t.valor_bruto).toFixed(2) }}
+                </td>
+
+                <td align="right" style="font-size: 0.9em; color: #e74c3c">
+                  <span v-if="t.taxa_taxa > 0"
+                    >- R$ {{ Number(t.taxa_taxa).toFixed(2) }}</span
+                  >
+                  <span v-else>--</span>
+                </td>
+
                 <td
                   align="right"
                   :class="t.tipo === 'Entrada' ? 'text-success' : 'text-danger'"
                   style="font-weight: bold"
                 >
                   {{ t.tipo === "Entrada" ? "+" : "-" }} R$
-                  {{ Number(t.valor_bruto).toFixed(2) }}
+                  {{
+                    Number(
+                      t.valor_liquido !== null
+                        ? t.valor_liquido
+                        : t.valor_bruto - (t.taxa_taxa || 0),
+                    ).toFixed(2)
+                  }}
                 </td>
               </tr>
             </tbody>

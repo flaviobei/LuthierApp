@@ -472,24 +472,27 @@ async function registrarPagamento() {
     );
   }
   try {
+    // --- CÁLCULO DA TAXA INJETADO AQUI ---
     let percentualTaxa = 0;
-    if (novoPagamento.value.metodo === "PIX")
-      percentualTaxa = configLuthieria.value.taxa_pix;
-    else if (novoPagamento.value.metodo === "Dinheiro")
-      percentualTaxa = configLuthieria.value.taxa_dinheiro;
-    else if (novoPagamento.value.metodo === "Cartão de Crédito")
-      percentualTaxa = configLuthieria.value.taxa_credito;
-    else if (novoPagamento.value.metodo === "Cartão de Débito")
-      percentualTaxa = configLuthieria.value.taxa_debito;
+    const metodo = novoPagamento.value.metodo;
+    if (metodo === "PIX") {
+      percentualTaxa = Number(configLuthieria.value.taxa_pix) || 0;
+    } else if (metodo === "Dinheiro") {
+      percentualTaxa = Number(configLuthieria.value.taxa_dinheiro) || 0;
+    } else if (metodo === "Cartão de Crédito") {
+      percentualTaxa = Number(configLuthieria.value.taxa_credito) || 0;
+    } else if (metodo === "Cartão de Débito") {
+      percentualTaxa = Number(configLuthieria.value.taxa_debito) || 0;
+    }
 
-    const valorDaTaxa =
-      (novoPagamento.value.valor * (percentualTaxa || 0)) / 100;
+    const valorDaTaxa = (novoPagamento.value.valor * percentualTaxa) / 100;
+    // -------------------------------------
 
     const transacao = {
       servico_id: servicoLocal.value.id,
       descricao: `Pgto O.S. #${servicoLocal.value.numero_os} - ${novoPagamento.value.metodo}`,
       valor_bruto: novoPagamento.value.valor,
-      taxa_taxa: valorDaTaxa,
+      taxa_taxa: valorDaTaxa, // <--- ENVIAMOS O VALOR DA TAXA PARA O BANCO DE DADOS
       tipo: "Entrada",
       categoria: "Servico",
       forma_pagamento: novoPagamento.value.metodo,
@@ -503,6 +506,7 @@ async function registrarPagamento() {
     if (data) {
       pagamentosOS.value.unshift(data[0]);
       pgtoExcedenteConfirmado.value = false;
+      triggerToast("Pagamento registrado!", "success");
       if (saldoDevedor.value <= 0 && !osFinalizada.value)
         mostrarBannerFinalizacao.value = true;
     }
