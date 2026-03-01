@@ -24,6 +24,7 @@ import DashboardAtividades from "./components/DashboardAtividades.vue";
 import ExecucaoServico from "./components/ExecucaoServico.vue";
 import AdminArea from "./components/AdminArea.vue";
 import HistoricoServicos from "./components/HistoricoServicos.vue";
+import Ajuda from "./components/Ajuda.vue";
 import Paywall from "./components/Paywall.vue";
 import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { Analytics } from "@vercel/analytics/vue";
@@ -323,6 +324,14 @@ onMounted(() => {
             ><span class="lbl">Admin</span>
           </button>
           <button
+            @click="modoAtual = 'ajuda'"
+            class="btn-menu"
+            :class="{ active: modoAtual === 'ajuda' }"
+          >
+            <span class="icon-dinamico">help_center</span
+            ><span class="lbl">Ajuda</span>
+          </button>
+          <button
             @click="fazerLogout"
             class="btn-menu text-danger btn-sair-mobile"
           >
@@ -358,6 +367,9 @@ onMounted(() => {
             @abrirOS="abrirServicoPeloDashboard"
             @voltar="irParaInicio"
           />
+        </div>
+        <div v-else-if="modoAtual === 'ajuda'">
+          <Ajuda />
         </div>
         <div v-else>
           <div v-if="servicoDireto">

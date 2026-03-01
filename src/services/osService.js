@@ -62,6 +62,7 @@ export const osService = {
 
   /** 3. Busca histórico para o Arquivo Morto */
   async buscarHistorico() {
+    // 1. Puxa os serviços finalizados
     const { data: servicos, error: errServicos } = await supabase
       .from("servicos")
       .select(
@@ -70,11 +71,16 @@ export const osService = {
       .in("status", ["Entregue", "Finalizado"]);
 
     if (errServicos) throw errServicos;
+    if (!servicos || servicos.length === 0) return [];
+
+    // Otimização: Pegar apenas as transações das OS que estão na tela, e não do banco inteiro
+    const osIds = servicos.map((os) => os.id);
 
     const { data: transacoes, error: errTransacoes } = await supabase
       .from("transacoes")
       .select("servico_id, valor_bruto")
-      .eq("tipo", "Entrada");
+      .eq("tipo", "Entrada")
+      .in("servico_id", osIds); // <-- Correção de Memory Leak
 
     if (errTransacoes) throw errTransacoes;
 
@@ -123,8 +129,9 @@ export const osService = {
   },
 
   async adiarPosVenda(osId, dias) {
+    const diasNumerico = Number(dias) || 0; // Proteção contra datas NaN (Strings injetadas da UI)
     const novaData = new Date();
-    novaData.setDate(novaData.getDate() + dias);
+    novaData.setDate(novaData.getDate() + diasNumerico);
     const { error } = await supabase
       .from("servicos")
       .update({ data_lembrete_pos_venda: novaData.toISOString() })
@@ -133,6 +140,18 @@ export const osService = {
   },
 
   async salvarObservacoes(id, campo, valor) {
+    // Whitelist: Proteção contra injeção mass-assignment via JS
+    const camposPermitidos = [
+      "observacoes_internas",
+      "observacoes_cliente",
+      "checklist_saida_notas",
+      "problema_relatado",
+    ];
+
+    if (!camposPermitidos.includes(campo)) {
+      throw new Error("Atualização de campo não autorizada por segurança.");
+    }
+
     const { error } = await supabase
       .from("servicos")
       .update({ [campo]: valor })

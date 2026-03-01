@@ -12,6 +12,7 @@ import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
 import { comprimirImagem } from "../lib/imageUtils";
+import { adminService } from "../services/adminService";
 
 const { triggerToast } = useToast();
 
@@ -55,10 +56,7 @@ const loading = ref(false);
 const carregandoFoto = ref(false);
 
 async function carregarConfiguracoes() {
-  const { data } = await supabase
-    .from("configuracoes")
-    .select("*")
-    .maybeSingle();
+  const data = await adminService.buscarConfiguracoes();
   if (data) {
     form.value = { ...form.value, ...data };
     configId.value = data.id;
@@ -92,31 +90,22 @@ function aplicarTemaPreview() {
 
 async function salvarConfiguracoes() {
   loading.value = true;
-  let erroSalvamento = null;
 
-  const dadosParaSalvar = { ...form.value };
+  try {
+    const dadosParaSalvar = { ...form.value };
+    const data = await adminService.salvarConfiguracoes(
+      configId.value,
+      dadosParaSalvar,
+    );
 
-  if (configId.value) {
-    const { error } = await supabase
-      .from("configuracoes")
-      .update(dadosParaSalvar)
-      .eq("id", configId.value);
-    erroSalvamento = error;
-  } else {
-    const { data, error } = await supabase
-      .from("configuracoes")
-      .insert([dadosParaSalvar])
-      .select();
-    erroSalvamento = error;
-    if (data && data.length > 0) configId.value = data[0].id;
-  }
-
-  loading.value = false;
-
-  if (!erroSalvamento) {
+    if (data && data.length > 0) {
+      configId.value = data[0].id;
+    }
     triggerToast("Configurações da oficina guardadas!", "success");
-  } else {
-    triggerToast("Falha ao salvar: " + erroSalvamento.message, "error");
+  } catch (error) {
+    triggerToast("Falha ao salvar: " + error.message, "error");
+  } finally {
+    loading.value = false;
   }
 }
 

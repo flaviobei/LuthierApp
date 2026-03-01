@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed, nextTick } from "vue";
+import { ref, onMounted, watch, computed, nextTick, onUnmounted } from "vue";
 import { useToast } from "../composables/useToast";
 import { financeiroService } from "../services/financeiroService";
 import Chart from "chart.js/auto";
@@ -78,7 +78,11 @@ function renderizarGrafico() {
 async function carregarDadosFinanceiros() {
   carregando.value = true;
   try {
-    const dados = await financeiroService.buscarTransacoes(mesFiltro.value);
+    const dados = await financeiroService.buscarTransacoes(
+      mesFiltro.value,
+      filtroDataInicio.value,
+      filtroDataFim.value,
+    );
     transacoes.value = dados || [];
     // Não calculamos os KPIs aqui. O "watcher" abaixo fará isso.
   } catch (error) {
@@ -90,8 +94,15 @@ async function carregarDadosFinanceiros() {
 
 // SALVAR SAÍDA
 async function salvarDespesa() {
-  if (!novaDespesa.value.descricao || !novaDespesa.value.valor) {
-    return triggerToast("Preencha descrição e valor.", "warning");
+  if (
+    !novaDespesa.value.descricao ||
+    !novaDespesa.value.valor ||
+    novaDespesa.value.valor <= 0
+  ) {
+    return triggerToast(
+      "Preencha a descrição e um valor maior que zero.",
+      "warning",
+    );
   }
   try {
     await financeiroService.salvarGasto({
@@ -141,6 +152,11 @@ watch(
   { deep: true },
 );
 
+// Atualiza o backend quando os filtros de data manual são alterados, para garantir sincronia UI x Banco
+watch([filtroDataInicio, filtroDataFim], () => {
+  carregarDadosFinanceiros();
+});
+
 onMounted(() => {
   const hoje = new Date();
   const ano = hoje.getFullYear();
@@ -151,6 +167,10 @@ onMounted(() => {
   filtroDataFim.value = `${ano}-${mes}-${ultimo}`;
 
   carregarDadosFinanceiros();
+});
+
+onUnmounted(() => {
+  if (instanceGrafico) instanceGrafico.destroy();
 });
 </script>
 
@@ -370,7 +390,7 @@ onMounted(() => {
                   {{ t.tipo === "Entrada" ? "+" : "-" }} R$
                   {{
                     (
-                      t.valor_liquido || t.valor_bruto - (t.taxa_taxa || 0)
+                      t.valor_liquido ?? t.valor_bruto - (t.taxa_taxa || 0)
                     ).toFixed(2)
                   }}
                 </td>

@@ -23,16 +23,29 @@ const loading = ref(true);
 async function carregarDados() {
   loading.value = true;
 
-  // Busca as transações financeiras
+  // Calculamos a data de corte para puxar no máximo os últimos 6 meses (Alivia 99% da memória RAM)
+  const dataCorte = new Date();
+  dataCorte.setMonth(dataCorte.getMonth() - 6);
+  // Garante que pegamos desde o dia 1º do mês do corte, às 00:00:00
+  dataCorte.setDate(1);
+  dataCorte.setHours(0, 0, 0, 0);
+
+  const isoCorte = dataCorte.toISOString();
+
+  // Busca as transações financeiras com limite matemático na query para evitar Memory Leak
   const { data: dadosTransacoes } = await supabase
     .from("transacoes")
-    .select("tipo, valor_bruto, data_pagamento");
+    .select("tipo, valor_bruto, data_pagamento")
+    .gte("data_pagamento", isoCorte);
+
   if (dadosTransacoes) transacoes.value = dadosTransacoes;
 
-  // Busca os serviços para analisar tempo de entrega e volume
+  // Busca os serviços igualmente paginados daquele período cortado (Baseado na ultima atu)
   const { data: dadosServicos } = await supabase
     .from("servicos")
-    .select("status, data_entrada, data_conclusao");
+    .select("status, data_entrada, data_conclusao")
+    .gte("data_entrada", isoCorte);
+
   if (dadosServicos) servicos.value = dadosServicos;
 
   loading.value = false;

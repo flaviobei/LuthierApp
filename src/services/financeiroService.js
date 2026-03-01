@@ -10,14 +10,19 @@ export const financeiroService = {
   /**
    * Busca todas as transações de um mês específico
    */
-  async buscarTransacoes(mesFiltro) {
+  async buscarTransacoes(mesFiltro, dataInicio = null, dataFim = null) {
     let query = supabase
       .from("transacoes")
       .select(`*, servicos ( instrumentos ( cliente:clientes (nome), marca ) )`) // Traz as relações para não dar erro na tabela
       .order("data_pagamento", { ascending: false });
 
-    if (mesFiltro) {
-      // CORREÇÃO AQUI: Calcula o último dia do mês (respeita anos bissextos)
+    // Se vieram as datas exatas (do filtro avançado na tela)
+    if (dataInicio && dataFim) {
+      query = query
+        .gte("data_pagamento", dataInicio)
+        .lte("data_pagamento", dataFim);
+    } else if (mesFiltro) {
+      // Fallback: se não vier início/fim, usa o mês base (comportamento antigo)
       const [ano, mes] = mesFiltro.split("-");
       const ultimoDia = new Date(ano, mes, 0).getDate();
 
