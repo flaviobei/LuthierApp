@@ -1,7 +1,13 @@
 <script setup>
+/**
+ * ============================================================================
+ * @file        ScannerQR.vue
+ * @description Leitor de etiquetas refatorado para usar osService.
+ * ============================================================================
+ */
 import { onMounted, onUnmounted, ref } from "vue";
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { supabase } from "../lib/supabaseClient";
+import { osService } from "../services/osService"; // Importação do Serviço
 import { useToast } from "../composables/useToast";
 
 const emit = defineEmits(["fechar", "osLida"]);
@@ -11,56 +17,43 @@ const buscando = ref(false);
 let scanner = null;
 
 onMounted(() => {
-  // Configurações do scanner (câmera traseira, tamanho da caixa de foco, etc.)
   scanner = new Html5QrcodeScanner(
     "leitor-qr",
     { fps: 10, qrbox: { width: 250, height: 250 } },
     /* verbose= */ false,
   );
-
   scanner.render(sucessoAoLer, erroAoLer);
 });
 
 onUnmounted(() => {
   if (scanner) {
-    scanner.clear().catch((error) => {
-      console.error("Falha ao limpar o scanner", error);
-    });
+    scanner
+      .clear()
+      .catch((error) => console.error("Falha ao limpar o scanner", error));
   }
 });
 
 async function sucessoAoLer(textoDecodificado) {
-  // Verifica se o texto lido parece ser um UUID (padrão do ID da O.S.)
+  // Regex para validar se é um UUID (ID da O.S.)
   const regexUUID =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (!regexUUID.test(textoDecodificado)) {
-    // Se não for UUID, não é uma etiqueta nossa
-    return;
-  }
+  if (!regexUUID.test(textoDecodificado)) return;
+  if (buscando.value) return;
 
-  if (buscando.value) return; // Evita múltiplas leituras em milissegundos
   buscando.value = true;
-
-  // Pausa a câmera para não ficar lendo em loop
   scanner.pause();
 
   try {
-    // Busca no Supabase para ver se essa O.S. existe e traz os dados do instrumento e cliente junto
-    const { data, error } = await supabase
-      .from("servicos")
-      .select("*, instrumentos(marca, modelo, clientes(nome, telefone))")
-      .eq("id", textoDecodificado)
-      .single();
+    // Chamada limpa via Service
+    const data = await osService.buscarPorId(textoDecodificado);
 
-    if (error || !data) {
+    if (!data) {
       triggerToast("O.S. não encontrada na base de dados.", "error");
-      scanner.resume(); // Volta a ligar a câmera se não achar
+      scanner.resume();
     } else {
       triggerToast("O.S. localizada!", "success");
-      // Desliga o scanner de vez
       scanner.clear();
-      // Avisa o App.vue que achou a O.S. enviando os dados
       emit("osLida", data);
     }
   } catch (err) {
@@ -72,13 +65,11 @@ async function sucessoAoLer(textoDecodificado) {
 }
 
 function erroAoLer(err) {
-  // Ignora erros normais (quando a câmera não está a focar ou não há QR na tela)
+  /* Erros de foco ignorados */
 }
 
 function fecharModal() {
-  if (scanner) {
-    scanner.clear();
-  }
+  if (scanner) scanner.clear();
   emit("fechar");
 }
 </script>
@@ -123,6 +114,7 @@ function fecharModal() {
 </template>
 
 <style scoped>
+/* Estilos originais mantidos integralmente */
 .modal-overlay {
   position: fixed;
   top: 0;

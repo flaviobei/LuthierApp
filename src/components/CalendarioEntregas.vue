@@ -2,14 +2,13 @@
 /**
  * ============================================================================
  * @file        CalendarioEntregas.vue
- * @description Módulo de agendamento e prazos. Oferece uma visão mensal
- * das entregas previstas. Fica oculto em ecrãs de telemóvel para manter a UX.
- * @project     LuthierApp
+ * @description Módulo de agendamento e prazos.
+ * ATUALIZAÇÃO: Refatorado para usar a camada osService.
  * ============================================================================
  */
 
 import { ref, computed, onMounted } from "vue";
-import { supabase } from "../lib/supabaseClient";
+import { osService } from "../services/osService"; // Novo Service
 import { useToast } from "../composables/useToast";
 
 const emit = defineEmits(["abrirOS", "voltar"]);
@@ -55,23 +54,19 @@ const diasNoMes = computed(() => {
   return listaDias;
 });
 
+/**
+ * CARREGAMENTO VIA SERVICE
+ */
 async function carregarServicos() {
   carregando.value = true;
-
-  const { data, error } = await supabase
-    .from("servicos")
-    .select(`*, instrumentos (marca, modelo, cliente:clientes (nome))`)
-    .neq("status", "Entregue")
-    .neq("status", "Finalizado")
-    .not("data_previsao_entrega", "is", null);
-
-  if (error) {
+  try {
+    // Agora o componente apenas solicita os dados ao serviço
+    servicos.value = await osService.buscarParaCalendario();
+  } catch (error) {
     triggerToast("Erro ao carregar a agenda: " + error.message, "error");
-  } else if (data) {
-    servicos.value = data;
+  } finally {
+    carregando.value = false;
   }
-
-  carregando.value = false;
 }
 
 function getServicosNoDia(dataIso) {

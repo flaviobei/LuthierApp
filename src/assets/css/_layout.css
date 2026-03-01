@@ -1,0 +1,24 @@
+/* ========================================================= */
+/* CAIXAS E ESTRUTURA */
+/* ========================================================= */
+.card,
+.box,
+.servico-box,
+.execucao-container,
+.catalogo-container {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.title-section {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--primary);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 12px;
+  font-size: 1.25rem;
+}

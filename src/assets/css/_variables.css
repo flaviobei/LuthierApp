@@ -1,0 +1,29 @@
+/* ========================================================= */
+/* VARIÁVEIS GLOBAIS E CORES */
+/* ========================================================= */
+:root {
+  /* Cores estruturais base (Podem ser sobrescritas via Vue) */
+  --primary: #2c3e50;
+  --accent: #d35400;
+  --bg-body: #f4f6f8;
+  --bg-card: #ffffff;
+  --text-main: #333333;
+
+  /* Cores dinâmicas de botões (Injetadas pelo Configuracoes.vue) */
+  --btn-primary-bg: var(--primary);
+  --btn-primary-text: #ffffff;
+  --btn-accent-bg: var(--accent);
+  --btn-accent-text: #ffffff;
+
+  /* Variáveis estáticas de UI */
+  --text-muted: #6c757d;
+  --border: #e1e4e8;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+  --success: #27ae60;
+  --danger: #c0392b;
+  --warning: #f39c12;
+}

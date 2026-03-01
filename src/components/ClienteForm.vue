@@ -2,16 +2,13 @@
 /**
  * ============================================================================
  * @file        ClienteForm.vue
- * @description Componente de gestão de clientes. Responsável pelo cadastro e
- * edição dos proprietários dos instrumentos.
- * ATUALIZAÇÃO: Suporte a Edição de clientes (UPDATE vs INSERT) com ícones.
- * @project     LuthierApp
+ * @description Gestão de clientes refatorada para usar clienteService.
  * ============================================================================
  */
 
 import { ref, watch } from "vue";
-import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { clienteService } from "../services/clienteService"; // Importação do Serviço
 
 const props = defineProps(["clienteEdit"]);
 const emit = defineEmits(["clienteSalvo", "cancelarEdicao"]);
@@ -30,7 +27,6 @@ watch(
     if (newVal) {
       isEditing.value = true;
       currentEditId.value = newVal.id;
-      // Preenche os campos do formulário com os dados do cliente
       form.value = {
         nome: newVal.nome || "",
         telefone: newVal.telefone || "",
@@ -62,35 +58,23 @@ async function salvarCliente() {
 
   loading.value = true;
 
-  if (isEditing.value) {
-    // === LÓGICA DE ATUALIZAÇÃO (UPDATE) ===
-    const { error } = await supabase
-      .from("clientes")
-      .update(form.value)
-      .eq("id", currentEditId.value);
-
-    loading.value = false;
-
-    if (error) {
-      triggerToast("Erro ao atualizar: " + error.message, "error");
-    } else {
+  try {
+    if (isEditing.value) {
+      // === LÓGICA DE ATUALIZAÇÃO (via Service) ===
+      await clienteService.atualizar(currentEditId.value, form.value);
       triggerToast("Cliente atualizado com sucesso!", "success");
-      resetarFormulario();
-      emit("clienteSalvo");
-    }
-  } else {
-    // === LÓGICA DE CRIAÇÃO (INSERT) ===
-    const { error } = await supabase.from("clientes").insert([form.value]);
-
-    loading.value = false;
-
-    if (error) {
-      triggerToast("Erro ao cadastrar: " + error.message, "error");
     } else {
+      // === LÓGICA DE CRIAÇÃO (via Service) ===
+      await clienteService.criar(form.value);
       triggerToast("Cliente cadastrado com sucesso!", "success");
-      resetarFormulario();
-      emit("clienteSalvo");
     }
+
+    resetarFormulario();
+    emit("clienteSalvo");
+  } catch (error) {
+    triggerToast("Falha na operação: " + error.message, "error");
+  } finally {
+    loading.value = false;
   }
 }
 </script>
@@ -175,7 +159,6 @@ async function salvarCliente() {
 </template>
 
 <style scoped>
-/* Um pequeno destaque na caixa quando o cliente está a ser editado */
 .edit-mode {
   border: 2px solid var(--accent);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);

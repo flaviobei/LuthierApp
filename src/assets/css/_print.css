@@ -1,0 +1,215 @@
+/* ==========================================================================
+   _print.css
+   Estilos focados EXCLUSIVAMENTE em saídas de impressão (A4 e Bobinas Térmicas)
+   ========================================================================== */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* 1. ESCONDER A INTERFACE (Sem deixar espaços em branco / fantasmas) */
+  .global-header,
+  .tabs-clean,
+  .flex-header,
+  .card,
+  .banner-trial,
+  .banner-aviso,
+  .controle-clientes {
+    display: none !important;
+  }
+
+  /* 2. ZERAR MARGENS GLOBAIS PARA EVITAR PÁGINAS EXTRAS */
+  html,
+  body,
+  #app,
+  .app-container,
+  .execucao-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  /* 3. EXIBIR APENAS A ÁREA DE IMPRESSÃO NO FLUXO NORMAL DA PÁGINA */
+  .print-only {
+    display: block !important;
+    position: static !important; /* Permite que o recibo dite a altura da página */
+    width: 100%;
+    background: #fff;
+    color: #000;
+  }
+
+  /* ===================================================== */
+  /* ESTRUTURA INTERNA DO RECIBO                           */
+  /* ===================================================== */
+  .print-box-qr {
+    text-align: center;
+    margin: 0 auto;
+  }
+  .print-box-doc {
+    margin: 0 auto;
+  }
+  .print-header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .print-title {
+    margin: 0;
+    font-weight: bold;
+  }
+  .print-divider {
+    border: none;
+    border-top: 1px dashed #000;
+    margin: 10px 0;
+  }
+  .print-info {
+    margin-bottom: 10px;
+  }
+  .print-doc-title {
+    text-align: center;
+    margin: 0 0 10px 0;
+  }
+  .print-section-title {
+    margin: 0 0 5px 0;
+    font-size: 1.1em;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .print-table th,
+  .print-table td {
+    padding: 4px 0;
+    border-bottom: 1px dashed #ccc;
+  }
+  .print-table th {
+    border-bottom: 1px solid #000;
+  }
+
+  .print-total {
+    text-align: right;
+    margin-top: 10px;
+    font-size: 1.2em;
+  }
+  .print-payments {
+    margin-top: 15px;
+  }
+  .print-balances {
+    margin-top: 10px;
+  }
+  .print-balances p {
+    margin: 2px 0;
+  }
+  .print-notes {
+    margin-top: 15px;
+  }
+  .print-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-style: italic;
+  }
+  .print-qr-image-wrapper {
+    text-align: center;
+    margin-top: 10px;
+  }
+  .print-qr-hint {
+    margin: 5px 0 0 0;
+    font-size: 0.8em;
+    color: #555;
+  }
+
+  /* ----------------------------------------------------- */
+  /* FORMATO 1: IMPRESSORA PADRÃO (A4)                     */
+  /* ----------------------------------------------------- */
+  .impressora-padrao {
+    width: 100%;
+    max-width: 210mm;
+    padding: 10mm;
+    font-family: sans-serif;
+  }
+  .impressora-padrao .print-logo {
+    max-height: 80px;
+    margin-bottom: 5px;
+  }
+  .impressora-padrao .print-box-qr {
+    max-width: 350px;
+    border: 1px dashed #ccc;
+    padding: 20px;
+  }
+  .impressora-padrao .qr-code-img {
+    width: 150px;
+    height: 150px;
+  }
+
+  /* ----------------------------------------------------- */
+  /* FORMATO 2: TÉRMICA (BOBINA 80mm)                      */
+  /* ----------------------------------------------------- */
+  .impressora-termica_80mm {
+    width: 76mm !important;
+    margin: 0;
+    padding: 0;
+    font-family: monospace; /* Fonte perfeita para máquinas de recibo */
+    font-size: 12px;
+  }
+  .impressora-termica_80mm p {
+    margin: 2px 0;
+  }
+  .impressora-termica_80mm .print-logo {
+    max-height: 50px;
+    margin-bottom: 5px;
+  }
+  .impressora-termica_80mm .print-title {
+    font-size: 1.3em;
+  }
+  .impressora-termica_80mm .print-os-number {
+    font-size: 1.5em;
+    margin: 5px 0;
+  }
+  .impressora-termica_80mm .print-doc-title {
+    font-size: 1.2em;
+  }
+  .impressora-termica_80mm .qr-code-img {
+    width: 120px;
+    height: 120px;
+  }
+
+  /* ----------------------------------------------------- */
+  /* FORMATO 3: TÉRMICA (BOBINA 58mm - Mini)               */
+  /* ----------------------------------------------------- */
+  .impressora-termica_58mm {
+    width: 50mm !important;
+    margin: 0;
+    padding: 0;
+    font-family: monospace;
+    font-size: 10px; /* Letra mais pequena para caber sem cortar */
+  }
+  .impressora-termica_58mm p {
+    margin: 1px 0;
+  }
+  .impressora-termica_58mm .print-logo {
+    max-height: 40px;
+    margin-bottom: 2px;
+  }
+  .impressora-termica_58mm .print-title {
+    font-size: 1.2em;
+  }
+  .impressora-termica_58mm .print-os-number {
+    font-size: 1.3em;
+    margin: 4px 0;
+  }
+  .impressora-termica_58mm .print-doc-title {
+    font-size: 1.1em;
+  }
+  .impressora-termica_58mm .qr-code-img {
+    width: 90px;
+    height: 90px;
+  }
+  .impressora-termica_58mm .print-table th,
+  .impressora-termica_58mm .print-table td {
+    padding: 2px 0;
+    font-size: 0.9em;
+  }
+}

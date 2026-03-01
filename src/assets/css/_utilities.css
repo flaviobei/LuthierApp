@@ -1,0 +1,53 @@
+/* ========================================================= */
+/* UTILITÁRIOS E ALINHAMENTOS (FLEXBOX) */
+/* ========================================================= */
+.text-muted {
+  color: var(--text-muted);
+}
+.text-success {
+  color: var(--success);
+}
+.text-danger {
+  color: var(--danger);
+}
+.text-center {
+  text-align: center;
+}
+
+.mb-1 {
+  margin-bottom: 8px;
+}
+.mb-2 {
+  margin-bottom: 16px;
+}
+.mt-1 {
+  margin-top: 8px;
+}
+.mt-2 {
+  margin-top: 16px;
+}
+
+.w-full {
+  width: 100%;
+}
+.bg-light {
+  background: #f8f9fa;
+}
+
+/* Utilitários Flexbox */
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+.flex-gap-10 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.flex-gap-15 {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}

@@ -2,14 +2,20 @@
 /**
  * ============================================================================
  * @file        App.vue
- * @description Componente raiz orquestrador com suporte a Ícones Dinâmicos.
- * ATUALIZAÇÃO: Botões padronizados e ícone de instrumento corrigido. Botão de edição de cliente adicionado.
- * @project     LuthierApp
+ * @description Orquestrador refatorado para usar a camada de Services.
  * ============================================================================
  */
-
 import { ref, onMounted } from "vue";
 import { supabase } from "./lib/supabaseClient";
+import { useToast } from "./composables/useToast";
+import { useOnboarding } from "./composables/useOnboarding";
+
+// SERVIÇOS
+import { clienteService } from "./services/clienteService";
+import { adminService } from "./services/adminService";
+import { authService } from "./services/authService";
+
+// COMPONENTES
 import Auth from "./components/Auth.vue";
 import ClienteForm from "./components/ClienteForm.vue";
 import InstrumentoManager from "./components/InstrumentoManager.vue";
@@ -24,21 +30,19 @@ import { Analytics } from "@vercel/analytics/vue";
 import ScannerQR from "./components/ScannerQR.vue";
 import CalendarioEntregas from "./components/CalendarioEntregas.vue";
 import ToastNotification from "./components/ToastNotification.vue";
-import { useToast } from "./composables/useToast";
-import { useOnboarding } from "./composables/useOnboarding";
 
 const { triggerToast } = useToast();
 
+// ESTADOS GLOBAIS
 const session = ref(null);
 const aVerificarAcesso = ref(true);
 const isSuperAdmin = ref(false);
 const assinatura = ref(null);
 const diasTrialRestantes = ref(0);
-
 const clientes = ref([]);
 const clienteSelecionado = ref(null);
 const instrumentoSelecionado = ref(null);
-const clienteParaEditar = ref(null); // <-- Estado para gerenciar a edição do cliente
+const clienteParaEditar = ref(null);
 const mostrarClientes = ref(false);
 const modoAtual = ref("bancada");
 const servicoDireto = ref(null);
@@ -51,110 +55,131 @@ const configLuthieria = ref({
 
 const { iniciarTour } = useOnboarding(modoAtual, mostrarClientes);
 
-async function verificarSuperAdmin(email) {
-  if (!email) return;
-  const { data } = await supabase
-    .from("super_admins")
-    .select("*")
-    .eq("email", email)
-    .maybeSingle();
-  if (data) isSuperAdmin.value = true;
-}
-
-async function carregarAssinatura() {
-  const { data } = await supabase.from("assinaturas").select("*").maybeSingle();
-  if (data) {
-    assinatura.value = data;
-    if (data.status === "trial") {
-      const hoje = new Date();
-      const fim = new Date(data.data_fim_trial);
-      const diffTime = fim - hoje;
-      diasTrialRestantes.value = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diasTrialRestantes.value <= 0) assinatura.value.status = "expirado";
-    }
-  } else {
-    assinatura.value = null;
-  }
-}
-
+/**
+ * INICIALIZAÇÃO DO APP
+ */
 async function inicializarApp() {
   aVerificarAcesso.value = true;
-  await verificarSuperAdmin(session.value?.user?.email);
-  await carregarAssinatura();
+  try {
+    const userEmail = session.value?.user?.email;
 
-  if (
-    isSuperAdmin.value ||
-    (assinatura.value &&
-      (assinatura.value.status === "ativo" ||
-        (assinatura.value.status === "trial" && diasTrialRestantes.value > 0)))
-  ) {
-    await Promise.all([buscarClientes(), carregarConfiguracoes()]);
+    const [superAdmin, dadosAssinatura] = await Promise.all([
+      adminService.verificarSuperAdmin(userEmail),
+      adminService.buscarAssinatura(),
+    ]);
+
+    isSuperAdmin.value = superAdmin;
+    assinatura.value = dadosAssinatura;
+
+    if (dadosAssinatura?.status === "trial") {
+      const hoje = new Date();
+      const fim = new Date(dadosAssinatura.data_fim_trial);
+      diasTrialRestantes.value = Math.ceil(
+        (fim - hoje) / (1000 * 60 * 60 * 24),
+      );
+      if (diasTrialRestantes.value <= 0) assinatura.value.status = "expirado";
+    }
+
+    const temAcesso =
+      isSuperAdmin.value ||
+      assinatura.value?.status === "ativo" ||
+      (assinatura.value?.status === "trial" && diasTrialRestantes.value > 0);
+
+    if (temAcesso) {
+      await Promise.all([buscarClientes(), aplicarConfiguracoesVisuais()]);
+    }
+  } catch (err) {
+    console.error("Erro ao inicializar:", err);
+  } finally {
+    aVerificarAcesso.value = false;
   }
-  aVerificarAcesso.value = false;
 }
 
-async function fazerLogout() {
-  aVerificarAcesso.value = true;
-  await supabase.auth.signOut();
-  session.value = null;
-  assinatura.value = null;
-  isSuperAdmin.value = false;
-  irParaInicio();
-  aVerificarAcesso.value = false;
+async function buscarClientes() {
+  try {
+    clientes.value = await clienteService.buscarTodos();
+  } catch (e) {
+    triggerToast("Erro ao carregar clientes", "error");
+  }
 }
 
-async function carregarConfiguracoes() {
-  const { data } = await supabase
-    .from("configuracoes")
-    .select("*")
-    .maybeSingle();
+async function aplicarConfiguracoesVisuais() {
+  try {
+    const data = await adminService.buscarConfiguracoes();
+    if (!data) return;
 
-  if (data) {
     configLuthieria.value.nome_luthieria =
       data.nome_luthieria || "Gestão Luthieria";
     configLuthieria.value.logo_url = data.logo_url || "";
 
     const root = document.documentElement;
+    const vars = {
+      "--primary": data.cor_primaria,
+      "--accent": data.cor_secundaria,
+      "--bg-body": data.cor_fundo,
+      "--text-main": data.text_color,
+      "--btn-primary-bg": data.btn_primary_bg,
+      "--btn-primary-text": data.btn_primary_text,
+      "--btn-accent-bg": data.btn_accent_bg,
+      "--btn-accent-text": data.btn_accent_text,
+      "--icon-family": data.estilo_icones ? `"${data.estilo_icones}"` : null,
+    };
 
-    if (data.cor_primaria)
-      root.style.setProperty("--primary", data.cor_primaria);
-    if (data.cor_secundaria)
-      root.style.setProperty("--accent", data.cor_secundaria);
-    if (data.cor_fundo) root.style.setProperty("--bg-body", data.cor_fundo);
-    if (data.text_color) root.style.setProperty("--text-main", data.text_color);
-
-    if (data.btn_primary_bg)
-      root.style.setProperty("--btn-primary-bg", data.btn_primary_bg);
-    if (data.btn_primary_text)
-      root.style.setProperty("--btn-primary-text", data.btn_primary_text);
-    if (data.btn_accent_bg)
-      root.style.setProperty("--btn-accent-bg", data.btn_accent_bg);
-    if (data.btn_accent_text)
-      root.style.setProperty("--btn-accent-text", data.btn_accent_text);
+    Object.entries(vars).forEach(([key, val]) => {
+      if (val) root.style.setProperty(key, val);
+    });
 
     if (data.fonte_principal)
       document.body.style.fontFamily = data.fonte_principal;
-
-    // INJETAR A FAMÍLIA DE ÍCONES DINÂMICA
-    if (data.estilo_icones)
-      root.style.setProperty("--icon-family", `"${data.estilo_icones}"`);
-
-    if (data.radius_perc !== undefined && data.radius_perc !== null) {
+    if (data.radius_perc !== null) {
       root.style.setProperty("--radius", `${data.radius_perc}px`);
       root.style.setProperty(
         "--radius-sm",
         `${Math.max(4, data.radius_perc - 4)}px`,
       );
     }
+  } catch (e) {
+    console.error("Erro nas configurações visuais", e);
   }
 }
 
-async function buscarClientes() {
-  const { data } = await supabase
-    .from("clientes")
-    .select("*")
-    .order("created_at", { ascending: false });
-  clientes.value = data || [];
+async function fazerLogout() {
+  aVerificarAcesso.value = true;
+  try {
+    await authService.logout();
+    session.value = null;
+    assinatura.value = null;
+    isSuperAdmin.value = false;
+    irParaInicio();
+  } catch (e) {
+    triggerToast("Erro ao sair", "error");
+  } finally {
+    aVerificarAcesso.value = false;
+  }
+}
+
+function irParaInicio() {
+  modoAtual.value = "bancada";
+  servicoDireto.value = null;
+  clienteSelecionado.value = null;
+  instrumentoSelecionado.value = null;
+  clienteParaEditar.value = null;
+  mostrarClientes.value = false;
+}
+
+function abrirServicoPeloDashboard(os) {
+  servicoDireto.value = os;
+  modoAtual.value = "bancada";
+}
+
+function editarCliente(cliente) {
+  clienteParaEditar.value = cliente;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function formatarLinkZap(t) {
+  const n = t?.replace(/\D/g, "");
+  return n?.length <= 11 ? `55${n}` : n;
 }
 
 onMounted(() => {
@@ -177,32 +202,6 @@ onMounted(() => {
     }
   });
 });
-
-function irParaInicio() {
-  modoAtual.value = "bancada";
-  servicoDireto.value = null;
-  clienteSelecionado.value = null;
-  instrumentoSelecionado.value = null;
-  clienteParaEditar.value = null;
-  mostrarClientes.value = false;
-}
-
-function selecionarCliente(c) {
-  clienteSelecionado.value = c;
-}
-function abrirServicoPeloDashboard(os) {
-  servicoDireto.value = os;
-  modoAtual.value = "bancada";
-}
-function formatarLinkZap(t) {
-  const n = t?.replace(/\D/g, "");
-  return n?.length <= 11 ? `55${n}` : n;
-}
-function editarCliente(cliente) {
-  clienteParaEditar.value = cliente;
-  // Faz scroll para o topo para garantir que o formulário está visível
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
 </script>
 
 <template>
@@ -288,49 +287,47 @@ function editarCliente(cliente) {
 
         <div class="header-buttons">
           <button
-            id="tour-home"
             @click="irParaInicio"
             class="btn-menu"
             :class="{ active: modoAtual === 'bancada' && !servicoDireto }"
           >
-            <span class="icon-dinamico">home</span>
-            <span class="lbl">Início</span>
+            <span class="icon-dinamico">home</span
+            ><span class="lbl">Início</span>
           </button>
           <button
             @click="modoAtual = 'calendario'"
             class="btn-menu"
             :class="{ active: modoAtual === 'calendario' }"
           >
-            <span class="icon-dinamico">calendar_month</span>
-            <span class="lbl">Agenda</span>
+            <span class="icon-dinamico">calendar_month</span
+            ><span class="lbl">Agenda</span>
           </button>
           <button @click="mostrarScanner = true" class="btn-menu scan-btn">
-            <span class="icon-dinamico">qr_code_scanner</span>
-            <span class="lbl">QR Scan</span>
+            <span class="icon-dinamico">qr_code_scanner</span
+            ><span class="lbl">QR Scan</span>
           </button>
           <button
             @click="modoAtual = 'historico'"
             class="btn-menu"
             :class="{ active: modoAtual === 'historico' }"
           >
-            <span class="icon-dinamico">inventory_2</span>
-            <span class="lbl">Arquivo</span>
+            <span class="icon-dinamico">inventory_2</span
+            ><span class="lbl">Arquivo</span>
           </button>
           <button
-            id="tour-admin"
             @click="modoAtual = 'admin'"
             class="btn-menu"
             :class="{ active: modoAtual === 'admin' }"
           >
-            <span class="icon-dinamico">settings</span>
-            <span class="lbl">Admin</span>
+            <span class="icon-dinamico">settings</span
+            ><span class="lbl">Admin</span>
           </button>
           <button
             @click="fazerLogout"
             class="btn-menu text-danger btn-sair-mobile"
           >
-            <span class="icon-dinamico">logout</span>
-            <span class="lbl">Sair</span>
+            <span class="icon-dinamico">logout</span
+            ><span class="lbl">Sair</span>
           </button>
         </div>
       </div>
@@ -396,7 +393,6 @@ function editarCliente(cliente) {
             <DashboardAtividades @abrirOS="abrirServicoPeloDashboard" />
             <div class="controle-clientes">
               <button
-                id="tour-clientes"
                 class="btn-toggle-clientes"
                 @click="mostrarClientes = !mostrarClientes"
               >
@@ -421,7 +417,6 @@ function editarCliente(cliente) {
                   @cancelarEdicao="clienteParaEditar = null"
                 />
               </div>
-
               <div class="col-lista card">
                 <h3 class="title-section">
                   <span class="icon-dinamico" style="vertical-align: middle"
@@ -451,16 +446,12 @@ function editarCliente(cliente) {
                             "
                             target="_blank"
                             class="badge-zap"
-                            style="
-                              display: inline-flex;
-                              align-items: center;
-                              gap: 4px;
-                            "
-                            ><span class="icon-dinamico" style="font-size: 1rem"
+                          >
+                            <span class="icon-dinamico" style="font-size: 1rem"
                               >chat</span
                             >
-                            WhatsApp</a
-                          >
+                            WhatsApp
+                          </a>
                         </td>
                         <td align="center">
                           <div
@@ -478,7 +469,6 @@ function editarCliente(cliente) {
                             >
                               <span class="icon-dinamico">edit</span>
                             </button>
-
                             <button
                               class="btn-icon"
                               @click="clienteSelecionado = c"
@@ -502,7 +492,6 @@ function editarCliente(cliente) {
 </template>
 
 <style scoped>
-/* Estilos para centralização absoluta */
 .full-center {
   display: flex;
   flex-direction: column;
@@ -540,11 +529,9 @@ function editarCliente(cliente) {
     transform: rotate(0deg);
   }
   100% {
-    transform: scale(360deg);
+    transform: rotate(360deg);
   }
 }
-
-/* Estilos Globais e Header */
 .app-container {
   padding: 20px;
   max-width: 1100px;
@@ -560,6 +547,7 @@ function editarCliente(cliente) {
   top: 10px;
   z-index: 100;
   border-bottom: 4px solid var(--accent);
+  background: white;
 }
 .brand-area {
   display: flex;
@@ -596,8 +584,6 @@ function editarCliente(cliente) {
   border-color: var(--accent) !important;
   color: white !important;
 }
-
-/* Dashboard e Clientes */
 .controle-clientes {
   text-align: center;
   margin: 40px 0 20px 0;
@@ -615,10 +601,6 @@ function editarCliente(cliente) {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-}
-.btn-toggle-clientes:hover {
-  border-color: var(--primary);
-  color: var(--primary);
 }
 .clientes-grid {
   display: flex;
@@ -640,6 +622,9 @@ function editarCliente(cliente) {
   font-weight: bold;
   text-decoration: none;
   font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .banner-trial {
   background: #fff3cd;
@@ -650,14 +635,7 @@ function editarCliente(cliente) {
   margin-bottom: 20px;
 }
 
-/* ========================================================= */
-/* 📱 MODO MOBILE: BOTTOM TAB BAR (PWA) */
-/* ========================================================= */
 @media (max-width: 850px) {
-  .global-header {
-    top: 0;
-    padding: 10px;
-  }
   .header-buttons {
     position: fixed;
     bottom: 0;
@@ -666,7 +644,6 @@ function editarCliente(cliente) {
     background: #ffffff;
     padding: 12px 5px 25px;
     justify-content: space-around;
-    align-items: center;
     border-top: 1px solid #e0e0e0;
     z-index: 1000;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
@@ -675,29 +652,15 @@ function editarCliente(cliente) {
   .header-buttons .btn-menu {
     flex-direction: column;
     border: none !important;
-    background: transparent !important;
     flex: 1;
     padding: 5px 0;
-    gap: 4px;
     min-height: 60px;
     color: var(--text-muted);
-  }
-  .header-buttons .btn-menu .icon-dinamico {
-    font-size: 1.6rem;
   }
   .header-buttons .btn-menu .lbl {
     display: block !important;
     font-size: 0.7rem;
-    font-weight: 600;
   }
-  .header-buttons .btn-menu.active {
-    color: var(--primary) !important;
-  }
-  .header-buttons .btn-menu.active .icon-dinamico {
-    transform: scale(1.15);
-    transition: transform 0.2s ease-out;
-  }
-
   .header-buttons .scan-btn {
     position: relative;
     top: -20px;
@@ -705,13 +668,7 @@ function editarCliente(cliente) {
     width: 65px;
     height: 65px;
     flex: 0 0 65px !important;
-    background: var(--accent) !important;
     box-shadow: 0 6px 15px rgba(211, 84, 0, 0.4) !important;
-    justify-content: center;
-  }
-  .header-buttons .scan-btn .icon-dinamico {
-    font-size: 1.8rem;
-    color: white;
   }
   .header-buttons .scan-btn .lbl {
     display: none !important;
@@ -719,7 +676,6 @@ function editarCliente(cliente) {
   .btn-sair-mobile {
     display: none !important;
   }
-
   .app-container {
     padding-bottom: 110px;
   }

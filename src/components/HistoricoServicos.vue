@@ -2,132 +2,75 @@
 /**
  * ============================================================================
  * @file        HistoricoServicos.vue
- * @description Módulo de arquivo morto e relatórios. Exibe todas as Ordens
- * de Serviço que já foram finalizadas ou entregues ao cliente.
- * ATUALIZAÇÃO: Ordenação em colunas, Média de Ticket, Valor da O.S. e Ícones.
- * @project     LuthierApp
+ * @description Módulo de arquivo morto e relatórios.
+ * ATUALIZAÇÃO: Correção do nome da função de exportação e ordenação.
  * ============================================================================
  */
 
 import { ref, onMounted, computed } from "vue";
-import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { osService } from "../services/osService";
+import { gerarRelatorioHistoricoCSV } from "../lib/exportUtils";
 
 const emit = defineEmits(["voltar", "abrirOS"]);
 const { triggerToast } = useToast();
 
 const servicosEntregues = ref([]);
-const transacoesConcluidas = ref([]); // Para guardar os valores reais
 const carregando = ref(true);
 const exportando = ref(false);
 
-// FILTROS & ORDENAÇÃO
 const termoBusca = ref("");
 const mesFiltro = ref("");
-const ordenacao = ref({ coluna: "data_conclusao", direcao: "desc" }); // Padrão: Mais recentes primeiro
+const ordenacao = ref({ coluna: "data_conclusao", direcao: "desc" });
 
 async function carregarHistorico() {
   carregando.value = true;
-
-  // 1. Busca as O.S. Concluídas
-  const { data: servicosData, error: errServicos } = await supabase
-    .from("servicos")
-    .select(
-      `
-      *, 
-      instrumentos ( 
-        marca, 
-        modelo, 
-        cliente:clientes (id, nome, telefone, email) 
-      )
-    `,
-    )
-    .in("status", ["Entregue", "Finalizado"]);
-
-  if (errServicos) {
-    triggerToast("Erro ao carregar histórico", "error");
+  try {
+    // Chama o serviço que já traz os dados cruzados com as transações (Valor OS)
+    servicosEntregues.value = await osService.buscarHistorico();
+  } catch (error) {
+    triggerToast("Erro ao carregar histórico: " + error.message, "error");
+  } finally {
     carregando.value = false;
-    return;
   }
-
-  // 2. Busca TODAS as transações de entrada para cruzar os valores reais pagos
-  const { data: transacoesData, error: errTransacoes } = await supabase
-    .from("transacoes")
-    .select("servico_id, valor_bruto, tipo")
-    .eq("tipo", "Entrada");
-
-  if (!errTransacoes && transacoesData) {
-    transacoesConcluidas.value = transacoesData;
-  }
-
-  if (servicosData) {
-    servicosEntregues.value = servicosData.map((os) => {
-      // Calcula o valor total desta O.S. específica
-      const pagamentosOS = transacoesConcluidas.value.filter(
-        (t) => t.servico_id === os.id,
-      );
-      const valorTotalOS = pagamentosOS.reduce(
-        (acc, t) => acc + Number(t.valor_bruto),
-        0,
-      );
-
-      // Anexa o valor calculado diretamente no objeto para facilitar a listagem e ordenação
-      return {
-        ...os,
-        _valor_calculado: valorTotalOS,
-      };
-    });
-  }
-
-  carregando.value = false;
 }
 
-// CÁLCULO DA MÉDIA DE TICKET POR CLIENTE
 function getMediaTicketCliente(clienteId) {
   if (!clienteId) return 0;
-
-  // Encontra todas as O.S. deste cliente
   const osDoCliente = servicosEntregues.value.filter(
     (os) => os.instrumentos?.cliente?.id === clienteId,
   );
   if (osDoCliente.length === 0) return 0;
-
-  // Soma o valor total de todas as O.S. do cliente
   const valorTotalGasto = osDoCliente.reduce(
-    (acc, os) => acc + os._valor_calculado,
+    (acc, os) => acc + (os._valor_calculado || 0),
     0,
   );
-
   return valorTotalGasto / osDoCliente.length;
 }
 
-// LÓGICA DE ORDENAÇÃO E FILTRAGEM COMBINADAS
 const servicosFiltrados = computed(() => {
-  let resultado = [...servicosEntregues.value]; // Cria uma cópia para não mutar o original
+  let resultado = [...servicosEntregues.value];
 
-  // 1. Aplicar Filtro de Busca por Texto
   if (termoBusca.value) {
     const termo = termoBusca.value.toLowerCase();
     resultado = resultado.filter((os) => {
       const cli = os.instrumentos?.cliente?.nome?.toLowerCase() || "";
       const inst =
         `${os.instrumentos?.marca} ${os.instrumentos?.modelo}`.toLowerCase();
-      const numOs = String(os.numero_os);
       return (
-        cli.includes(termo) || inst.includes(termo) || numOs.includes(termo)
+        cli.includes(termo) ||
+        inst.includes(termo) ||
+        String(os.numero_os).includes(termo)
       );
     });
   }
 
-  // 2. Aplicar Filtro de Mês
   if (mesFiltro.value) {
-    resultado = resultado.filter((os) => {
-      if (!os.data_conclusao) return false;
-      return os.data_conclusao.startsWith(mesFiltro.value);
-    });
+    resultado = resultado.filter((os) =>
+      os.data_conclusao?.startsWith(mesFiltro.value),
+    );
   }
 
-  // 3. Aplicar Ordenação
   resultado.sort((a, b) => {
     const col = ordenacao.value.coluna;
     const dir = ordenacao.value.direcao === "asc" ? 1 : -1;
@@ -146,38 +89,53 @@ const servicosFiltrados = computed(() => {
         valA = (a.instrumentos?.cliente?.nome || "").toLowerCase();
         valB = (b.instrumentos?.cliente?.nome || "").toLowerCase();
         break;
-      case "instrumento":
-        valA = (a.instrumentos?.marca || "").toLowerCase();
-        valB = (b.instrumentos?.marca || "").toLowerCase();
-        break;
       case "valor_os":
-        valA = a._valor_calculado;
-        valB = b._valor_calculado;
-        break;
-      case "media_ticket":
-        valA = getMediaTicketCliente(a.instrumentos?.cliente?.id);
-        valB = getMediaTicketCliente(b.instrumentos?.cliente?.id);
+        valA = a._valor_calculado || 0;
+        valB = b._valor_calculado || 0;
         break;
       default:
         valA = 0;
         valB = 0;
     }
 
-    if (valA < valB) return -1 * dir;
-    if (valA > valB) return 1 * dir;
-    return 0;
+    return valA < valB ? -1 * dir : valA > valB ? 1 * dir : 0;
   });
 
   return resultado;
 });
 
+/**
+ * FUNÇÃO DE EXPORTAÇÃO (Nome corrigido para bater com o @click do template)
+ */
+async function exportarHistoricoCSV() {
+  if (servicosFiltrados.value.length === 0) {
+    return triggerToast(
+      "Não há dados para exportar com estes filtros.",
+      "warning",
+    );
+  }
+
+  exportando.value = true;
+  try {
+    // Chama o utilitário que criamos na pasta /lib/
+    await gerarRelatorioHistoricoCSV(
+      servicosFiltrados.value,
+      servicosEntregues.value,
+      mesFiltro.value,
+    );
+    triggerToast("Relatório exportado com sucesso!", "success");
+  } catch (err) {
+    triggerToast("Falha ao exportar: " + err.message, "error");
+  } finally {
+    exportando.value = false;
+  }
+}
+
 function alterarOrdenacao(coluna) {
   if (ordenacao.value.coluna === coluna) {
-    // Inverte a direção se clicar na mesma coluna
     ordenacao.value.direcao =
       ordenacao.value.direcao === "asc" ? "desc" : "asc";
   } else {
-    // Nova coluna, padrão é crescente (asc)
     ordenacao.value.coluna = coluna;
     ordenacao.value.direcao = "asc";
   }
@@ -186,130 +144,6 @@ function alterarOrdenacao(coluna) {
 function getIconeOrdenacao(coluna) {
   if (ordenacao.value.coluna !== coluna) return "unfold_more";
   return ordenacao.value.direcao === "asc" ? "expand_less" : "expand_more";
-}
-
-async function exportarHistoricoCSV() {
-  if (servicosFiltrados.value.length === 0) {
-    return triggerToast(
-      "Não há ordens de serviço para exportar com estes filtros.",
-      "error",
-    );
-  }
-
-  exportando.value = true;
-
-  try {
-    let csvContent =
-      "Numero O.S.;Cliente;Email;Telefone;Instrumento;Data Entrada;Data Conclusao;Duracao em Dias;Valor Bruto Total (R$);Valor Liquido Estimado (R$);Media Ticket Cliente (R$);Status;Descricao do Servico;Comentarios de Fechamento\n";
-
-    const osIds = servicosFiltrados.value.map((os) => os.id);
-    const { data: transacoes } = await supabase
-      .from("transacoes")
-      .select("servico_id, valor_bruto, descricao, tipo")
-      .in("servico_id", osIds)
-      .eq("tipo", "Entrada");
-
-    for (const os of servicosFiltrados.value) {
-      const numOs = `#${os.numero_os}`;
-      const clienteNome = os.instrumentos?.cliente?.nome || "--";
-      const email = os.instrumentos?.cliente?.email || "--";
-      const telefone = os.instrumentos?.cliente?.telefone || "--";
-      const instrumento = os.instrumentos
-        ? `${os.instrumentos.marca} ${os.instrumentos.modelo}`
-        : "--";
-      const status = os.status || "--";
-      const descricao = os.descricao_cliente
-        ? os.descricao_cliente.replace(/;/g, ",").replace(/\n/g, " ")
-        : "--";
-      const obsFechamento = os.obs_fechamento
-        ? os.obs_fechamento.replace(/;/g, ",").replace(/\n/g, " ")
-        : "--";
-
-      let dataEntradaFormatada = "--";
-      let dataConclusaoFormatada = "--";
-      let duracaoDias = "--";
-
-      if (os.data_entrada) {
-        dataEntradaFormatada = new Date(
-          os.data_entrada + (os.data_entrada.includes("T") ? "" : "T12:00:00"),
-        ).toLocaleDateString("pt-BR");
-      }
-      if (os.data_conclusao) {
-        dataConclusaoFormatada = new Date(
-          os.data_conclusao +
-            (os.data_conclusao.includes("T") ? "" : "T12:00:00"),
-        ).toLocaleDateString("pt-BR");
-      }
-      if (os.data_entrada && os.data_conclusao) {
-        const dEntrada = new Date(
-          os.data_entrada + (os.data_entrada.includes("T") ? "" : "T12:00:00"),
-        );
-        const dConclusao = new Date(
-          os.data_conclusao +
-            (os.data_conclusao.includes("T") ? "" : "T12:00:00"),
-        );
-        const diffTime = Math.abs(dConclusao - dEntrada);
-        duracaoDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      }
-
-      let valorBrutoTotal = 0;
-      let valorLiquidoTotal = 0;
-
-      if (transacoes && transacoes.length > 0) {
-        const pagamentosDestaOS = transacoes.filter(
-          (t) => t.servico_id === os.id,
-        );
-        pagamentosDestaOS.forEach((pgto) => {
-          let vBruto = Number(pgto.valor_bruto) || 0;
-          valorBrutoTotal += vBruto;
-
-          let taxaPorcentagem = 0;
-          const matchTaxa = pgto.descricao?.match(
-            /Taxa da Maquininha:\s*([\d.]+)%/,
-          );
-          if (matchTaxa && matchTaxa[1]) {
-            taxaPorcentagem = parseFloat(matchTaxa[1]);
-          }
-
-          let vLiquido = vBruto;
-          if (taxaPorcentagem > 0) {
-            vLiquido = vBruto - vBruto * (taxaPorcentagem / 100);
-          }
-          valorLiquidoTotal += vLiquido;
-        });
-      }
-
-      const vBrutoStr = valorBrutoTotal.toFixed(2).replace(".", ",");
-      const vLiquidoStr = valorLiquidoTotal.toFixed(2).replace(".", ",");
-
-      // NOVA MÉTRICA DE EXPORTAÇÃO
-      const mediaTicketStr = getMediaTicketCliente(os.instrumentos?.cliente?.id)
-        .toFixed(2)
-        .replace(".", ",");
-
-      csvContent += `${numOs};${clienteNome};${email};${telefone};${instrumento};${dataEntradaFormatada};${dataConclusaoFormatada};${duracaoDias};${vBrutoStr};${vLiquidoStr};${mediaTicketStr};${status};${descricao};${obsFechamento}\n`;
-    }
-
-    const blob = new Blob(["\uFEFF" + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    const nomeFicheiro = mesFiltro.value
-      ? `Relatorio_Completo_OS_${mesFiltro.value}.csv`
-      : `Relatorio_Completo_OS_Historico.csv`;
-    link.setAttribute("download", nomeFicheiro);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    triggerToast("Relatório analítico exportado com sucesso!", "success");
-  } catch (error) {
-    triggerToast("Erro ao gerar ficheiro Excel: " + error.message, "error");
-  } finally {
-    exportando.value = false;
-  }
 }
 
 function formatarData(dataIso) {
@@ -370,9 +204,7 @@ onMounted(() => carregarHistorico());
           <span class="icon-dinamico" style="font-size: 1.1rem">
             {{ exportando ? "hourglass_empty" : "download" }}
           </span>
-          {{
-            exportando ? "A calcular relatório..." : "Relatório Excel Completo"
-          }}
+          {{ exportando ? "A gerar ficheiro..." : "Relatório Excel Completo" }}
         </button>
       </div>
     </div>
@@ -398,7 +230,7 @@ onMounted(() => carregarHistorico());
             <span class="icon-dinamico" style="font-size: 1.1rem"
               >calendar_month</span
             >
-            Filtrar por Mês de Fechamento:
+            Mês de Fechamento:
           </label>
           <input type="month" v-model="mesFiltro" />
         </div>
@@ -422,7 +254,7 @@ onMounted(() => carregarHistorico());
         style="font-size: 2.5rem; animation: spin 1s linear infinite"
         >sync</span
       >
-      A escavar os arquivos...
+      A recuperar histórico...
     </div>
 
     <div v-else class="tabela-responsiva">
@@ -453,16 +285,6 @@ onMounted(() => carregarHistorico());
                 getIconeOrdenacao("instrumento")
               }}</span>
             </th>
-
-            <th
-              class="th-sortable text-right"
-              @click="alterarOrdenacao('media_ticket')"
-            >
-              Média
-              <span class="icon-dinamico">{{
-                getIconeOrdenacao("media_ticket")
-              }}</span>
-            </th>
             <th
               class="th-sortable text-right"
               @click="alterarOrdenacao('valor_os')"
@@ -472,14 +294,13 @@ onMounted(() => carregarHistorico());
                 getIconeOrdenacao("valor_os")
               }}</span>
             </th>
-
             <th style="text-align: center">Ação</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="servicosFiltrados.length === 0">
             <td
-              colspan="7"
+              colspan="6"
               class="text-muted"
               style="text-align: center; padding: 30px"
             >
@@ -529,17 +350,9 @@ onMounted(() => carregarHistorico());
               ><br />
               <small>{{ os.instrumentos?.modelo }}</small>
             </td>
-
-            <td align="right" class="text-muted">
-              R$
-              {{
-                getMediaTicketCliente(os.instrumentos?.cliente?.id).toFixed(2)
-              }}
-            </td>
             <td align="right" style="font-weight: bold; color: var(--success)">
-              R$ {{ os._valor_calculado.toFixed(2) }}
+              R$ {{ (os._valor_calculado || 0).toFixed(2) }}
             </td>
-
             <td align="center">
               <button
                 class="btn-primary"
@@ -567,9 +380,6 @@ onMounted(() => carregarHistorico());
 </template>
 
 <style scoped>
-/* O design principal é herdado do App.vue. A tabela já está padronizada! */
-
-/* Regras para as setinhas de ordenação da tabela */
 .th-sortable {
   cursor: pointer;
   user-select: none;
@@ -590,7 +400,6 @@ onMounted(() => carregarHistorico());
 .text-right {
   text-align: right;
 }
-
 @keyframes spin {
   100% {
     transform: rotate(360deg);

@@ -2,16 +2,14 @@
 /**
  * ============================================================================
  * @file        DashboardAtividades.vue
- * @description Painel principal de indicadores (KPIs). Oferece uma visão
- * rápida sobre o volume de serviços em aberto, entregues e faturamento mensal.
- * @project     LuthierApp
+ * @description Painel principal de indicadores (KPIs).
+ * ATUALIZAÇÃO: Refatoração completa para a camada osService (Bancada e CRM).
  * ============================================================================
  */
-
 import { ref, onMounted } from "vue";
-import { supabase } from "../lib/supabaseClient";
 import { abrirWhatsapp } from "../lib/whatsappUtils";
-import { useToast } from "../composables/useToast"; // <-- Adicionado o Toast para padronizar
+import { useToast } from "../composables/useToast";
+import { osService } from "../services/osService";
 
 const emit = defineEmits(["abrirOS"]);
 const { triggerToast } = useToast();
@@ -20,65 +18,25 @@ const servicosAbertos = ref([]);
 const oportunidadesPosVenda = ref([]);
 const loading = ref(true);
 
-// Variaveis do Kanban foram removidas por agora
-
-async function carregarPendencias() {
+// --- CARREGAMENTO ---
+async function carregarDadosIniciais() {
   loading.value = true;
+  try {
+    const [pendencias, crm] = await Promise.all([
+      osService.buscarPendenciasDash(),
+      osService.buscarOportunidadesPosVenda(),
+    ]);
 
-  const { data, error } = await supabase
-    .from("servicos")
-    .select(
-      `
-      *, 
-      instrumentos ( marca, modelo, cliente:clientes (nome, telefone) ),
-      diario_servico ( descricao, foto_url, data_registro )
-    `,
-    )
-    .neq("status", "Entregue")
-    .neq("status", "Finalizado")
-    .order("data_previsao_entrega", { ascending: true });
-
-  if (!error && data) {
-    servicosAbertos.value = data.map((os) => {
-      if (!os.fase_projeto) os.fase_projeto = "Fila de Espera";
-
-      if (os.diario_servico && os.diario_servico.length > 0) {
-        os.diario_servico.sort(
-          (a, b) => new Date(b.data_registro) - new Date(a.data_registro),
-        );
-        os.ultima_atualizacao = os.diario_servico[0];
-      } else {
-        os.ultima_atualizacao = null;
-      }
-      return os;
-    });
+    servicosAbertos.value = pendencias;
+    oportunidadesPosVenda.value = crm;
+  } catch (error) {
+    triggerToast("Erro ao carregar dashboard: " + error.message, "error");
+  } finally {
+    loading.value = false;
   }
-
-  loading.value = false;
-  carregarPosVenda();
 }
 
-// --- LÓGICA DO PÓS-VENDA (CRM) ---
-async function carregarPosVenda() {
-  const dataCorte = new Date();
-  dataCorte.setMonth(dataCorte.getMonth() - 6);
-  const hoje = new Date().toISOString();
-
-  const { data, error } = await supabase
-    .from("servicos")
-    .select(
-      `*, instrumentos ( marca, modelo, cliente:clientes (nome, telefone) )`,
-    )
-    .in("status", ["Entregue", "Finalizado"])
-    .eq("pos_venda_contatado", false)
-    .lte("data_conclusao", dataCorte.toISOString())
-    .or(`data_lembrete_pos_venda.is.null,data_lembrete_pos_venda.lte.${hoje}`)
-    .order("data_conclusao", { ascending: true })
-    .limit(5);
-
-  if (!error && data) oportunidadesPosVenda.value = data;
-}
-
+// --- AÇÕES DO CRM (PÓS-VENDA) ---
 function chamarClientePosVenda(os) {
   const cli = os.instrumentos?.cliente;
   if (!cli || !cli.telefone)
@@ -89,30 +47,30 @@ function chamarClientePosVenda(os) {
 }
 
 async function marcarComoContatado(osId) {
-  await supabase
-    .from("servicos")
-    .update({ pos_venda_contatado: true })
-    .eq("id", osId);
-  oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
-    (o) => o.id !== osId,
-  );
-  triggerToast("O.S. removida da lista de pendências do CRM.", "success");
+  try {
+    await osService.marcarPosVendaContatado(osId);
+    oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
+      (o) => o.id !== osId,
+    );
+    triggerToast("O.S. removida da lista do CRM.", "success");
+  } catch (err) {
+    triggerToast("Erro ao atualizar status: " + err.message, "error");
+  }
 }
 
 async function adiarPosVenda(osId, dias) {
-  const novaDataLembrete = new Date();
-  novaDataLembrete.setDate(novaDataLembrete.getDate() + dias);
-  await supabase
-    .from("servicos")
-    .update({ data_lembrete_pos_venda: novaDataLembrete })
-    .eq("id", osId);
-  oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
-    (o) => o.id !== osId,
-  );
-  triggerToast(`Lembrete adiado para daqui a ${dias} dias.`, "info");
+  try {
+    await osService.adiarPosVenda(osId, dias);
+    oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
+      (o) => o.id !== osId,
+    );
+    triggerToast(`Lembrete adiado para daqui a ${dias} dias.`, "info");
+  } catch (err) {
+    triggerToast("Erro ao adiar lembrete: " + err.message, "error");
+  }
 }
-// ---------------------------------
 
+// --- AUXILIARES DE INTERFACE ---
 function corFase(fase) {
   switch (fase) {
     case "Fila de Espera":
@@ -146,7 +104,7 @@ function formatarDataCurta(dataIso) {
   });
 }
 
-onMounted(() => carregarPendencias());
+onMounted(() => carregarDadosIniciais());
 </script>
 
 <template>

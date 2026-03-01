@@ -2,17 +2,13 @@
 /**
  * ============================================================================
  * @file        CatalogoManager.vue
- * @description Gestor global de itens da oficina. Centraliza o cadastro de
- * serviços, peças e insumos. Inclui controle de estoque, cálculo automático
- * de custos baseados em receitas, exportação para CSV e confirmação segura.
- * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
- * @project     LuthierApp
+ * @description Gestor de itens refatorado para usar catalogoService.
  * ============================================================================
  */
 
 import { ref, onMounted, computed } from "vue";
-import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { catalogoService } from "../services/catalogoService"; // Importação do Serviço
 
 const emit = defineEmits(["voltar"]);
 const { triggerToast } = useToast();
@@ -21,7 +17,7 @@ const catalogo = ref([]);
 const loading = ref(false);
 const editandoId = ref(null);
 const abaEdicao = ref("dados");
-const idParaExcluir = ref(null); // Estado para confirmação de exclusão sem alert
+const idParaExcluir = ref(null);
 
 const form = ref({
   nome: "",
@@ -38,6 +34,19 @@ const insumoSelecionado = ref(null);
 const insumoQuantidade = ref(1);
 const filtroTipo = ref("Todos");
 
+// --- CARREGAMENTO ---
+async function carregarCatalogo() {
+  loading.value = true;
+  try {
+    catalogo.value = await catalogoService.buscarTodos();
+  } catch (error) {
+    triggerToast("Erro ao carregar catálogo: " + error.message, "error");
+  } finally {
+    loading.value = false;
+  }
+}
+
+// --- LÓGICA DE NEGÓCIO (Mantida no componente por ser visual/local) ---
 const catalogoFiltrado = computed(() => {
   if (filtroTipo.value === "Todos") return catalogo.value;
   return catalogo.value.filter((item) => item.tipo === filtroTipo.value);
@@ -49,64 +58,6 @@ const insumosDisponiveis = computed(() => {
   );
 });
 
-async function carregarCatalogo() {
-  loading.value = true;
-  const { data } = await supabase.from("catalogo").select("*").order("nome");
-  if (data) catalogo.value = data;
-  loading.value = false;
-}
-
-// --- LÓGICA DE EXPORTAÇÃO DE ESTOQUE ---
-function exportarEstoqueCSV() {
-  if (catalogoFiltrado.value.length === 0) {
-    return triggerToast("Não há itens para exportar nesta categoria.", "error");
-  }
-
-  let csvContent =
-    "Nome do Item;Categoria;Custo (R$);Preco de Venda (R$);Controla Estoque;Qtd Atual;Estoque Minimo;Status do Estoque\n";
-
-  catalogoFiltrado.value.forEach((item) => {
-    const nome = item.nome
-      ? item.nome.replace(/;/g, ",").replace(/\n/g, " ")
-      : "--";
-    const tipo = item.tipo === "MaoDeObra" ? "Serviço" : item.tipo;
-    const custoStr = calcularCustoTotal(item).toFixed(2).replace(".", ",");
-    const vendaStr =
-      item.tipo !== "Insumo"
-        ? (Number(item.preco_padrao) || 0).toFixed(2).replace(".", ",")
-        : "--";
-    const controlaEstoque = item.controla_estoque ? "Sim" : "Não";
-    const qtdAtual = item.controla_estoque ? item.quantidade_estoque : "--";
-    const qtdMinima = item.controla_estoque ? item.estoque_minimo : "--";
-
-    let status = "--";
-    if (item.controla_estoque) {
-      status =
-        item.quantidade_estoque <= item.estoque_minimo
-          ? "BAIXO / ALERTA"
-          : "Normal";
-    }
-
-    csvContent += `${nome};${tipo};${custoStr};${vendaStr};${controlaEstoque};${qtdAtual};${qtdMinima};${status}\n`;
-  });
-
-  const blob = new Blob(["\uFEFF" + csvContent], {
-    type: "text/csv;charset=utf-8;",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute(
-    "download",
-    `Relatorio_Estoque_${filtroTipo.value}_${new Date().toISOString().substring(0, 10)}.csv`,
-  );
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  triggerToast("Relatório de estoque exportado!", "success");
-}
-
-// --- LÓGICA DE RECEITAS E CÁLCULO DE CUSTOS ---
 function calcularCustoTotal(item) {
   let custo = Number(item.custo_padrao) || 0;
   if (item.tipo === "MaoDeObra" && item.insumos_consumidos?.length > 0) {
@@ -120,6 +71,82 @@ function calcularCustoTotal(item) {
 }
 
 const custoTotalForm = computed(() => calcularCustoTotal(form.value));
+
+// --- AÇÕES DE SALVAR E EXCLUIR (Via Service) ---
+async function salvarItem() {
+  if (!form.value.nome)
+    return triggerToast("O nome do item é obrigatório.", "error");
+
+  loading.value = true;
+  try {
+    const dadosParaSalvar = { ...form.value };
+
+    // Limpeza lógica antes de enviar ao serviço
+    if (!dadosParaSalvar.controla_estoque) {
+      dadosParaSalvar.quantidade_estoque = 0;
+      dadosParaSalvar.estoque_minimo = 0;
+    }
+    if (dadosParaSalvar.tipo !== "MaoDeObra") {
+      dadosParaSalvar.insumos_consumidos = [];
+    }
+    if (editandoId.value) {
+      dadosParaSalvar.id = editandoId.value;
+    }
+
+    await catalogoService.salvar(dadosParaSalvar);
+
+    triggerToast(
+      editandoId.value ? "Item atualizado!" : "Novo item adicionado!",
+      "success",
+    );
+    cancelarEdicao();
+    await carregarCatalogo();
+  } catch (error) {
+    triggerToast("Erro ao gravar: " + error.message, "error");
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function excluirItem(id) {
+  if (idParaExcluir.value === id) {
+    try {
+      await catalogoService.excluir(id);
+      triggerToast("Item removido do catálogo.", "info");
+      carregarCatalogo();
+    } catch (error) {
+      triggerToast("Erro ao excluir: " + error.message, "error");
+    }
+    idParaExcluir.value = null;
+  } else {
+    idParaExcluir.value = id;
+    setTimeout(() => {
+      if (idParaExcluir.value === id) idParaExcluir.value = null;
+    }, 4000);
+  }
+}
+
+// --- AUXILIARES DE INTERFACE ---
+function iniciarEdicao(item) {
+  editandoId.value = item.id;
+  form.value = { ...item, insumos_consumidos: item.insumos_consumidos || [] };
+  abaEdicao.value = "dados";
+}
+
+function cancelarEdicao() {
+  editandoId.value = null;
+  abaEdicao.value = "dados";
+  form.value = {
+    nome: "",
+    tipo: "Peca",
+    custo_padrao: 0,
+    preco_padrao: 0,
+    controla_estoque: false,
+    quantidade_estoque: 0,
+    estoque_minimo: 0,
+    insumos_consumidos: [],
+  };
+}
 
 function adicionarInsumoNaReceita() {
   if (!insumoSelecionado.value || insumoQuantidade.value <= 0) {
@@ -153,78 +180,52 @@ function removerInsumoDaReceita(insumoId) {
   );
 }
 
-async function salvarItem() {
-  if (!form.value.nome)
-    return triggerToast("O nome do item é obrigatório.", "error");
-  loading.value = true;
-  const dadosParaSalvar = { ...form.value };
-  if (!dadosParaSalvar.controla_estoque) {
-    dadosParaSalvar.quantidade_estoque = 0;
-    dadosParaSalvar.estoque_minimo = 0;
+// Mantivemos a exportação CSV aqui por ser uma manipulação direta do DOM/Blob
+function exportarEstoqueCSV() {
+  if (catalogoFiltrado.value.length === 0) {
+    return triggerToast("Não há itens para exportar nesta categoria.", "error");
   }
-  if (dadosParaSalvar.tipo !== "MaoDeObra")
-    dadosParaSalvar.insumos_consumidos = [];
 
-  const { error } = editandoId.value
-    ? await supabase
-        .from("catalogo")
-        .update(dadosParaSalvar)
-        .eq("id", editandoId.value)
-    : await supabase.from("catalogo").insert([dadosParaSalvar]);
+  let csvContent =
+    "Nome do Item;Categoria;Custo (R$);Preco de Venda (R$);Controla Estoque;Qtd Atual;Estoque Minimo;Status do Estoque\n";
 
-  if (!error) {
-    triggerToast(
-      editandoId.value ? "Item atualizado!" : "Novo item adicionado!",
-      "success",
-    );
-    cancelarEdicao();
-    await carregarCatalogo();
-  } else {
-    triggerToast("Erro ao gravar: " + error.message, "error");
-  }
-  loading.value = false;
-}
-
-function iniciarEdicao(item) {
-  editandoId.value = item.id;
-  form.value = { ...item, insumos_consumidos: item.insumos_consumidos || [] };
-  abaEdicao.value = "dados";
-}
-
-function cancelarEdicao() {
-  editandoId.value = null;
-  abaEdicao.value = "dados";
-  form.value = {
-    nome: "",
-    tipo: "Peca",
-    custo_padrao: 0,
-    preco_padrao: 0,
-    controla_estoque: false,
-    quantidade_estoque: 0,
-    estoque_minimo: 0,
-    insumos_consumidos: [],
-  };
-}
-
-/**
- * Lógica de exclusão em dois passos (sem alert)
- */
-async function excluirItem(id) {
-  if (idParaExcluir.value === id) {
-    const { error } = await supabase.from("catalogo").delete().eq("id", id);
-    if (!error) {
-      triggerToast("Item removido do catálogo.", "info");
-      carregarCatalogo();
-    } else {
-      triggerToast("Erro ao excluir: " + error.message, "error");
+  catalogoFiltrado.value.forEach((item) => {
+    const nome = item.nome
+      ? item.nome.replace(/;/g, ",").replace(/\n/g, " ")
+      : "--";
+    const tipo = item.tipo === "MaoDeObra" ? "Serviço" : item.tipo;
+    const custoStr = calcularCustoTotal(item).toFixed(2).replace(".", ",");
+    const vendaStr =
+      item.tipo !== "Insumo"
+        ? (Number(item.preco_padrao) || 0).toFixed(2).replace(".", ",")
+        : "--";
+    const controlaEstoque = item.controla_estoque ? "Sim" : "Não";
+    const qtdAtual = item.controla_estoque ? item.quantidade_estoque : "--";
+    const qtdMinima = item.controla_estoque ? item.estoque_minimo : "--";
+    let status = "--";
+    if (item.controla_estoque) {
+      status =
+        item.quantidade_estoque <= item.estoque_minimo
+          ? "BAIXO / ALERTA"
+          : "Normal";
     }
-    idParaExcluir.value = null;
-  } else {
-    idParaExcluir.value = id;
-    setTimeout(() => {
-      if (idParaExcluir.value === id) idParaExcluir.value = null;
-    }, 4000);
-  }
+    csvContent += `${nome};${tipo};${custoStr};${vendaStr};${controlaEstoque};${qtdAtual};${qtdMinima};${status}\n`;
+  });
+
+  const blob = new Blob(["\uFEFF" + csvContent], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute(
+    "download",
+    `Relatorio_Estoque_${filtroTipo.value}_${new Date().toISOString().substring(0, 10)}.csv`,
+  );
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  triggerToast("Relatório de estoque exportado!", "success");
 }
 
 onMounted(() => carregarCatalogo());
