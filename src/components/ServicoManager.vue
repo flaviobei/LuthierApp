@@ -6,6 +6,7 @@
  * gerencia o fluxo de entrada de instrumentos, permitindo a criação de novas
  * ordens, filtragem por status (Em Aberto, Finalizado, etc.) e a navegação
  * para o módulo de execução técnica.
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -114,16 +115,33 @@ onMounted(() => buscarServicos());
           justify-content: space-between;
           align-items: center;
           margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 15px;
         "
       >
         <h3
           class="title-section"
-          style="margin: 0; border: none; text-align: left"
+          style="
+            margin: 0;
+            border: none;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
         >
-          📋 O.S. - {{ instrumento.modelo }}
+          <span class="icon-dinamico">assignment</span> O.S. -
+          {{ instrumento.modelo }}
         </h3>
-        <button class="btn-outline" @click="$emit('voltar')">
-          &larr; Voltar
+        <button
+          class="btn-outline"
+          @click="$emit('voltar')"
+          style="display: inline-flex; align-items: center; gap: 6px"
+        >
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >arrow_back</span
+          >
+          Voltar
         </button>
       </div>
 
@@ -131,8 +149,18 @@ onMounted(() => buscarServicos());
         class="box"
         style="border-left: 4px solid var(--accent); margin-bottom: 20px"
       >
-        <h4 style="margin-top: 0; color: var(--accent); text-align: left">
-          📝 Abrir Nova Ordem de Serviço
+        <h4
+          style="
+            margin-top: 0;
+            color: var(--accent);
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span class="icon-dinamico">note_add</span> Abrir Nova Ordem de
+          Serviço
         </h4>
 
         <div class="form-group">
@@ -152,15 +180,15 @@ onMounted(() => buscarServicos());
         <div
           style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap"
         >
-          <div style="flex: 1">
+          <div style="flex: 1; min-width: 140px">
             <label>Previsão de Entrega:</label>
             <input type="date" v-model="novaOS.data_previsao_entrega" />
           </div>
-          <div style="flex: 0.5">
+          <div style="flex: 0.5; min-width: 100px">
             <label>Tolerância (Dias):</label>
             <input type="number" v-model="novaOS.tolerancia_dias" min="0" />
           </div>
-          <div style="flex: 1">
+          <div style="flex: 1; min-width: 140px">
             <label>Peças Chegam em:</label>
             <input type="date" v-model="novaOS.data_previsao_pecas" />
           </div>
@@ -170,11 +198,19 @@ onMounted(() => buscarServicos());
           @click="abrirOS"
           :disabled="loading"
           class="btn-accent"
-          style="width: 100%"
+          style="
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+          "
         >
-          {{
-            loading ? "⏳ A processar..." : "➕ Abrir O.S. neste Instrumento"
-          }}
+          <span class="icon-dinamico" style="font-size: 1.2rem">
+            {{ loading ? "hourglass_empty" : "add_circle" }}
+          </span>
+          {{ loading ? "A processar..." : "Abrir O.S. neste Instrumento" }}
         </button>
       </div>
 
@@ -185,7 +221,7 @@ onMounted(() => buscarServicos());
               <th>O.S. / Entrada</th>
               <th>Status / Prazos</th>
               <th>Reclamação</th>
-              <th>Ação</th>
+              <th style="text-align: center">Ação</th>
             </tr>
           </thead>
           <tbody>
@@ -221,9 +257,17 @@ onMounted(() => buscarServicos());
                 <small
                   v-if="os.data_previsao_entrega"
                   class="text-muted"
-                  style="display: block; margin-top: 5px"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    margin-top: 5px;
+                  "
                 >
-                  📅 Entrega:
+                  <span class="icon-dinamico" style="font-size: 1rem"
+                    >event</span
+                  >
+                  Entrega:
                   <strong>{{ formatarData(os.data_previsao_entrega) }}</strong>
                 </small>
               </td>
@@ -234,9 +278,22 @@ onMounted(() => buscarServicos());
                     : "Sem descrição"
                 }}</small>
               </td>
-              <td>
-                <button class="btn-primary" @click="abrirExecucao(os)">
-                  🛠️ Gerenciar
+              <td align="center">
+                <button
+                  class="btn-primary"
+                  @click="abrirExecucao(os)"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 12px;
+                    font-size: 0.85rem;
+                  "
+                >
+                  <span class="icon-dinamico" style="font-size: 1.1rem"
+                    >build</span
+                  >
+                  Gerenciar
                 </button>
               </td>
             </tr>

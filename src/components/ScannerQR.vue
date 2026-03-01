@@ -1,90 +1,123 @@
 <script setup>
-/**
- * ============================================================================
- * @file        ScannerQR.vue
- * @description Ferramenta de leitura de códigos QR para identificação rápida.
- * Permite abrir uma O.S. ou histórico apenas apontando a câmera para a etiqueta.
- * @project     LuthierApp
- * ============================================================================
- * @dependencies
- * - vue-qrcode-reader (ou similar): Para processamento de imagem em tempo real.
- * * @functions
- * - onDetect(): Processa o código lido e redireciona para o serviço correspondente.
- * ============================================================================
- */
-
-import { onMounted, onUnmounted } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { Html5QrcodeScanner } from "html5-qrcode";
+import { supabase } from "../lib/supabaseClient";
+import { useToast } from "../composables/useToast";
 
-const emit = defineEmits(["detectado", "fechar"]);
+const emit = defineEmits(["fechar", "osLida"]);
+const { triggerToast } = useToast();
 
-let html5QrcodeScanner = null;
+const buscando = ref(false);
+let scanner = null;
 
 onMounted(() => {
-  // Configuração do Scanner
-  html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1.0,
-    },
-    false,
+  // Configurações do scanner (câmera traseira, tamanho da caixa de foco, etc.)
+  scanner = new Html5QrcodeScanner(
+    "leitor-qr",
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    /* verbose= */ false,
   );
 
-  function onScanSuccess(decodedText) {
-    // Para a câmera imediatamente após a leitura
-    html5QrcodeScanner
-      .clear()
-      .then(() => {
-        emit("detectado", decodedText);
-      })
-      .catch((err) => {
-        console.error("Erro ao parar scanner:", err);
-        emit("detectado", decodedText);
-      });
-  }
-
-  html5QrcodeScanner.render(onScanSuccess, (err) => {
-    // Erros de leitura (comum enquanto a câmera foca) são ignorados para não poluir o log
-  });
+  scanner.render(sucessoAoLer, erroAoLer);
 });
 
 onUnmounted(() => {
-  if (html5QrcodeScanner) {
-    html5QrcodeScanner.clear();
+  if (scanner) {
+    scanner.clear().catch((error) => {
+      console.error("Falha ao limpar o scanner", error);
+    });
   }
 });
+
+async function sucessoAoLer(textoDecodificado) {
+  // Verifica se o texto lido parece ser um UUID (padrão do ID da O.S.)
+  const regexUUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!regexUUID.test(textoDecodificado)) {
+    // Se não for UUID, não é uma etiqueta nossa
+    return;
+  }
+
+  if (buscando.value) return; // Evita múltiplas leituras em milissegundos
+  buscando.value = true;
+
+  // Pausa a câmera para não ficar lendo em loop
+  scanner.pause();
+
+  try {
+    // Busca no Supabase para ver se essa O.S. existe e traz os dados do instrumento e cliente junto
+    const { data, error } = await supabase
+      .from("servicos")
+      .select("*, instrumentos(marca, modelo, clientes(nome, telefone))")
+      .eq("id", textoDecodificado)
+      .single();
+
+    if (error || !data) {
+      triggerToast("O.S. não encontrada na base de dados.", "error");
+      scanner.resume(); // Volta a ligar a câmera se não achar
+    } else {
+      triggerToast("O.S. localizada!", "success");
+      // Desliga o scanner de vez
+      scanner.clear();
+      // Avisa o App.vue que achou a O.S. enviando os dados
+      emit("osLida", data);
+    }
+  } catch (err) {
+    triggerToast("Erro de leitura: " + err.message, "error");
+    scanner.resume();
+  } finally {
+    buscando.value = false;
+  }
+}
+
+function erroAoLer(err) {
+  // Ignora erros normais (quando a câmera não está a focar ou não há QR na tela)
+}
+
+function fecharModal() {
+  if (scanner) {
+    scanner.clear();
+  }
+  emit("fechar");
+}
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="$emit('fechar')">
-    <div class="modal-content" style="max-width: 500px">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 15px;
-        "
-      >
-        <h3 style="margin: 0; color: var(--primary)">
-          📷 Escanear Instrumento
+  <div class="modal-overlay">
+    <div class="modal-card">
+      <div class="flex-between mb-2">
+        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px">
+          <span class="icon-dinamico">qr_code_scanner</span> Escanear Etiqueta
         </h3>
-        <button class="btn-icon" @click="$emit('fechar')">✖</button>
+        <button class="btn-icon" @click="fecharModal" style="color: #ef4444">
+          <span class="icon-dinamico">close</span>
+        </button>
       </div>
 
-      <div
-        id="reader"
-        style="width: 100%; border-radius: 8px; overflow: hidden; border: none"
-      ></div>
-
       <p
-        class="text-muted"
-        style="text-align: center; margin-top: 15px; font-size: 0.9rem"
+        class="text-muted text-center"
+        style="font-size: 0.85rem; margin-bottom: 15px"
       >
-        Posicione o QR Code da etiqueta dentro do quadrado.
+        Aponte a câmera para a etiqueta colada no instrumento.
       </p>
+
+      <div id="leitor-qr"></div>
+
+      <div v-if="buscando" class="buscando-overlay">
+        <span
+          class="icon-dinamico"
+          style="
+            font-size: 3rem;
+            animation: spin 1s linear infinite;
+            color: white;
+          "
+          >sync</span
+        >
+        <p style="color: white; font-weight: bold; margin-top: 10px">
+          Procurando O.S...
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -96,29 +129,49 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 2000;
   display: flex;
   justify-content: center;
   align-items: center;
+  backdrop-filter: blur(4px);
 }
-.modal-content {
+.modal-card {
   background: white;
   padding: 20px;
   border-radius: var(--radius);
   width: 90%;
+  max-width: 400px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
 }
-/* Estilização interna da lib html5-qrcode para ficar mais limpa */
-#reader button {
-  padding: 8px 12px;
-  background-color: var(--primary);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 10px;
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-#reader img {
-  display: none;
-} /* Esconde o ícone de imagem da lib */
+#leitor-qr {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.buscando-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
 </style>

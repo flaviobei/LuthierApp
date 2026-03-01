@@ -643,7 +643,6 @@ onMounted(() => carregarCatalogo());
             <th>Valores</th>
             <th style="text-align: center">Estoque</th>
             <th style="text-align: center">Ações</th>
-            }
           </tr>
         </thead>
         <tbody>

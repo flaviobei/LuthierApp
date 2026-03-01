@@ -3,12 +3,14 @@
  * ============================================================================
  * @file        ExecucaoServico.vue
  * @description Gestão da O.S. (Checklist, Diário, Orçamento e Pagamento).
+ * ATUALIZAÇÃO: Geração local e instantânea de QR Code (sem delay).
  * ============================================================================
  */
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { comprimirImagem } from "../lib/imageUtils";
 import { useToast } from "../composables/useToast";
+import QRCode from "qrcode"; // <-- IMPORTAÇÃO DA BIBLIOTECA GERADORA
 
 const props = defineProps(["servico"]);
 const emit = defineEmits(["voltar"]);
@@ -32,11 +34,17 @@ const configLuthieria = ref({
   taxa_debito: 0,
 });
 
+// Dados Adicionais para a Etiqueta
+const dadosInstrumento = ref(null);
+const dadosCliente = ref(null);
+const qrCodeBase64 = ref(""); // GUARDA A IMAGEM GERADA LOCALMENTE
+
 // ================= DIÁRIO =================
 const diario = ref([]);
 const novaEntradaDiario = ref({
   descricao: "",
   fase_projeto: servicoLocal.value.fase_projeto || "Na Bancada",
+  data_registro: new Date().toISOString().substring(0, 10),
 });
 const fotoDiarioUpload = ref(null);
 const carregandoFotoDiario = ref(false);
@@ -54,16 +62,21 @@ const checklistItens = ref([]);
 const fotosChecklist = ref([]);
 const carregandoFoto = ref(false);
 
-// ================= ORÇAMENTO =================
+// ================= ORÇAMENTO & DESCONTO =================
 const itensOrcamento = ref([]);
 const catalogoOriginal = ref([]);
 const idItemCatalogo = ref("");
-const novoItem = ref({ descricao: "", valor: null, tipo: "Serviço" });
+const novoItem = ref({ descricao: "", valor: null, tipo: "Mão de Obra" });
+const novoDesconto = ref({ motivo: "", valor: null });
 
 // ================= FINANCEIRO E IMPRESSÃO =================
 const pagamentosOS = ref([]);
-const novoPagamento = ref({ valor: 0, metodo: "PIX" });
-const tipoImpressao = ref("orcamento"); // Controla o que vai aparecer no papel
+const novoPagamento = ref({
+  valor: 0,
+  metodo: "PIX",
+  data_pagamento: new Date().toISOString().substring(0, 10),
+});
+const tipoImpressao = ref("orcamento");
 
 const osFinalizada = computed(
   () =>
@@ -76,7 +89,20 @@ const osFinalizada = computed(
 // ==========================================
 async function carregarTudo() {
   carregandoDados.value = true;
+
+  // Gera o QR Code localmente e de forma instantânea mal a página abre
+  try {
+    qrCodeBase64.value = await QRCode.toDataURL(servicoLocal.value.id, {
+      width: 150,
+      margin: 1,
+      color: { dark: "#000000", light: "#ffffff" },
+    });
+  } catch (err) {
+    console.error("Erro ao gerar QR Code:", err);
+  }
+
   await Promise.allSettled([
+    carregarDadosCompletosDaOS(),
     carregarConfig(),
     carregarChecklist(),
     carregarFotosChecklist(),
@@ -86,6 +112,30 @@ async function carregarTudo() {
     carregarPagamentos(),
   ]);
   carregandoDados.value = false;
+}
+
+async function carregarDadosCompletosDaOS() {
+  try {
+    const { data } = await supabase
+      .from("servicos")
+      .select(
+        `
+        *,
+        instrumentos (
+          marca,
+          modelo,
+          clientes (nome, telefone)
+        )
+      `,
+      )
+      .eq("id", servicoLocal.value.id)
+      .single();
+
+    if (data) {
+      dadosInstrumento.value = data.instrumentos;
+      dadosCliente.value = data.instrumentos?.clientes;
+    }
+  } catch (err) {}
 }
 
 async function carregarConfig() {
@@ -284,6 +334,8 @@ async function adicionarEntradaDiario() {
       descricao: novaEntradaDiario.value.descricao,
       fase_projeto: novaEntradaDiario.value.fase_projeto,
       foto_url: urlFotoDiario,
+      data_registro:
+        novaEntradaDiario.value.data_registro || new Date().toISOString(),
     };
     const { data, error } = await supabase
       .from("diario_servico")
@@ -292,12 +344,19 @@ async function adicionarEntradaDiario() {
     if (error) throw error;
     if (data) {
       diario.value.unshift(data[0]);
+      diario.value.sort(
+        (a, b) => new Date(b.data_registro) - new Date(a.data_registro),
+      );
+
       await supabase
         .from("servicos")
         .update({ fase_projeto: novaEntradaDiario.value.fase_projeto })
         .eq("id", servicoLocal.value.id);
       servicoLocal.value.fase_projeto = novaEntradaDiario.value.fase_projeto;
       novaEntradaDiario.value.descricao = "";
+      novaEntradaDiario.value.data_registro = new Date()
+        .toISOString()
+        .substring(0, 10);
       fotoDiarioUpload.value = null;
       triggerToast("Anotação salva!", "success");
     }
@@ -309,7 +368,7 @@ async function adicionarEntradaDiario() {
 }
 
 // ==========================================
-// 5. ORÇAMENTO
+// 5. ORÇAMENTO & CUSTOS
 // ==========================================
 async function carregarOrcamento() {
   try {
@@ -327,11 +386,14 @@ async function carregarCatalogo() {
     const { data } = await supabase
       .from("catalogo")
       .select("*")
-      .neq("tipo", "Insumo")
       .order("nome", { ascending: true });
     catalogoOriginal.value = data || [];
   } catch (e) {}
 }
+
+const catalogoDropdown = computed(() => {
+  return catalogoOriginal.value.filter((c) => c.tipo !== "Insumo");
+});
 
 function usarItemCatalogo() {
   const selecionado = catalogoOriginal.value.find(
@@ -340,7 +402,7 @@ function usarItemCatalogo() {
   if (selecionado) {
     novoItem.value.descricao = selecionado.nome;
     novoItem.value.valor = selecionado.preco_padrao;
-    novoItem.value.tipo = selecionado.tipo === "Peça" ? "Peça" : "Serviço";
+    novoItem.value.tipo = selecionado.tipo === "Peça" ? "Peça" : "Mão de Obra";
   }
 }
 
@@ -361,11 +423,45 @@ async function adicionarItemOrcamento() {
     if (error) throw error;
     if (data) {
       itensOrcamento.value.push(data[0]);
-      novoItem.value = { descricao: "", valor: null, tipo: "Serviço" };
+      novoItem.value = { descricao: "", valor: null, tipo: "Mão de Obra" };
       idItemCatalogo.value = "";
     }
   } catch (err) {
     triggerToast("Erro Orçamento", "error");
+  }
+}
+
+async function aplicarDesconto() {
+  if (!novoDesconto.value.motivo || novoDesconto.value.valor <= 0) {
+    return triggerToast(
+      "Preencha o motivo e um valor válido para o desconto.",
+      "warning",
+    );
+  }
+
+  const valorNegativo = -Math.abs(novoDesconto.value.valor);
+
+  try {
+    const { data, error } = await supabase
+      .from("orcamento_itens")
+      .insert([
+        {
+          servico_id: servicoLocal.value.id,
+          descricao: `Desconto: ${novoDesconto.value.motivo}`,
+          valor: valorNegativo,
+          tipo: "Desconto",
+        },
+      ])
+      .select();
+
+    if (error) throw error;
+    if (data) {
+      itensOrcamento.value.push(data[0]);
+      novoDesconto.value = { motivo: "", valor: null };
+      triggerToast("Desconto aplicado com sucesso!", "success");
+    }
+  } catch (err) {
+    triggerToast("Erro ao aplicar desconto.", "error");
   }
 }
 
@@ -374,33 +470,55 @@ async function removerItemOrcamento(id) {
   itensOrcamento.value = itensOrcamento.value.filter((i) => i.id !== id);
 }
 
+const custoTotalEstimado = computed(() => {
+  let custoBase = 0;
+  itensOrcamento.value.forEach((item) => {
+    if (item.tipo === "Desconto") return;
+
+    const catItem = catalogoOriginal.value.find(
+      (c) => c.nome === item.descricao,
+    );
+    if (catItem) {
+      let custoDesteItem = Number(catItem.custo_padrao) || 0;
+
+      if (
+        (catItem.tipo === "MaoDeObra" || catItem.tipo === "Serviço") &&
+        catItem.insumos_consumidos?.length > 0
+      ) {
+        catItem.insumos_consumidos.forEach((ins) => {
+          const insRef = catalogoOriginal.value.find(
+            (c) => c.id === ins.insumo_id,
+          );
+          if (insRef) {
+            custoDesteItem +=
+              (Number(insRef.custo_padrao) || 0) * Number(ins.quantidade);
+          }
+        });
+      }
+      custoBase += custoDesteItem;
+    }
+  });
+  return custoBase;
+});
+
 async function enviarOrcamentoWhatsApp() {
   if (itensOrcamento.value.length === 0) {
     return triggerToast("Adicione itens ao orçamento primeiro.", "warning");
   }
 
   try {
-    const { data: servicoData, error } = await supabase
-      .from("servicos")
-      .select("instrumentos(clientes(nome, telefone))")
-      .eq("id", servicoLocal.value.id)
-      .single();
-
-    if (error) throw error;
-
-    const cliente = servicoData?.instrumentos?.clientes;
-    if (!cliente || !cliente.telefone) {
+    if (!dadosCliente.value || !dadosCliente.value.telefone) {
       return triggerToast("Telefone do cliente não encontrado.", "error");
     }
 
-    let mensagem = `Olá, ${cliente.nome}! Aqui está o orçamento da O.S. #${servicoLocal.value.numero_os}:\n\n`;
+    let mensagem = `Olá, ${dadosCliente.value.nome}! Aqui está o orçamento da O.S. #${servicoLocal.value.numero_os}:\n\n`;
     itensOrcamento.value.forEach((item) => {
       mensagem += `- ${item.descricao}: R$ ${Number(item.valor).toFixed(2)}\n`;
     });
     mensagem += `\n*Total: R$ ${totalOrcamento.value.toFixed(2)}*\n\n`;
     mensagem += `Qualquer dúvida, estamos à disposição!`;
 
-    const numeroLimpo = cliente.telefone.replace(/\D/g, "");
+    const numeroLimpo = dadosCliente.value.telefone.replace(/\D/g, "");
     const numeroFinal =
       numeroLimpo.length <= 11 ? `55${numeroLimpo}` : numeroLimpo;
 
@@ -412,17 +530,26 @@ async function enviarOrcamentoWhatsApp() {
   }
 }
 
-// MÉTODOS DE IMPRESSÃO CORRIGIDOS PARA BLOQUEAR A UI
+// MÉTODOS DE IMPRESSÃO - SEM DELAY
 async function imprimirOrcamento() {
   tipoImpressao.value = "orcamento";
-  await nextTick(); // Aguarda o Vue atualizar a DOM
+  await nextTick();
   window.print();
 }
 
 async function gerarRecibo() {
   tipoImpressao.value = "recibo";
-  await nextTick(); // Aguarda o Vue atualizar a DOM
+  await nextTick();
   window.print();
+}
+
+async function imprimirQRCode() {
+  if (!qrCodeBase64.value) {
+    return triggerToast("Aguarde a geração do QR Code...", "warning");
+  }
+  tipoImpressao.value = "qrcode";
+  await nextTick();
+  window.print(); // Abre instantaneamente!
 }
 
 // ==========================================
@@ -472,7 +599,6 @@ async function registrarPagamento() {
     );
   }
   try {
-    // --- CÁLCULO DA TAXA INJETADO AQUI ---
     let percentualTaxa = 0;
     const metodo = novoPagamento.value.metodo;
     if (metodo === "PIX") {
@@ -486,17 +612,18 @@ async function registrarPagamento() {
     }
 
     const valorDaTaxa = (novoPagamento.value.valor * percentualTaxa) / 100;
-    // -------------------------------------
 
     const transacao = {
       servico_id: servicoLocal.value.id,
       descricao: `Pgto O.S. #${servicoLocal.value.numero_os} - ${novoPagamento.value.metodo}`,
       valor_bruto: novoPagamento.value.valor,
-      taxa_taxa: valorDaTaxa, // <--- ENVIAMOS O VALOR DA TAXA PARA O BANCO DE DADOS
+      taxa_taxa: valorDaTaxa,
       tipo: "Entrada",
       categoria: "Servico",
       forma_pagamento: novoPagamento.value.metodo,
-      data_pagamento: new Date().toISOString().substring(0, 10),
+      data_pagamento:
+        novoPagamento.value.data_pagamento ||
+        new Date().toISOString().substring(0, 10),
     };
     const { data, error } = await supabase
       .from("transacoes")
@@ -506,6 +633,9 @@ async function registrarPagamento() {
     if (data) {
       pagamentosOS.value.unshift(data[0]);
       pgtoExcedenteConfirmado.value = false;
+      novoPagamento.value.data_pagamento = new Date()
+        .toISOString()
+        .substring(0, 10);
       triggerToast("Pagamento registrado!", "success");
       if (saldoDevedor.value <= 0 && !osFinalizada.value)
         mostrarBannerFinalizacao.value = true;
@@ -553,15 +683,64 @@ onMounted(carregarTudo);
     </div>
 
     <div v-else>
-      <div class="flex-header mb-2">
-        <div>
+      <div
+        class="flex-header mb-2"
+        style="
+          flex-wrap: wrap;
+          gap: 10px;
+          background: #f8fafc;
+          padding: 15px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+        "
+      >
+        <div
+          style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap"
+        >
           <h2 style="margin: 0; color: var(--primary)">
             O.S. #{{ servicoLocal.numero_os }}
           </h2>
-          <span class="badge text-muted">{{ servicoLocal.fase_projeto }}</span>
+          <span class="badge text-muted" style="font-size: 0.9rem">{{
+            servicoLocal.fase_projeto
+          }}</span>
+
+          <button
+            class="btn-outline"
+            @click="imprimirQRCode"
+            title="Imprimir Etiqueta QR Code"
+            style="
+              padding: 6px 12px;
+              font-weight: bold;
+              font-size: 0.85rem;
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              border-color: var(--primary);
+              color: var(--primary);
+              background: white;
+            "
+          >
+            <span class="icon-dinamico" style="font-size: 1.2rem"
+              >qr_code_scanner</span
+            >
+            Imprimir Etiqueta
+          </button>
         </div>
-        <button class="btn-outline" @click="$emit('voltar')">
-          <span class="icon-dinamico">arrow_back</span> Voltar
+
+        <button
+          class="btn-outline"
+          @click="$emit('voltar')"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+          "
+        >
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >arrow_back</span
+          >
+          Voltar
         </button>
       </div>
 
@@ -757,10 +936,18 @@ onMounted(carregarTudo);
           <textarea
             v-model="novaEntradaDiario.descricao"
             rows="2"
-            placeholder="O que foi feito hoje?"
+            placeholder="O que foi feito?"
           ></textarea>
 
           <div class="flex-gap-10 mt-1" style="flex-wrap: wrap">
+            <input
+              type="date"
+              v-model="novaEntradaDiario.data_registro"
+              class="flex-1"
+              style="min-width: 120px"
+              title="Data da Execução (Retroativa)"
+            />
+
             <select
               v-model="novaEntradaDiario.fase_projeto"
               class="flex-1 min-w-140"
@@ -815,7 +1002,12 @@ onMounted(carregarTudo);
             <div v-for="nota in diario" :key="nota.id" class="timeline-item">
               <div class="timeline-date">
                 <span class="icon-dinamico" style="font-size: 1rem">event</span>
-                {{ new Date(nota.data_registro).toLocaleDateString() }}
+                {{
+                  new Date(
+                    nota.data_registro +
+                      (nota.data_registro.includes("T") ? "" : "T12:00:00"),
+                  ).toLocaleDateString()
+                }}
               </div>
               <div class="timeline-content">
                 <span class="badge-fase">{{ nota.fase_projeto }}</span>
@@ -850,7 +1042,7 @@ onMounted(carregarTudo);
             <select v-model="idItemCatalogo" @change="usarItemCatalogo">
               <option value="">-- Preencher Manualmente --</option>
               <option
-                v-for="cat in catalogoOriginal"
+                v-for="cat in catalogoDropdown"
                 :key="cat.id"
                 :value="cat.id"
               >
@@ -864,7 +1056,7 @@ onMounted(carregarTudo);
               placeholder="Descrição manual"
             />
             <select v-model="novoItem.tipo">
-              <option value="Serviço">Serviço</option>
+              <option value="Mão de Obra">Mão de Obra</option>
               <option value="Peça">Peça</option>
             </select>
             <input
@@ -925,13 +1117,28 @@ onMounted(carregarTudo);
           <table class="tabela-padrao">
             <tr v-for="item in itensOrcamento" :key="item.id">
               <td>
-                <strong>{{ item.descricao }}</strong
+                <strong :class="{ 'text-danger': item.tipo === 'Desconto' }">{{
+                  item.descricao
+                }}</strong
                 ><br />
-                <span class="badge" style="font-size: 0.7rem">{{
-                  item.tipo
-                }}</span>
+                <span
+                  class="badge"
+                  style="font-size: 0.7rem"
+                  :style="
+                    item.tipo === 'Desconto' ? 'background: var(--danger)' : ''
+                  "
+                >
+                  {{ item.tipo }}
+                </span>
               </td>
-              <td>R$ {{ Number(item.valor).toFixed(2) }}</td>
+              <td
+                :class="{
+                  'text-danger': item.tipo === 'Desconto',
+                  'font-bold': item.tipo === 'Desconto',
+                }"
+              >
+                R$ {{ Number(item.valor).toFixed(2) }}
+              </td>
               <td align="center" v-if="!osFinalizada">
                 <button
                   class="btn-icon text-danger"
@@ -959,6 +1166,19 @@ onMounted(carregarTudo);
             <h3 style="margin: 0; color: var(--success)">
               Total: R$ {{ totalOrcamento.toFixed(2) }}
             </h3>
+
+            <small
+              v-if="custoTotalEstimado > 0"
+              style="
+                display: block;
+                margin-top: 5px;
+                color: #ef4444;
+                font-weight: bold;
+              "
+            >
+              Custo Estimado (Material/Base): R$
+              {{ custoTotalEstimado.toFixed(2) }}
+            </small>
           </div>
         </div>
       </div>
@@ -1011,6 +1231,51 @@ onMounted(carregarTudo);
           <div
             v-if="saldoDevedor > 0 && !osFinalizada"
             class="form-pagamento mb-2"
+            style="background-color: #fdf2f8; border-color: #fbcfe8"
+          >
+            <h4
+              style="
+                margin-top: 0;
+                color: #db2777;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              "
+            >
+              <span class="icon-dinamico">sell</span> Conceder Desconto
+            </h4>
+            <div class="flex-gap-10" style="flex-wrap: wrap">
+              <input
+                v-model="novoDesconto.motivo"
+                placeholder="Motivo (Ex: Parceria, Atraso...)"
+                style="flex: 2; min-width: 150px; border-color: #fbcfe8"
+              />
+              <input
+                v-model.number="novoDesconto.valor"
+                type="number"
+                style="flex: 1; min-width: 100px; border-color: #fbcfe8"
+                placeholder="Valor R$"
+              />
+              <button
+                class="btn-outline"
+                @click="aplicarDesconto"
+                style="
+                  color: #db2777;
+                  border-color: #db2777;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                "
+              >
+                <span class="icon-dinamico">remove_circle</span> Aplicar
+                Desconto
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-if="saldoDevedor > 0 && !osFinalizada"
+            class="form-pagamento mb-2"
           >
             <h4 style="margin-top: 0">
               <span class="icon-dinamico" style="vertical-align: middle"
@@ -1018,23 +1283,36 @@ onMounted(carregarTudo);
               >
               Registrar Pagamento
             </h4>
-            <div class="flex-gap-10">
-              <select v-model="novoPagamento.metodo" style="flex: 2">
+            <div class="flex-gap-10" style="flex-wrap: wrap">
+              <input
+                type="date"
+                v-model="novoPagamento.data_pagamento"
+                style="flex: 1; min-width: 120px"
+                title="Data do Pagamento"
+              />
+
+              <select
+                v-model="novoPagamento.metodo"
+                style="flex: 1; min-width: 120px"
+              >
                 <option value="PIX">PIX</option>
                 <option value="Dinheiro">Dinheiro</option>
                 <option value="Cartão de Crédito">Cartão de Crédito</option>
                 <option value="Cartão de Débito">Cartão de Débito</option>
               </select>
+
               <input
                 v-model.number="novoPagamento.valor"
                 type="number"
-                style="flex: 1"
+                style="flex: 1; min-width: 100px"
                 placeholder="R$"
               />
+
               <button
                 class="btn-primary"
                 @click="registrarPagamento"
                 :class="{ 'btn-warning': pgtoExcedenteConfirmado }"
+                style="flex: 1; min-width: 120px"
               >
                 {{ pgtoExcedenteConfirmado ? "⚠️ Confirmar?" : "Receber" }}
               </button>
@@ -1060,7 +1338,10 @@ onMounted(carregarTudo);
               <td>
                 <strong>{{ p.descricao }}</strong
                 ><br /><small class="text-muted">{{
-                  new Date(p.data_pagamento).toLocaleDateString()
+                  new Date(
+                    p.data_pagamento +
+                      (p.data_pagamento.includes("T") ? "" : "T12:00:00"),
+                  ).toLocaleDateString()
                 }}</small>
               </td>
               <td>R$ {{ Number(p.valor_bruto).toFixed(2) }}</td>
@@ -1085,47 +1366,103 @@ onMounted(carregarTudo);
 
       <div id="print-area" class="print-only">
         <div
-          class="print-header"
-          style="text-align: center; margin-bottom: 20px"
+          v-if="tipoImpressao === 'qrcode'"
+          style="
+            padding: 10px;
+            font-family: sans-serif;
+            max-width: 350px;
+            margin: 0 auto;
+            border: 1px dashed #ccc;
+          "
         >
-          <img
-            v-if="configLuthieria.logo_url"
-            :src="configLuthieria.logo_url"
-            style="max-height: 80px; margin-bottom: 10px"
-          />
-
-          <h2 style="margin: 0">
+          <h2
+            style="
+              margin: 0 0 5px 0;
+              font-size: 1.1rem;
+              text-align: center;
+              border-bottom: 2px solid #000;
+              padding-bottom: 5px;
+            "
+          >
             {{ configLuthieria.nome_luthieria || "Luthieria" }}
           </h2>
-          <p style="margin: 5px 0 0 0" v-if="configLuthieria.telefone">
-            WhatsApp: {{ configLuthieria.telefone }}
-          </p>
-          <p style="margin: 5px 0 0 0" v-if="configLuthieria.endereco">
-            {{ configLuthieria.endereco }}
-          </p>
+          <h1 style="margin: 5px 0; font-size: 1.8rem; text-align: center">
+            O.S. #{{ servicoLocal.numero_os }}
+          </h1>
+
+          <div style="font-size: 0.85rem; margin-top: 10px">
+            <p style="margin: 4px 0">
+              <strong>Cliente:</strong>
+              {{ dadosCliente?.nome || "Não Registado" }}
+            </p>
+            <p style="margin: 4px 0">
+              <strong>Inst:</strong> {{ dadosInstrumento?.marca }}
+              {{ dadosInstrumento?.modelo }}
+            </p>
+            <p style="margin: 4px 0">
+              <strong>Motivo:</strong>
+              {{
+                servicoLocal.descricao_cliente
+                  ? servicoLocal.descricao_cliente.slice(0, 80) + "..."
+                  : "Sem descrição"
+              }}
+            </p>
+          </div>
+
+          <div style="text-align: center; margin-top: 15px">
+            <img
+              v-if="qrCodeBase64"
+              :src="qrCodeBase64"
+              alt="QR Code O.S."
+              style="width: 150px; height: 150px"
+            />
+            <p style="margin: 5px 0 0 0; font-size: 0.7rem; color: #555">
+              Aponte o "QR Scan" do sistema para localizar OS
+            </p>
+          </div>
         </div>
-
-        <hr style="border: 1px dashed #000; margin: 15px 0" />
-
-        <div class="print-info">
-          <h3 style="text-align: center; margin: 0 0 15px 0">
-            {{
-              tipoImpressao === "orcamento"
-                ? "ORÇAMENTO DE SERVIÇO"
-                : "RECIBO DE PAGAMENTO"
-            }}
-          </h3>
-          <p style="margin: 5px 0">
-            <strong>O.S. Nº:</strong> {{ servicoLocal.numero_os }}
-          </p>
-          <p style="margin: 5px 0">
-            <strong>Data:</strong> {{ new Date().toLocaleDateString() }}
-          </p>
-        </div>
-
-        <hr style="border: 1px dashed #000; margin: 15px 0" />
 
         <div v-if="tipoImpressao === 'orcamento' || tipoImpressao === 'recibo'">
+          <div
+            class="print-header"
+            style="text-align: center; margin-bottom: 20px"
+          >
+            <img
+              v-if="configLuthieria.logo_url"
+              :src="configLuthieria.logo_url"
+              style="max-height: 80px; margin-bottom: 10px"
+            />
+            <h2 style="margin: 0">
+              {{ configLuthieria.nome_luthieria || "Luthieria" }}
+            </h2>
+            <p style="margin: 5px 0 0 0" v-if="configLuthieria.telefone">
+              WhatsApp: {{ configLuthieria.telefone }}
+            </p>
+            <p style="margin: 5px 0 0 0" v-if="configLuthieria.endereco">
+              {{ configLuthieria.endereco }}
+            </p>
+          </div>
+
+          <hr style="border: 1px dashed #000; margin: 15px 0" />
+
+          <div class="print-info">
+            <h3 style="text-align: center; margin: 0 0 15px 0">
+              {{
+                tipoImpressao === "orcamento"
+                  ? "ORÇAMENTO DE SERVIÇO"
+                  : "RECIBO DE PAGAMENTO"
+              }}
+            </h3>
+            <p style="margin: 5px 0">
+              <strong>O.S. Nº:</strong> {{ servicoLocal.numero_os }}
+            </p>
+            <p style="margin: 5px 0">
+              <strong>Data:</strong> {{ new Date().toLocaleDateString() }}
+            </p>
+          </div>
+
+          <hr style="border: 1px dashed #000; margin: 15px 0" />
+
           <h4 style="margin: 0 0 10px 0">Itens da O.S.</h4>
           <table style="width: 100%; border-collapse: collapse">
             <thead>
@@ -1162,76 +1499,83 @@ onMounted(carregarTudo);
           <div style="text-align: right; margin-top: 15px; font-size: 1.1rem">
             <strong>Total: R$ {{ totalOrcamento.toFixed(2) }}</strong>
           </div>
-        </div>
 
-        <div v-if="tipoImpressao === 'recibo'" style="margin-top: 20px">
-          <hr style="border: 1px dashed #000; margin: 15px 0" />
-          <h4 style="margin: 0 0 10px 0">Histórico de Pagamentos</h4>
-          <table style="width: 100%; border-collapse: collapse">
-            <thead>
-              <tr>
-                <th
-                  align="left"
-                  style="border-bottom: 1px solid #ccc; padding: 6px 0"
-                >
-                  Pgto / Data
-                </th>
-                <th
-                  align="right"
-                  style="border-bottom: 1px solid #ccc; padding: 6px 0"
-                >
-                  Valor (R$)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in pagamentosOS" :key="p.id">
-                <td style="border-bottom: 1px dashed #eee; padding: 6px 0">
-                  {{ p.forma_pagamento || p.descricao }}
-                  <small
-                    >({{
-                      new Date(p.data_pagamento).toLocaleDateString()
-                    }})</small
+          <div v-if="tipoImpressao === 'recibo'" style="margin-top: 20px">
+            <hr style="border: 1px dashed #000; margin: 15px 0" />
+            <h4 style="margin: 0 0 10px 0">Histórico de Pagamentos</h4>
+            <table style="width: 100%; border-collapse: collapse">
+              <thead>
+                <tr>
+                  <th
+                    align="left"
+                    style="border-bottom: 1px solid #ccc; padding: 6px 0"
                   >
-                </td>
-                <td
-                  align="right"
-                  style="border-bottom: 1px dashed #eee; padding: 6px 0"
-                >
-                  {{ Number(p.valor_bruto).toFixed(2) }}
-                </td>
-              </tr>
-              <tr v-if="pagamentosOS.length === 0">
-                <td
-                  colspan="2"
-                  style="text-align: center; font-style: italic; padding: 10px"
-                >
-                  Nenhum pagamento efetuado.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    Pgto / Data
+                  </th>
+                  <th
+                    align="right"
+                    style="border-bottom: 1px solid #ccc; padding: 6px 0"
+                  >
+                    Valor (R$)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in pagamentosOS" :key="p.id">
+                  <td style="border-bottom: 1px dashed #eee; padding: 6px 0">
+                    {{ p.forma_pagamento || p.descricao }}
+                    <small
+                      >({{
+                        new Date(
+                          p.data_pagamento +
+                            (p.data_pagamento.includes("T") ? "" : "T12:00:00"),
+                        ).toLocaleDateString()
+                      }})</small
+                    >
+                  </td>
+                  <td
+                    align="right"
+                    style="border-bottom: 1px dashed #eee; padding: 6px 0"
+                  >
+                    {{ Number(p.valor_bruto).toFixed(2) }}
+                  </td>
+                </tr>
+                <tr v-if="pagamentosOS.length === 0">
+                  <td
+                    colspan="2"
+                    style="
+                      text-align: center;
+                      font-style: italic;
+                      padding: 10px;
+                    "
+                  >
+                    Nenhum pagamento efetuado.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-          <div style="margin-top: 15px">
-            <p style="margin: 5px 0">
-              <strong>Total Pago:</strong> R$ {{ totalPago.toFixed(2) }}
-            </p>
-            <p style="margin: 5px 0">
-              <strong>Falta Receber:</strong> R$ {{ saldoDevedor.toFixed(2) }}
+            <div style="margin-top: 15px">
+              <p style="margin: 5px 0">
+                <strong>Total Pago:</strong> R$ {{ totalPago.toFixed(2) }}
+              </p>
+              <p style="margin: 5px 0">
+                <strong>Falta Receber:</strong> R$ {{ saldoDevedor.toFixed(2) }}
+              </p>
+            </div>
+          </div>
+
+          <div v-if="servicoLocal.obs_fechamento" style="margin-top: 20px">
+            <hr style="border: 1px dashed #000; margin: 15px 0" />
+            <p style="margin: 5px 0"><strong>Notas Importantes:</strong></p>
+            <p style="margin: 5px 0; white-space: pre-wrap">
+              {{ servicoLocal.obs_fechamento }}
             </p>
           </div>
-        </div>
 
-        <div v-if="servicoLocal.obs_fechamento" style="margin-top: 20px">
-          <hr style="border: 1px dashed #000; margin: 15px 0" />
-          <p style="margin: 5px 0"><strong>Notas Importantes:</strong></p>
-          <p style="margin: 5px 0; white-space: pre-wrap">
-            {{ servicoLocal.obs_fechamento }}
-          </p>
-        </div>
-
-        <div style="margin-top: 40px; text-align: center; font-size: 0.9rem">
-          <p style="margin: 0">Obrigado pela preferência!</p>
+          <div style="margin-top: 40px; text-align: center; font-size: 0.9rem">
+            <p style="margin: 0">Obrigado pela preferência!</p>
+          </div>
         </div>
       </div>
     </div>
@@ -1257,6 +1601,9 @@ onMounted(carregarTudo);
 }
 .min-w-140 {
   min-width: 140px;
+}
+.font-bold {
+  font-weight: bold;
 }
 
 /* ABAS (TABS) */

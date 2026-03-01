@@ -192,6 +192,7 @@ function selecionarCliente(c) {
 }
 function abrirServicoPeloDashboard(os) {
   servicoDireto.value = os;
+  modoAtual.value = "bancada";
 }
 function formatarLinkZap(t) {
   const n = t?.replace(/\D/g, "");
@@ -334,7 +335,16 @@ function editarCliente(cliente) {
         </div>
       </div>
 
-      <ScannerQR v-if="mostrarScanner" @fechar="mostrarScanner = false" />
+      <ScannerQR
+        v-if="mostrarScanner"
+        @fechar="mostrarScanner = false"
+        @osLida="
+          (os) => {
+            mostrarScanner = false;
+            abrirServicoPeloDashboard(os);
+          }
+        "
+      />
 
       <div class="conteudo-principal">
         <div v-if="modoAtual === 'admin'">

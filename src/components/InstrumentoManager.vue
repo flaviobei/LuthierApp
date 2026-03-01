@@ -4,6 +4,7 @@
  * @file        InstrumentoManager.vue
  * @description Gestor de instrumentos técnicos. Permite cadastrar marcas,
  * modelos e números de série, vinculando cada instrumento a um cliente.
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -82,8 +83,18 @@ onMounted(() => buscarInstrumentos());
         margin-bottom: 20px;
       "
     >
-      <h3 class="title-section" style="margin: 0; border: none">
-        🎸 Instrumentos de: {{ clienteNome }}
+      <h3
+        class="title-section"
+        style="
+          margin: 0;
+          border: none;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">music_note</span> Instrumentos de:
+        {{ clienteNome }}
       </h3>
     </div>
 
@@ -96,6 +107,8 @@ onMounted(() => buscarInstrumentos());
           display: flex;
           justify-content: space-between;
           align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
         "
       >
         <div>
@@ -109,15 +122,29 @@ onMounted(() => buscarInstrumentos());
         <button
           class="btn-accent"
           @click="$emit('selecionarInstrumento', inst)"
+          style="display: inline-flex; align-items: center; gap: 6px"
         >
-          🛠️ Abrir Serviço (O.S.)
+          <span class="icon-dinamico" style="font-size: 1.1rem">build</span>
+          Abrir Serviço (O.S.)
         </button>
       </div>
     </div>
-    <p v-else class="text-muted">Nenhum instrumento cadastrado.</p>
+    <p v-else class="text-muted" style="margin-bottom: 20px">
+      Nenhum instrumento cadastrado.
+    </p>
 
     <div class="box" style="background: var(--bg-body)">
-      <h4 style="margin-top: 0; color: var(--primary)">➕ Novo Instrumento</h4>
+      <h4
+        style="
+          margin-top: 0;
+          color: var(--primary);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">add_circle</span> Novo Instrumento
+      </h4>
       <div
         style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap"
       >
@@ -137,11 +164,13 @@ onMounted(() => buscarInstrumentos());
           style="flex: 2; min-width: 150px"
         />
       </div>
-      <div style="display: flex; gap: 10px; align-items: center">
+      <div
+        style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap"
+      >
         <input
           v-model="form.numero_serie"
           placeholder="Nº de Série (Opcional)"
-          style="flex: 2"
+          style="flex: 2; min-width: 200px"
         />
         <button
           class="btn-primary"
@@ -149,6 +178,7 @@ onMounted(() => buscarInstrumentos());
           :disabled="loading"
           style="
             flex: 1;
+            min-width: 120px;
             display: flex;
             align-items: center;
             justify-content: center;
