@@ -4,6 +4,7 @@
  * @file        MinhaConta.vue
  * @description Perfil do utilizador. Permite gerir as credenciais de acesso,
  * alteração de senha e visualização do plano atual.
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  * @dependencies
@@ -73,7 +74,12 @@ onMounted(() => carregarUsuario());
 
 <template>
   <div class="card">
-    <h3 class="title-section" style="margin-top: 0">🔐 Segurança e Acesso</h3>
+    <h3
+      class="title-section"
+      style="margin-top: 0; display: flex; align-items: center; gap: 8px"
+    >
+      <span class="icon-dinamico">lock</span> Segurança e Acesso
+    </h3>
 
     <div class="box" style="margin-bottom: 20px; background: var(--bg-body)">
       <p style="margin-top: 0; color: var(--text-muted)">
@@ -117,8 +123,21 @@ onMounted(() => carregarUsuario());
         border-radius: 4px;
         text-align: center;
         font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
       "
     >
+      <span class="icon-dinamico">
+        {{
+          mensagem.tipo === "success"
+            ? "check_circle"
+            : mensagem.tipo === "danger"
+              ? "error"
+              : "warning"
+        }}
+      </span>
       {{ mensagem.texto }}
     </div>
 
@@ -126,9 +145,21 @@ onMounted(() => carregarUsuario());
       class="btn-primary"
       @click="atualizarConta"
       :disabled="loading"
-      style="width: 100%; padding: 12px; margin-top: 15px; font-size: 1.1rem"
+      style="
+        width: 100%;
+        padding: 12px;
+        margin-top: 15px;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      "
     >
-      {{ loading ? "⏳ A atualizar..." : "💾 Salvar Alterações" }}
+      <span class="icon-dinamico" style="font-size: 1.2rem">
+        {{ loading ? "hourglass_empty" : "save" }}
+      </span>
+      {{ loading ? "A atualizar..." : "Salvar Alterações" }}
     </button>
   </div>
 </template>

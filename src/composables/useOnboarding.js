@@ -19,9 +19,9 @@ export function useOnboarding(modoAtual, mostrarClientes) {
       {
         element: "#tour-admin",
         popover: {
-          title: "Configurações Master",
+          title: "Menu de Administração",
           description:
-            "Clique aqui para configurar a sua oficina, catálogo e checklists.",
+            "Clique aqui para configurar a sua oficina, catálogo e checklists. Bem como verificar suas transações financeiras",
         },
         onNextClick: () => {
           modoAtual.value = "admin"; // Navega para Admin
@@ -32,15 +32,16 @@ export function useOnboarding(modoAtual, mostrarClientes) {
         element: "#tour-config",
         popover: {
           title: "Sua Identidade",
-          description: "Defina o seu logo e as taxas das suas máquinas aqui.",
+          description:
+            "Defina o seu logo, cores, tipografia, informações da sua Luthieria, suas taxas das suas máquinas aqui. ",
         },
       },
       {
         element: "#tour-checklist",
         popover: {
-          title: "Padronização",
+          title: "Checklists",
           description:
-            "Crie as regras de inspeção que aparecerão em todas as novas O.S.",
+            "Crie as regras de inspeção que aparecerão em todas as novas O.S. Checklists são úteis para padronizar o seu trabalho.",
         },
       },
       {
@@ -48,7 +49,7 @@ export function useOnboarding(modoAtual, mostrarClientes) {
         popover: {
           title: "Agilidade",
           description:
-            "Registe serviços e peças frequentes para gerar orçamentos rápidos.",
+            "Registe seus serviços prestados, peças, acessórios e insumos. Defina custos e valores cobrados. Serviços possuem receitas que podem incluir insumos.",
         },
         onNextClick: () => {
           modoAtual.value = "bancada"; // Volta para o Início
@@ -66,7 +67,7 @@ export function useOnboarding(modoAtual, mostrarClientes) {
         element: "#tour-clientes",
         popover: {
           title: "Gestão de Clientes",
-          description: "Aqui é onde você regista músicos e instrumentos.",
+          description: "Aqui é onde você registra músicos e instrumentos.",
         },
         onNextClick: () => {
           mostrarClientes.value = true; // Abre a lista de clientes

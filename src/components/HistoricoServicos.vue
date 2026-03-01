@@ -234,14 +234,22 @@ onMounted(() => carregarHistorico());
       <div style="display: flex; gap: 10px">
         <button
           class="btn-outline"
-          style="border-color: #27ae60; color: #27ae60"
+          style="
+            border-color: #27ae60;
+            color: #27ae60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          "
           @click="exportarHistoricoCSV"
           :disabled="exportando"
         >
+          <span class="icon-dinamico" style="font-size: 1.1rem">
+            {{ exportando ? "hourglass_empty" : "download" }}
+          </span>
           {{
-            exportando
-              ? "⏳ A calcular relatório..."
-              : "📥 Relatório Excel Completo"
+            exportando ? "A calcular relatório..." : "Relatório Excel Completo"
           }}
         </button>
       </div>

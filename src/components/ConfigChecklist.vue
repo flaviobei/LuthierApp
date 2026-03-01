@@ -4,6 +4,7 @@
  * @file        ConfigChecklist.vue
  * @description Gestor de configurações de inspeção. Agora com confirmação
  * inteligente de exclusão (sem alerts do navegador).
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -112,8 +113,16 @@ onMounted(carregarItens);
 
 <template>
   <div class="card" style="text-align: left">
-    <h3 style="margin-top: 0; color: var(--primary)">
-      📋 Configurar Checklist Padrão
+    <h3
+      style="
+        margin-top: 0;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      "
+    >
+      <span class="icon-dinamico">fact_check</span> Configurar Checklist Padrão
     </h3>
     <p class="text-muted">
       Estes itens serão adicionados a todas as novas Ordens de Serviço.
@@ -124,8 +133,8 @@ onMounted(carregarItens);
         <div class="field">
           <label>Fase de Inspeção</label>
           <select v-model="novoItem.tipo">
-            <option value="Chegada">📥 Inspeção de Chegada</option>
-            <option value="Saída">📤 Qualidade de Saída</option>
+            <option value="Chegada">Inspeção de Chegada</option>
+            <option value="Saída">Qualidade de Saída</option>
           </select>
         </div>
 
@@ -153,18 +162,38 @@ onMounted(carregarItens);
         </div>
 
         <button class="btn-primary btn-add-regra" @click="adicionarItem">
-          ➕ Adicionar
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >add_circle</span
+          >
+          Adicionar
         </button>
       </div>
     </div>
 
-    <div v-if="carregando" class="text-muted text-center" style="padding: 20px">
+    <div
+      v-if="carregando"
+      class="text-muted text-center"
+      style="
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      "
+    >
+      <span
+        class="icon-dinamico"
+        style="font-size: 2rem; animation: spin 1s linear infinite"
+        >sync</span
+      >
       A carregar regras...
     </div>
 
     <div v-else class="checklist-columns">
       <div class="col-checklist chegada">
-        <h4>📥 Itens de Chegada</h4>
+        <h4 style="display: flex; align-items: center; gap: 6px">
+          <span class="icon-dinamico">login</span> Itens de Chegada
+        </h4>
         <div v-for="item in itensChegada" :key="item.id" class="item-regra">
           <div class="regra-info">
             <strong>{{ item.item_nome }}</strong>
@@ -179,7 +208,10 @@ onMounted(carregarItens);
             class="btn-delete-confirm"
             :class="{ confirming: idParaRemover === item.id }"
           >
-            {{ idParaRemover === item.id ? "Confirmar?" : "🗑️" }}
+            <span class="icon-dinamico" style="font-size: 1.1rem">
+              {{ idParaRemover === item.id ? "check" : "delete" }}
+            </span>
+            <span v-if="idParaRemover === item.id">Confirmar?</span>
           </button>
         </div>
         <p v-if="itensChegada.length === 0" class="text-muted small">
@@ -188,7 +220,9 @@ onMounted(carregarItens);
       </div>
 
       <div class="col-checklist saida">
-        <h4>📤 Itens de Saída</h4>
+        <h4 style="display: flex; align-items: center; gap: 6px">
+          <span class="icon-dinamico">logout</span> Itens de Saída
+        </h4>
         <div v-for="item in itensSaida" :key="item.id" class="item-regra">
           <div class="regra-info">
             <strong>{{ item.item_nome }}</strong>
@@ -203,7 +237,10 @@ onMounted(carregarItens);
             class="btn-delete-confirm"
             :class="{ confirming: idParaRemover === item.id }"
           >
-            {{ idParaRemover === item.id ? "Confirmar?" : "🗑️" }}
+            <span class="icon-dinamico" style="font-size: 1.1rem">
+              {{ idParaRemover === item.id ? "check" : "delete" }}
+            </span>
+            <span v-if="idParaRemover === item.id">Confirmar?</span>
           </button>
         </div>
         <p v-if="itensSaida.length === 0" class="text-muted small">
@@ -244,6 +281,10 @@ onMounted(carregarItens);
   height: 42px;
   align-self: flex-end;
   padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .checklist-columns {
@@ -311,6 +352,10 @@ onMounted(carregarItens);
   font-size: 0.85rem;
   transition: all 0.2s;
   min-width: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .btn-delete-confirm.confirming {
@@ -329,6 +374,12 @@ onMounted(carregarItens);
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
   }
 }
 

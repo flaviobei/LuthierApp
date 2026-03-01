@@ -4,6 +4,7 @@
  * @file        LimpezaBanco.vue
  * @description Módulo de segurança ("Zona de Perigo") para eliminação de dados
  * em massa. Permite que o luthier limpe testes ou recomece a base de dados.
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  * @dependencies
@@ -28,7 +29,7 @@ const processando = ref(false);
 
 const podeLimpar = computed(() => textoConfirmacao.value === "LIMPAR");
 
-// Função blindada: tenta apagar os dados do utilizador, mas se a tabela não existir, ignora suavemente
+// Função blindada: tenta apagar os dados do utilizador, mas se a tabela não existe, ignora suavemente
 async function apagarTabela(nomeTabela) {
   const { data, error } = await supabase.from(nomeTabela).select("id");
 
@@ -61,8 +62,7 @@ async function apagarTabela(nomeTabela) {
 async function apagarDados(tipo) {
   if (!podeLimpar.value) return;
   processando.value = true;
-  statusMensagem.value =
-    "⏳ A procurar e apagar os seus dados com segurança...";
+  statusMensagem.value = "A procurar e apagar os seus dados com segurança...";
 
   try {
     // 1. ORDENS DE SERVIÇO
@@ -73,13 +73,13 @@ async function apagarDados(tipo) {
       await apagarTabela("checklist_fotos");
       await apagarTabela("servicos");
       statusMensagem.value =
-        "✅ As suas Ordens de Serviço e históricos foram apagados.";
+        "As suas Ordens de Serviço e históricos foram apagados.";
     }
 
     // 2. INSTRUMENTOS
     if (tipo === "instrumentos" || tipo === "tudo") {
       await apagarTabela("instrumentos");
-      statusMensagem.value = "✅ Os seus Instrumentos foram apagados.";
+      statusMensagem.value = "Os seus Instrumentos foram apagados.";
     }
 
     // 3. FINANCEIRO (Tenta as nomenclaturas mais prováveis)
@@ -88,8 +88,7 @@ async function apagarDados(tipo) {
       await apagarTabela("fluxo_caixa");
       await apagarTabela("caixa");
       await apagarTabela("transacoes");
-      statusMensagem.value =
-        "✅ As suas Movimentações Financeiras foram zeradas.";
+      statusMensagem.value = "As suas Movimentações Financeiras foram zeradas.";
     }
 
     // 4. CLIENTES E RESET TOTAL
@@ -97,13 +96,13 @@ async function apagarDados(tipo) {
       await apagarTabela("clientes");
       statusMensagem.value =
         tipo === "tudo"
-          ? "🚨 BASE ZERADA COM SUCESSO. A sua conta está limpa e pronta para começar!"
-          : "✅ Os seus Clientes foram apagados.";
+          ? "BASE ZERADA COM SUCESSO. A sua conta está limpa e pronta para começar!"
+          : "Os seus Clientes foram apagados.";
     }
 
     textoConfirmacao.value = "";
   } catch (err) {
-    statusMensagem.value = "❌ Erro ao apagar: " + err.message;
+    statusMensagem.value = "Erro ao apagar: " + err.message;
   }
 
   processando.value = false;
@@ -120,8 +119,17 @@ async function apagarDados(tipo) {
         border-bottom: 1px solid #fee2e2;
       "
     >
-      <h3 style="margin-top: 0; color: #b91c1c">
-        🚨 Zona de Perigo - Limpeza de Banco de Dados
+      <h3
+        style="
+          margin-top: 0;
+          color: #b91c1c;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">warning</span> Zona de Perigo - Limpeza de
+        Banco de Dados
       </h3>
       <p style="color: #991b1b">
         Esta área permite-lhe apagar os <strong>seus registos</strong> em massa
@@ -171,28 +179,32 @@ async function apagarDados(tipo) {
         :disabled="!podeLimpar || processando"
         @click="apagarDados('os')"
       >
-        🧹 1. Limpar Apenas Ordens de Serviço
+        <span class="icon-dinamico">cleaning_services</span> 1. Limpar Apenas
+        Ordens de Serviço
       </button>
       <button
         class="btn-clean"
         :disabled="!podeLimpar || processando"
         @click="apagarDados('instrumentos')"
       >
-        🎸 2. Limpar Todos Instrumentos
+        <span class="icon-dinamico">music_note</span> 2. Limpar Todos
+        Instrumentos
       </button>
       <button
         class="btn-clean"
         :disabled="!podeLimpar || processando"
         @click="apagarDados('financeiro')"
       >
-        💸 3. Limpar Movimentações Financeiras
+        <span class="icon-dinamico">money_off</span> 3. Limpar Movimentações
+        Financeiras
       </button>
       <button
         class="btn-clean"
         :disabled="!podeLimpar || processando"
         @click="apagarDados('clientes')"
       >
-        👤 4. Limpar Base de Clientes (Cuidado!)
+        <span class="icon-dinamico">group_remove</span> 4. Limpar Base de
+        Clientes (Cuidado!)
       </button>
 
       <button
@@ -201,7 +213,8 @@ async function apagarDados(tipo) {
         @click="apagarDados('tudo')"
         style="grid-column: 1 / -1"
       >
-        ☢️ APAGAR TUDO (O.S, Instrumentos, Financeiro e Clientes) ☢️
+        <span class="icon-dinamico">delete_forever</span> APAGAR TUDO (O.S,
+        Instrumentos, Financeiro e Clientes)
       </button>
     </div>
 
@@ -212,12 +225,27 @@ async function apagarDados(tipo) {
         padding: 15px;
         border-radius: 6px;
         font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 10px;
       "
       :style="{
-        background: statusMensagem.includes('❌') ? '#fef2f2' : '#333',
-        color: statusMensagem.includes('❌') ? '#b91c1c' : '#fff',
+        background: statusMensagem.includes('Erro') ? '#fef2f2' : '#333',
+        color: statusMensagem.includes('Erro') ? '#b91c1c' : '#fff',
       }"
     >
+      <span
+        class="icon-dinamico"
+        :style="{ animation: processando ? 'spin 1s linear infinite' : 'none' }"
+      >
+        {{
+          processando
+            ? "sync"
+            : statusMensagem.includes("Erro")
+              ? "error"
+              : "check_circle"
+        }}
+      </span>
       {{ statusMensagem }}
     </div>
   </div>
@@ -234,6 +262,12 @@ async function apagarDados(tipo) {
   transition: 0.3s;
   width: 100%;
   text-align: center;
+
+  /* Flexbox para alinhamento perfeito do ícone e texto */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .btn-clean:disabled {
   opacity: 0.5;
@@ -256,6 +290,12 @@ async function apagarDados(tipo) {
 .btn-nuke:not(:disabled):hover {
   background: #dc2626;
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 768px) {

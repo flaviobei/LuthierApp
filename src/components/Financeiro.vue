@@ -5,6 +5,7 @@
  * @description Módulo de gestão financeira. Permite o acompanhamento de
  * entradas (serviços) e saídas (despesas), oferecendo uma visão analítica
  * através de gráficos e resumos de saldo líquido.
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -281,19 +282,41 @@ onMounted(carregarDados);
           gap: 10px;
         "
       >
-        <h4 style="margin: 0; color: var(--primary)">
-          📊 Filtros de Relatório
+        <h4
+          style="
+            margin: 0;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span class="icon-dinamico">analytics</span> Filtros de Relatório
         </h4>
         <div style="display: flex; gap: 10px">
           <button
             class="btn-outline"
-            style="border-color: #27ae60; color: #27ae60"
+            style="
+              border-color: #27ae60;
+              color: #27ae60;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            "
             @click="exportarParaCSV"
           >
-            📥 Exportar Excel
+            <span class="icon-dinamico" style="font-size: 1.1rem"
+              >file_download</span
+            >
+            Exportar Excel
           </button>
-          <button class="btn-outline" @click="acionarImpressao">
-            🖨️ Imprimir PDF
+          <button
+            class="btn-outline"
+            style="display: flex; align-items: center; gap: 6px"
+            @click="acionarImpressao"
+          >
+            <span class="icon-dinamico" style="font-size: 1.1rem">print</span>
+            Imprimir PDF
           </button>
         </div>
       </div>
@@ -339,7 +362,12 @@ onMounted(carregarDados);
 
     <div class="financeiro-layout">
       <div class="card col-form-fin tela-nao-imprimivel">
-        <h4 class="title-section">💸 Lançar Despesa</h4>
+        <h4
+          class="title-section"
+          style="display: flex; align-items: center; gap: 8px; margin-top: 0"
+        >
+          <span class="icon-dinamico">paid</span> Lançar Despesa
+        </h4>
         <div class="form-group">
           <label>Descrição</label>
           <input v-model="novaDespesa.descricao" placeholder="Ex: Aluguel" />
@@ -371,14 +399,30 @@ onMounted(carregarDados);
         <button
           class="btn-primary"
           @click="salvarDespesa"
-          style="width: 100%; background: var(--danger)"
+          style="
+            width: 100%;
+            background: var(--danger);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          "
         >
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >add_circle</span
+          >
           Registar Saída
         </button>
       </div>
 
       <div class="card col-tabela-fin">
-        <h4 class="title-section">📑 Movimentações Detalhadas</h4>
+        <h4
+          class="title-section"
+          style="display: flex; align-items: center; gap: 8px; margin-top: 0"
+        >
+          <span class="icon-dinamico">receipt_long</span> Movimentações
+          Detalhadas
+        </h4>
         <div class="tabela-responsiva">
           <table class="tabela-padrao">
             <thead>
@@ -413,9 +457,20 @@ onMounted(carregarDados);
                   <small
                     v-if="t.servicos?.instrumentos"
                     class="text-muted"
-                    style="display: block; margin-top: 3px"
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 4px;
+                      margin-top: 3px;
+                    "
                   >
-                    👤 {{ t.servicos.instrumentos.cliente?.nome }} | 🎸
+                    <span class="icon-dinamico" style="font-size: 0.9rem"
+                      >person</span
+                    >
+                    {{ t.servicos.instrumentos.cliente?.nome }} |
+                    <span class="icon-dinamico" style="font-size: 0.9rem"
+                      >music_note</span
+                    >
                     {{ t.servicos.instrumentos.marca }}
                   </small>
                 </td>

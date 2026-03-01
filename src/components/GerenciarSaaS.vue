@@ -4,6 +4,7 @@
  * @file        GerenciarSaaS.vue
  * @description Painel de controle do administrador master. Corrigido para
  * manipular corretamente datas no formato ISO para input date.
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -75,8 +76,17 @@ onMounted(() => carregarAssinantes());
         margin-bottom: 20px;
       "
     >
-      <h2 style="margin: 0; color: var(--danger)">
-        👑 Módulo Master: Gestão do SaaS
+      <h2
+        style="
+          margin: 0;
+          color: var(--danger);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">admin_panel_settings</span> Módulo Master:
+        Gestão do SaaS
       </h2>
       <span
         v-if="mensagem"
@@ -98,7 +108,22 @@ onMounted(() => carregarAssinantes());
       controla quem tem acesso ao sistema.
     </p>
 
-    <div v-if="loading" class="text-center text-muted" style="padding: 20px">
+    <div
+      v-if="loading"
+      class="text-center text-muted"
+      style="
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      "
+    >
+      <span
+        class="icon-dinamico"
+        style="font-size: 2rem; animation: spin 1s linear infinite"
+        >sync</span
+      >
       A carregar base de clientes...
     </div>
 
@@ -178,9 +203,18 @@ onMounted(() => carregarAssinantes());
               <button
                 class="btn-primary"
                 @click="atualizarStatus(assinante)"
-                style="padding: 6px 12px; font-size: 0.85rem"
+                style="
+                  padding: 6px 12px;
+                  font-size: 0.85rem;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                "
               >
-                💾 Salvar
+                <span class="icon-dinamico" style="font-size: 1.1rem"
+                  >save</span
+                >
+                Salvar
               </button>
             </td>
           </tr>
@@ -189,3 +223,11 @@ onMounted(() => carregarAssinantes());
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>

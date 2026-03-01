@@ -41,9 +41,9 @@ async function adicionarInstrumento() {
     triggerToast("Preencha a marca e o modelo do instrumento.", "error");
     return;
   }
-    
+
   loading.value = true;
-  
+
   const { error } = await supabase.from("instrumentos").insert([
     {
       cliente_id: props.clienteId,
@@ -54,9 +54,9 @@ async function adicionarInstrumento() {
       afinacao_padrao: form.value.afinacao,
     },
   ]);
-  
+
   loading.value = false;
-  
+
   if (!error) {
     form.value.marca = "";
     form.value.modelo = "";
@@ -85,7 +85,6 @@ onMounted(() => buscarInstrumentos());
       <h3 class="title-section" style="margin: 0; border: none">
         🎸 Instrumentos de: {{ clienteNome }}
       </h3>
-      <button class="btn-outline" @click="$emit('fechar')">Voltar</button>
     </div>
 
     <div v-if="instrumentos.length > 0" style="margin-bottom: 30px">
@@ -148,9 +147,18 @@ onMounted(() => buscarInstrumentos());
           class="btn-primary"
           @click="adicionarInstrumento"
           :disabled="loading"
-          style="flex: 1"
+          style="
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          "
         >
-          {{ loading ? "⏳" : "Salvar" }}
+          <span class="icon-dinamico" style="font-size: 1.1rem">
+            {{ loading ? "hourglass_empty" : "save" }}
+          </span>
+          {{ loading ? "A guardar..." : "Salvar" }}
         </button>
       </div>
     </div>

@@ -5,6 +5,7 @@
  * @description Gestor global de itens da oficina. Centraliza o cadastro de
  * serviços, peças e insumos. Inclui controle de estoque, cálculo automático
  * de custos baseados em receitas, exportação para CSV e confirmação segura.
+ * ATUALIZAÇÃO: Padronização de botões e ícones dinâmicos.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -239,12 +240,19 @@ onMounted(() => carregarCatalogo());
         margin-bottom: 20px;
       "
     >
-      <h2 class="title-section" style="margin: 0; border: none">
-        🏷️ Catálogo e Estoque
+      <h2
+        class="title-section"
+        style="
+          margin: 0;
+          border: none;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        "
+      >
+        <span class="icon-dinamico" style="font-size: 1.8rem">local_offer</span>
+        Catálogo e Estoque
       </h2>
-      <button class="btn-outline" @click="$emit('voltar')">
-        Voltar ao Painel
-      </button>
     </div>
 
     <div
@@ -261,8 +269,11 @@ onMounted(() => carregarCatalogo());
           margin-bottom: 15px;
         "
       >
-        <h4 style="margin: 0">
-          {{ editandoId ? "✏️ Editar Item" : "➕ Novo Item no Catálogo" }}
+        <h4 style="margin: 0; display: flex; align-items: center; gap: 8px">
+          <span class="icon-dinamico">
+            {{ editandoId ? "edit_note" : "add_box" }}
+          </span>
+          {{ editandoId ? "Editar Item" : "Novo Item no Catálogo" }}
         </h4>
         <div
           v-if="form.tipo === 'MaoDeObra'"
@@ -273,9 +284,17 @@ onMounted(() => carregarCatalogo());
             class="btn-tab"
             :class="{ active: abaEdicao === 'dados' }"
             @click="abaEdicao = 'dados'"
-            style="padding: 5px 12px"
+            style="
+              padding: 5px 12px;
+              display: flex;
+              align-items: center;
+              gap: 5px;
+            "
           >
-            📄 Dados Básicos
+            <span class="icon-dinamico" style="font-size: 1.1rem"
+              >description</span
+            >
+            Dados Básicos
           </button>
           <button
             class="btn-tab"
@@ -286,9 +305,13 @@ onMounted(() => carregarCatalogo());
               background: #fffbeb;
               color: #d97706;
               border-color: #fde68a;
+              display: flex;
+              align-items: center;
+              gap: 5px;
             "
           >
-            🧪 Receita de Insumos
+            <span class="icon-dinamico" style="font-size: 1.1rem">science</span>
+            Receita de Insumos
             <span v-if="form.insumos_consumidos.length > 0"
               >({{ form.insumos_consumidos.length }})</span
             >
@@ -371,7 +394,10 @@ onMounted(() => carregarCatalogo());
               v-model="form.controla_estoque"
               style="width: auto; transform: scale(1.2)"
             />
-            <strong>📦 Controlar Estoque deste item?</strong>
+            <strong style="display: flex; align-items: center; gap: 6px">
+              <span class="icon-dinamico">inventory_2</span> Controlar Estoque
+              deste item?
+            </strong>
           </label>
           <div
             v-if="form.controla_estoque"
@@ -407,7 +433,17 @@ onMounted(() => carregarCatalogo());
             margin-bottom: 15px;
           "
         >
-          <h4 style="margin-top: 0; color: #b45309">🧪 Definir Receita</h4>
+          <h4
+            style="
+              margin-top: 0;
+              color: #b45309;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            <span class="icon-dinamico">science</span> Definir Receita
+          </h4>
           <div
             style="
               display: flex;
@@ -441,9 +477,16 @@ onMounted(() => carregarCatalogo());
             <button
               class="btn-primary"
               @click="adicionarInsumoNaReceita"
-              style="background: #f59e0b; border: none; height: 40px"
+              style="
+                background: #f59e0b;
+                border: none;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+              "
             >
-              ➕ Adicionar
+              <span class="icon-dinamico">add</span> Adicionar
             </button>
           </div>
         </div>
@@ -461,10 +504,12 @@ onMounted(() => carregarCatalogo());
               <td>{{ rec.quantidade }} un/ml</td>
               <td align="center">
                 <button
-                  class="btn-text-danger"
+                  class="btn-icon"
+                  style="color: #ff4757; background: transparent"
                   @click="removerInsumoDaReceita(rec.insumo_id)"
+                  title="Remover Insumo"
                 >
-                  ❌
+                  <span class="icon-dinamico">delete</span>
                 </button>
               </td>
             </tr>
@@ -485,23 +530,40 @@ onMounted(() => carregarCatalogo());
           class="btn-primary"
           @click="salvarItem"
           :disabled="loading"
-          style="flex: 1"
+          style="
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          "
         >
+          <span class="icon-dinamico">
+            {{
+              loading ? "hourglass_empty" : editandoId ? "save" : "add_circle"
+            }}
+          </span>
           {{
             loading
-              ? "⏳ A gravar..."
+              ? "A gravar..."
               : editandoId
-                ? "💾 Atualizar Item"
-                : "➕ Cadastrar Item"
+                ? "Atualizar Item"
+                : "Cadastrar Item"
           }}
         </button>
         <button
           v-if="editandoId"
           class="btn-outline text-danger"
           @click="cancelarEdicao"
-          style="flex: 1"
+          style="
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          "
         >
-          ❌ Cancelar Edição
+          <span class="icon-dinamico">cancel</span> Cancelar Edição
         </button>
       </div>
     </div>
@@ -527,10 +589,16 @@ onMounted(() => carregarCatalogo());
             color: #27ae60;
             padding: 6px 12px;
             font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
           "
           @click="exportarEstoqueCSV"
         >
-          📥 Exportar CSV
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >file_download</span
+          >
+          Exportar CSV
         </button>
       </div>
       <div class="filtros-abas">
@@ -540,15 +608,27 @@ onMounted(() => carregarCatalogo());
           class="btn-tab"
           :class="{ active: filtroTipo === t }"
           @click="filtroTipo = t"
+          style="display: flex; align-items: center; gap: 5px"
         >
+          <span class="icon-dinamico" style="font-size: 1rem">
+            {{
+              t === "MaoDeObra"
+                ? "handyman"
+                : t === "Peca"
+                  ? "playlist_add"
+                  : t === "Insumo"
+                    ? "science"
+                    : "list_alt"
+            }}
+          </span>
           {{
             t === "MaoDeObra"
-              ? "🛠️ Serviços"
+              ? "Serviços"
               : t === "Peca"
-                ? "🎸 Peças"
+                ? "Peças"
                 : t === "Insumo"
-                  ? "🧪 Insumos"
-                  : "📋 Todos"
+                  ? "Insumos"
+                  : "Todos"
           }}
         </button>
       </div>
@@ -563,6 +643,7 @@ onMounted(() => carregarCatalogo());
             <th>Valores</th>
             <th style="text-align: center">Estoque</th>
             <th style="text-align: center">Ações</th>
+            }
           </tr>
         </thead>
         <tbody>
@@ -592,28 +673,52 @@ onMounted(() => carregarCatalogo());
                         ? 'var(--danger)'
                         : 'var(--success)',
                     fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
                   }"
                 >
+                  <span class="icon-dinamico" style="font-size: 1rem">
+                    {{
+                      item.quantidade_estoque <= item.estoque_minimo
+                        ? "running_with_errors"
+                        : "check_circle"
+                    }}
+                  </span>
                   {{ item.quantidade_estoque }} un.
                 </div>
                 <small
                   v-if="item.quantidade_estoque <= item.estoque_minimo"
                   class="text-danger"
-                  >⚠️ Baixo</small
+                  style="font-weight: bold"
+                  >Baixo</small
                 >
               </template>
               <span v-else class="text-muted">--</span>
             </td>
             <td data-label="Ações" align="center" style="white-space: nowrap">
-              <button class="btn-icon bg-light" @click="iniciarEdicao(item)">
-                ✏️
+              <button
+                class="btn-icon bg-light"
+                @click="iniciarEdicao(item)"
+                title="Editar"
+              >
+                <span class="icon-dinamico">edit</span>
               </button>
               <button
                 class="btn-delete-step"
                 :class="{ confirming: idParaExcluir === item.id }"
                 @click="excluirItem(item.id)"
+                :title="
+                  idParaExcluir === item.id
+                    ? 'Clique para confirmar'
+                    : 'Excluir'
+                "
               >
-                {{ idParaExcluir === item.id ? "Confirmar?" : "🗑️" }}
+                <span class="icon-dinamico" style="font-size: 1.1rem">
+                  {{ idParaExcluir === item.id ? "check" : "delete" }}
+                </span>
+                <span v-if="idParaExcluir === item.id">Confirmar?</span>
               </button>
             </td>
           </tr>
@@ -660,13 +765,6 @@ onMounted(() => carregarCatalogo());
   color: white;
   border-color: var(--primary);
 }
-.btn-text-danger {
-  background: none;
-  border: none;
-  color: #ff4757;
-  cursor: pointer;
-  font-weight: bold;
-}
 
 /* Botão de exclusão com sistema de confirmação seguro */
 .btn-delete-step {
@@ -679,6 +777,10 @@ onMounted(() => carregarCatalogo());
   transition: all 0.3s;
   min-width: 40px;
   font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 .btn-delete-step.confirming {
   background: #dc2626;

@@ -3,7 +3,7 @@
  * ============================================================================
  * @file        Configuracoes.vue
  * @description Central de identidade visual e dados fiscais da oficina.
- * Atualizado com configuração de formato de impressora.
+ * ATUALIZAÇÃO: Seções reorganizadas e estilizadas com padrão de cores (Cards).
  * @project     LuthierApp
  * ============================================================================
  */
@@ -120,11 +120,11 @@ async function salvarConfiguracoes() {
   }
 }
 
-// LISTA DE TEMAS PRÉ-DEFINIDOS
+// LISTA DE TEMAS PRÉ-DEFINIDOS (Substituindo emojis por ícones do Material)
 const temasPresets = [
   {
     nome: "Padrão Corporativo",
-    icone: "🏢",
+    icone: "business",
     cor_primaria: "#1E3A8A",
     cor_secundaria: "#10B981",
     cor_fundo: "#F4F6F8",
@@ -139,7 +139,7 @@ const temasPresets = [
   },
   {
     nome: "Oficina Clássica",
-    icone: "🎸",
+    icone: "music_note",
     cor_primaria: "#5C3A21",
     cor_secundaria: "#D27D2D",
     cor_fundo: "#F9F6F0",
@@ -154,7 +154,7 @@ const temasPresets = [
   },
   {
     nome: "Rock de Garagem",
-    icone: "⚡",
+    icone: "bolt",
     cor_primaria: "#18181B",
     cor_secundaria: "#E11D48",
     cor_fundo: "#E5E7EB",
@@ -169,7 +169,7 @@ const temasPresets = [
   },
   {
     nome: "Luthier Acústico",
-    icone: "🌿",
+    icone: "eco",
     cor_primaria: "#4F7942",
     cor_secundaria: "#D97750",
     cor_fundo: "#F9FAEB",
@@ -184,7 +184,7 @@ const temasPresets = [
   },
   {
     nome: "Estúdio Tech",
-    icone: "🎛️",
+    icone: "tune",
     cor_primaria: "#0F172A",
     cor_secundaria: "#3B82F6",
     cor_fundo: "#F8FAFC",
@@ -252,97 +252,151 @@ onMounted(() => carregarConfiguracoes());
 
 <template>
   <div class="card">
-    <h3 class="title-section" style="margin-top: 0">
-      ⚙️ Configurações da Oficina
+    <h3
+      class="title-section"
+      style="margin-top: 0; display: flex; align-items: center; gap: 8px"
+    >
+      <span class="icon-dinamico">settings</span> Configurações Gerais
     </h3>
 
     <div
       class="box mb-2"
-      style="background-color: #f8fafc; border: 1px dashed var(--border)"
+      style="border-left: 4px solid #0ea5e9; background-color: #f0f9ff"
     >
-      <h4 style="margin-top: 0; color: var(--text-main)">🎨 Temas</h4>
-      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
-        Escolha um tema ou personalize as cores manualmente abaixo.
-      </p>
-
-      <div
-        style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px"
+      <h4
+        style="
+          margin-top: 0;
+          color: #0284c7;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
       >
-        <button
-          v-for="tema in temasPresets"
-          :key="tema.nome"
-          @click="aplicarPreset(tema)"
-          style="
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 120px;
-            padding: 15px 10px;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.2s;
-          "
-          onmouseover="
-            this.style.borderColor = 'var(--primary)';
-            this.style.transform = 'translateY(-2px)';
-          "
-          onmouseout="
-            this.style.borderColor = 'var(--border)';
-            this.style.transform = 'none';
-          "
-        >
-          <div
-            style="
-              display: flex;
-              gap: 2px;
-              margin-bottom: 10px;
-              border-radius: 4px;
-              overflow: hidden;
-              border: 1px solid #eee;
-            "
-          >
-            <div
-              :style="{
-                width: '20px',
-                height: '20px',
-                background: tema.cor_primaria,
-              }"
-            ></div>
-            <div
-              :style="{
-                width: '20px',
-                height: '20px',
-                background: tema.cor_secundaria,
-              }"
-            ></div>
-            <div
-              :style="{
-                width: '20px',
-                height: '20px',
-                background: tema.cor_fundo,
-              }"
-            ></div>
-          </div>
-          <span style="font-size: 1.5rem; margin-bottom: 5px">{{
-            tema.icone
-          }}</span>
-          <span
-            style="
-              font-size: 0.75rem;
-              font-weight: bold;
-              color: var(--text-main);
-              text-align: center;
-            "
-            >{{ tema.nome }}</span
-          >
-        </button>
+        <span class="icon-dinamico">store</span> Dados da Oficina
+      </h4>
+      <div class="form-group">
+        <label>Nome da Luthieria:</label>
+        <input
+          v-model="form.nome_luthieria"
+          placeholder="Ex: Flávio Bei - Luthier"
+        />
+      </div>
+      <div class="grid-2-cols mb-1">
+        <div>
+          <label>Documento (CNPJ/CPF):</label>
+          <input v-model="form.documento" placeholder="00.000.000/0001-00" />
+        </div>
+        <div>
+          <label>WhatsApp:</label>
+          <input v-model="form.telefone" placeholder="(11) 99999-9999" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Endereço Completo:</label>
+        <input
+          v-model="form.endereco"
+          placeholder="Rua das Cordas, 123 - São Paulo, SP"
+        />
+      </div>
+      <div class="form-group">
+        <label>Termos de Garantia Padrão:</label>
+        <textarea v-model="form.termos_garantia" rows="3"></textarea>
       </div>
     </div>
 
-    <div class="box mb-2" style="border-left: 4px solid var(--primary)">
-      <h4 style="margin-top: 0; color: var(--primary)">Identidade Visual</h4>
+    <div
+      class="box mb-2"
+      style="border-left: 4px solid var(--success); background-color: #f0fdf4"
+    >
+      <h4
+        style="
+          margin-top: 0;
+          color: #15803d;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">payments</span> Taxas de Recebimento (%)
+      </h4>
+      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
+        O sistema utilizará estes percentuais para calcular o valor líquido
+        ganho após as taxas das maquininhas.
+      </p>
+      <div
+        class="grid-2-cols"
+        style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr))"
+      >
+        <div>
+          <label>PIX</label>
+          <input type="number" step="0.01" v-model="form.taxa_pix" />
+        </div>
+        <div>
+          <label>Dinheiro</label>
+          <input type="number" step="0.01" v-model="form.taxa_dinheiro" />
+        </div>
+        <div>
+          <label>Crédito</label>
+          <input type="number" step="0.01" v-model="form.taxa_credito" />
+        </div>
+        <div>
+          <label>Débito</label>
+          <input type="number" step="0.01" v-model="form.taxa_debito" />
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="box mb-2"
+      style="border-left: 4px solid #6366f1; background-color: #eef2ff"
+    >
+      <h4
+        style="
+          margin-top: 0;
+          color: #4338ca;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">print</span> Impressão de Recibos /
+        Orçamentos
+      </h4>
+      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
+        Esta configuração altera o formato visual do recibo gerado direto do
+        sistema. Outros relatórios continuarão gerando PDFs e planilhas
+        normalmente.
+      </p>
+
+      <div class="form-group">
+        <label>Formato do Recibo Direto:</label>
+        <select v-model="form.tipo_impressora" style="max-width: 400px">
+          <option value="padrao">📄 Folha A4 (Impressora Convencional)</option>
+          <option value="termica_80mm">
+            🧾 Bobina 80mm (Impressora Térmica Larga)
+          </option>
+          <option value="termica_58mm">
+            🧾 Bobina 58mm (Impressora Térmica Estreita)
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div
+      class="box mb-2"
+      style="border-left: 4px solid var(--primary); background-color: #f1f5f9"
+    >
+      <h4
+        style="
+          margin-top: 0;
+          color: var(--primary);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">brush</span> Identidade Visual
+      </h4>
       <div class="flex-gap-15" style="align-items: flex-start; flex-wrap: wrap">
         <div style="flex: 1; min-width: 250px">
           <label>Logotipo da Oficina</label>
@@ -376,13 +430,21 @@ onMounted(() => carregarConfiguracoes());
                 class="btn-outline"
                 style="
                   cursor: pointer;
-                  display: inline-block;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
                   margin-bottom: 5px;
                   font-size: 0.85rem;
                   padding: 6px 12px;
+                  background: white;
                 "
               >
-                {{ carregandoFoto ? "⏳ A enviar..." : "📷 Alterar Logo" }}
+                <span class="icon-dinamico" style="font-size: 1.1rem">
+                  {{
+                    carregandoFoto ? "hourglass_empty" : "add_photo_alternate"
+                  }}
+                </span>
+                {{ carregandoFoto ? "A enviar..." : "Alterar Logo" }}
                 <input
                   type="file"
                   accept="image/*"
@@ -395,9 +457,21 @@ onMounted(() => carregarConfiguracoes());
                 v-if="form.logo_url"
                 class="btn-icon text-danger"
                 @click="removerLogo"
-                style="font-size: 0.85rem"
+                style="
+                  font-size: 0.85rem;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 4px;
+                  padding: 4px 8px;
+                  background: none;
+                  border: none;
+                  cursor: pointer;
+                "
               >
-                🗑️ Remover
+                <span class="icon-dinamico" style="font-size: 1rem"
+                  >delete</span
+                >
+                Remover
               </button>
             </div>
           </div>
@@ -475,17 +549,129 @@ onMounted(() => carregarConfiguracoes());
 
     <div
       class="box mb-2"
-      style="border-left: 4px solid var(--accent); background-color: #fffaf5"
+      style="border-left: 4px solid #d946ef; background-color: #fdf4ff"
     >
-      <h4 style="margin-top: 0; color: var(--accent)">Botões & Interface</h4>
+      <h4
+        style="
+          margin-top: 0;
+          color: #c026d3;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">palette</span> Temas Prontos
+      </h4>
+      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
+        Ao clicar em um tema, as cores da sua oficina serão alteradas
+        automaticamente para visualização. Lembre-se de salvar no final.
+      </p>
+
+      <div
+        style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px"
+      >
+        <button
+          v-for="tema in temasPresets"
+          :key="tema.nome"
+          @click="aplicarPreset(tema)"
+          style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 120px;
+            padding: 15px 10px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+          "
+          onmouseover="
+            this.style.borderColor = 'var(--primary)';
+            this.style.transform = 'translateY(-2px)';
+          "
+          onmouseout="
+            this.style.borderColor = 'var(--border)';
+            this.style.transform = 'none';
+          "
+        >
+          <div
+            style="
+              display: flex;
+              gap: 2px;
+              margin-bottom: 10px;
+              border-radius: 4px;
+              overflow: hidden;
+              border: 1px solid #eee;
+            "
+          >
+            <div
+              :style="{
+                width: '20px',
+                height: '20px',
+                background: tema.cor_primaria,
+              }"
+            ></div>
+            <div
+              :style="{
+                width: '20px',
+                height: '20px',
+                background: tema.cor_secundaria,
+              }"
+            ></div>
+            <div
+              :style="{
+                width: '20px',
+                height: '20px',
+                background: tema.cor_fundo,
+              }"
+            ></div>
+          </div>
+          <span
+            class="icon-dinamico"
+            style="
+              font-size: 1.5rem;
+              margin-bottom: 5px;
+              color: var(--text-muted);
+            "
+            >{{ tema.icone }}</span
+          >
+          <span
+            style="
+              font-size: 0.75rem;
+              font-weight: bold;
+              color: var(--text-main);
+              text-align: center;
+            "
+            >{{ tema.nome }}</span
+          >
+        </button>
+      </div>
+    </div>
+
+    <div
+      class="box mb-2"
+      style="border-left: 4px solid var(--accent); background-color: #fff7ed"
+    >
+      <h4
+        style="
+          margin-top: 0;
+          color: var(--accent);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">touch_app</span> Botões & Interface
+      </h4>
 
       <div class="grid-2-cols mb-2">
         <div class="config-card">
           <label>Botão Principal (Ex: Salvar)</label>
           <div class="grid-2-cols">
             <div>
-              <small>Fundo:</small
-              ><input
+              <small>Fundo:</small>
+              <input
                 type="color"
                 v-model="form.btn_primary_bg"
                 @input="aplicarTemaPreview"
@@ -493,8 +679,8 @@ onMounted(() => carregarConfiguracoes());
               />
             </div>
             <div>
-              <small>Texto:</small
-              ><input
+              <small>Texto:</small>
+              <input
                 type="color"
                 v-model="form.btn_primary_text"
                 @input="aplicarTemaPreview"
@@ -507,8 +693,8 @@ onMounted(() => carregarConfiguracoes());
           <label>Botão Destaque (Ex: Ações Rápidas)</label>
           <div class="grid-2-cols">
             <div>
-              <small>Fundo:</small
-              ><input
+              <small>Fundo:</small>
+              <input
                 type="color"
                 v-model="form.btn_accent_bg"
                 @input="aplicarTemaPreview"
@@ -516,8 +702,8 @@ onMounted(() => carregarConfiguracoes());
               />
             </div>
             <div>
-              <small>Texto:</small
-              ><input
+              <small>Texto:</small>
+              <input
                 type="color"
                 v-model="form.btn_accent_text"
                 @input="aplicarTemaPreview"
@@ -577,102 +763,24 @@ onMounted(() => carregarConfiguracoes());
       </div>
     </div>
 
-    <div class="box mb-2">
-      <h4 style="margin-top: 0">Dados da Oficina</h4>
-      <div class="form-group">
-        <label>Nome da Luthieria:</label
-        ><input
-          v-model="form.nome_luthieria"
-          placeholder="Ex: Flávio Bei - Luthier"
-        />
-      </div>
-      <div class="grid-2-cols mb-1">
-        <div>
-          <label>Documento (CNPJ/CPF):</label
-          ><input v-model="form.documento" placeholder="00.000.000/0001-00" />
-        </div>
-        <div>
-          <label>WhatsApp:</label
-          ><input v-model="form.telefone" placeholder="(11) 99999-9999" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Endereço Completo:</label
-        ><input
-          v-model="form.endereco"
-          placeholder="Rua das Cordas, 123 - São Paulo, SP"
-        />
-      </div>
-      <div class="form-group">
-        <label>Termos de Garantia Padrão:</label
-        ><textarea v-model="form.termos_garantia" rows="3"></textarea>
-      </div>
-    </div>
-
-    <div
-      class="box mb-2"
-      style="border-left: 4px solid #6366f1; background-color: #f5f7ff"
-    >
-      <h4 style="margin-top: 0; color: #4f46e5">
-        🖨️ Impressão de Recibos / Orçamentos
-      </h4>
-      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
-        Esta configuração altera o formato visual do recibo gerado direto do
-        sistema. Outros relatórios continuarão gerando PDFs e planilhas
-        normalmente.
-      </p>
-
-      <div class="form-group">
-        <label>Formato do Recibo Direto:</label>
-        <select v-model="form.tipo_impressora" style="max-width: 400px">
-          <option value="padrao">📄 Folha A4 (Impressora Convencional)</option>
-          <option value="termica_80mm">
-            🧾 Bobina 80mm (Impressora Térmica Larga)
-          </option>
-          <option value="termica_58mm">
-            🧾 Bobina 58mm (Impressora Térmica Estreita)
-          </option>
-        </select>
-      </div>
-    </div>
-
-    <div
-      class="box mb-2"
-      style="border-left: 4px solid var(--success); background-color: #f8fff9"
-    >
-      <h4 style="margin-top: 0; color: var(--success)">
-        💰 Taxas de Recebimento (%)
-      </h4>
-      <div
-        class="grid-2-cols"
-        style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr))"
-      >
-        <div>
-          <label>PIX</label
-          ><input type="number" step="0.01" v-model="form.taxa_pix" />
-        </div>
-        <div>
-          <label>Dinheiro</label
-          ><input type="number" step="0.01" v-model="form.taxa_dinheiro" />
-        </div>
-        <div>
-          <label>Crédito</label
-          ><input type="number" step="0.01" v-model="form.taxa_credito" />
-        </div>
-        <div>
-          <label>Débito</label
-          ><input type="number" step="0.01" v-model="form.taxa_debito" />
-        </div>
-      </div>
-    </div>
-
     <button
       class="btn-primary"
       @click="salvarConfiguracoes"
       :disabled="loading"
-      style="width: 100%; padding: 12px; font-size: 1.1rem"
+      style="
+        width: 100%;
+        padding: 12px;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      "
     >
-      {{ loading ? "⏳ A guardar..." : "💾 Salvar Configurações Gerais" }}
+      <span class="icon-dinamico" style="font-size: 1.2rem">
+        {{ loading ? "hourglass_empty" : "save" }}
+      </span>
+      {{ loading ? "A guardar..." : "Salvar Configurações Gerais" }}
     </button>
   </div>
 </template>

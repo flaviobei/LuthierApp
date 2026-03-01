@@ -3,6 +3,7 @@
  * ============================================================================
  * @file        App.vue
  * @description Componente raiz orquestrador com suporte a Ícones Dinâmicos.
+ * ATUALIZAÇÃO: Botões padronizados e ícone de instrumento corrigido. Botão de edição de cliente adicionado.
  * @project     LuthierApp
  * ============================================================================
  */
@@ -37,6 +38,7 @@ const diasTrialRestantes = ref(0);
 const clientes = ref([]);
 const clienteSelecionado = ref(null);
 const instrumentoSelecionado = ref(null);
+const clienteParaEditar = ref(null); // <-- Estado para gerenciar a edição do cliente
 const mostrarClientes = ref(false);
 const modoAtual = ref("bancada");
 const servicoDireto = ref(null);
@@ -181,6 +183,7 @@ function irParaInicio() {
   servicoDireto.value = null;
   clienteSelecionado.value = null;
   instrumentoSelecionado.value = null;
+  clienteParaEditar.value = null;
   mostrarClientes.value = false;
 }
 
@@ -193,6 +196,11 @@ function abrirServicoPeloDashboard(os) {
 function formatarLinkZap(t) {
   const n = t?.replace(/\D/g, "");
   return n?.length <= 11 ? `55${n}` : n;
+}
+function editarCliente(cliente) {
+  clienteParaEditar.value = cliente;
+  // Faz scroll para o topo para garantir que o formulário está visível
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 </script>
 
@@ -209,17 +217,31 @@ function formatarLinkZap(t) {
 
     <div v-else-if="!assinatura && !isSuperAdmin" class="full-center">
       <div class="card amigavel-card">
-        <span style="font-size: 3rem; display: block; margin-bottom: 15px"
-          >👋</span
+        <span
+          class="icon-dinamico"
+          style="
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 15px;
+            color: var(--primary);
+          "
+          >waving_hand</span
         >
         <h3>Quase lá!</h3>
         <p>Ainda não encontramos os dados da sua oficina em nossa base.</p>
         <button
           @click="fazerLogout"
           class="btn-primary"
-          style="margin-top: 25px; width: 100%"
+          style="
+            margin-top: 25px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+          "
         >
-          Ir para o Login
+          <span class="icon-dinamico">logout</span> Ir para o Login
         </button>
       </div>
     </div>
@@ -251,7 +273,12 @@ function formatarLinkZap(t) {
             :src="configLuthieria.logo_url"
             class="logo-img"
           />
-          <span v-else style="font-size: 2.2rem">🎸</span>
+          <span
+            v-else
+            class="icon-dinamico"
+            style="font-size: 2.2rem; color: var(--primary)"
+            >music_note</span
+          >
           <h4 class="logo-title">
             {{ configLuthieria.nome_luthieria }}
             <span v-if="isSuperAdmin" class="badge-master">MASTER</span>
@@ -339,8 +366,15 @@ function formatarLinkZap(t) {
             />
           </div>
           <div v-else-if="clienteSelecionado">
-            <button @click="clienteSelecionado = null" class="btn-outline mb-1">
-              &larr; Bancada
+            <button
+              @click="clienteSelecionado = null"
+              class="btn-outline mb-1"
+              style="display: inline-flex; align-items: center; gap: 6px"
+            >
+              <span class="icon-dinamico" style="font-size: 1.1rem"
+                >arrow_back</span
+              >
+              Bancada
             </button>
             <InstrumentoManager
               :clienteId="clienteSelecionado.id"
@@ -366,8 +400,18 @@ function formatarLinkZap(t) {
             </div>
             <div v-show="mostrarClientes" class="clientes-grid">
               <div class="col-form card">
-                <ClienteForm @clienteSalvo="buscarClientes" />
+                <ClienteForm
+                  :clienteEdit="clienteParaEditar"
+                  @clienteSalvo="
+                    () => {
+                      buscarClientes();
+                      clienteParaEditar = null;
+                    }
+                  "
+                  @cancelarEdicao="clienteParaEditar = null"
+                />
               </div>
+
               <div class="col-lista card">
                 <h3 class="title-section">
                   <span class="icon-dinamico" style="vertical-align: middle"
@@ -397,21 +441,42 @@ function formatarLinkZap(t) {
                             "
                             target="_blank"
                             class="badge-zap"
-                            ><span
-                              class="icon-dinamico"
-                              style="font-size: 1rem; vertical-align: bottom"
+                            style="
+                              display: inline-flex;
+                              align-items: center;
+                              gap: 4px;
+                            "
+                            ><span class="icon-dinamico" style="font-size: 1rem"
                               >chat</span
                             >
                             WhatsApp</a
                           >
                         </td>
                         <td align="center">
-                          <button
-                            class="btn-icon"
-                            @click="clienteSelecionado = c"
+                          <div
+                            style="
+                              display: flex;
+                              gap: 8px;
+                              justify-content: center;
+                              align-items: center;
+                            "
                           >
-                            <span class="icon-dinamico">electric_guitar</span>
-                          </button>
+                            <button
+                              class="btn-icon"
+                              @click="editarCliente(c)"
+                              title="Editar Cliente"
+                            >
+                              <span class="icon-dinamico">edit</span>
+                            </button>
+
+                            <button
+                              class="btn-icon"
+                              @click="clienteSelecionado = c"
+                              title="Ver Instrumentos"
+                            >
+                              <span class="icon-dinamico">list</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </tbody>
