@@ -3,14 +3,14 @@
  * ============================================================================
  * @file        ExecucaoServico.vue
  * @description Gestão da O.S. (Checklist, Diário, Orçamento e Pagamento).
- * ATUALIZAÇÃO: Geração local e instantânea de QR Code (sem delay).
+ * ATUALIZAÇÃO: Adicionados campos de Observações no Checklist e Fechamento.
  * ============================================================================
  */
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { comprimirImagem } from "../lib/imageUtils";
 import { useToast } from "../composables/useToast";
-import QRCode from "qrcode"; // <-- IMPORTAÇÃO DA BIBLIOTECA GERADORA
+import QRCode from "qrcode";
 
 const props = defineProps(["servico"]);
 const emit = defineEmits(["voltar"]);
@@ -37,7 +37,7 @@ const configLuthieria = ref({
 // Dados Adicionais para a Etiqueta
 const dadosInstrumento = ref(null);
 const dadosCliente = ref(null);
-const qrCodeBase64 = ref(""); // GUARDA A IMAGEM GERADA LOCALMENTE
+const qrCodeBase64 = ref("");
 
 // ================= DIÁRIO =================
 const diario = ref([]);
@@ -90,7 +90,6 @@ const osFinalizada = computed(
 async function carregarTudo() {
   carregandoDados.value = true;
 
-  // Gera o QR Code localmente e de forma instantânea mal a página abre
   try {
     qrCodeBase64.value = await QRCode.toDataURL(servicoLocal.value.id, {
       width: 150,
@@ -146,6 +145,22 @@ async function carregarConfig() {
       .maybeSingle();
     if (data) configLuthieria.value = { ...configLuthieria.value, ...data };
   } catch (err) {}
+}
+
+// ==========================================
+// SALVAR OBSERVAÇÕES (NOVA FUNÇÃO)
+// ==========================================
+async function salvarObservacoes(campo) {
+  try {
+    const { error } = await supabase
+      .from("servicos")
+      .update({ [campo]: servicoLocal.value[campo] })
+      .eq("id", servicoLocal.value.id);
+    if (error) throw error;
+    triggerToast("Observações salvas com sucesso!", "success");
+  } catch (err) {
+    triggerToast("Erro ao salvar observação: " + err.message, "error");
+  }
 }
 
 // ==========================================
@@ -530,7 +545,7 @@ async function enviarOrcamentoWhatsApp() {
   }
 }
 
-// MÉTODOS DE IMPRESSÃO - SEM DELAY
+// MÉTODOS DE IMPRESSÃO
 async function imprimirOrcamento() {
   tipoImpressao.value = "orcamento";
   await nextTick();
@@ -549,7 +564,7 @@ async function imprimirQRCode() {
   }
   tipoImpressao.value = "qrcode";
   await nextTick();
-  window.print(); // Abre instantaneamente!
+  window.print();
 }
 
 // ==========================================
@@ -866,6 +881,47 @@ onMounted(carregarTudo);
               </div>
             </div>
           </div>
+        </div>
+
+        <div
+          class="card mb-2"
+          style="background: #f8fafc; border: 1px solid var(--border)"
+        >
+          <h4
+            style="
+              margin-top: 0;
+              font-size: 1rem;
+              color: var(--text-main);
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            <span class="icon-dinamico">notes</span> Observações do Checklist
+          </h4>
+          <textarea
+            v-model="servicoLocal.obs_checklist"
+            rows="3"
+            placeholder="Anotações gerais do estado de entrada do instrumento..."
+            :disabled="osFinalizada"
+            style="width: 100%"
+          ></textarea>
+          <button
+            v-if="!osFinalizada"
+            class="btn-primary"
+            @click="salvarObservacoes('obs_checklist')"
+            style="
+              margin-top: 10px;
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              padding: 6px 12px;
+              font-size: 0.85rem;
+            "
+          >
+            <span class="icon-dinamico" style="font-size: 1.1rem">save</span>
+            Salvar Observações
+          </button>
         </div>
 
         <div class="card">
@@ -1277,7 +1333,7 @@ onMounted(carregarTudo);
             v-if="saldoDevedor > 0 && !osFinalizada"
             class="form-pagamento mb-2"
           >
-            <h4 style="margin-top: 0">
+            <h4 style="margin: 0">
               <span class="icon-dinamico" style="vertical-align: middle"
                 >payments</span
               >
@@ -1361,6 +1417,57 @@ onMounted(carregarTudo);
               </td>
             </tr>
           </table>
+
+          <div
+            style="
+              margin-top: 25px;
+              padding-top: 20px;
+              border-top: 1px solid var(--border);
+            "
+          >
+            <h4
+              style="
+                margin-top: 0;
+                font-size: 1rem;
+                color: var(--text-main);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              "
+            >
+              <span class="icon-dinamico">speaker_notes</span> Notas de
+              Fechamento / Garantia
+            </h4>
+            <p
+              class="text-muted"
+              style="font-size: 0.8rem; margin-top: -5px; margin-bottom: 10px"
+            >
+              Este texto sairá impresso no recibo/orçamento final do cliente.
+            </p>
+            <textarea
+              v-model="servicoLocal.obs_fechamento"
+              rows="3"
+              placeholder="Dicas de conservação, termos de garantia, alertas..."
+              :disabled="osFinalizada"
+              style="width: 100%"
+            ></textarea>
+            <button
+              v-if="!osFinalizada"
+              class="btn-primary"
+              @click="salvarObservacoes('obs_fechamento')"
+              style="
+                margin-top: 10px;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                font-size: 0.85rem;
+              "
+            >
+              <span class="icon-dinamico" style="font-size: 1.1rem">save</span>
+              Salvar Notas
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1417,7 +1524,7 @@ onMounted(carregarTudo);
               style="width: 150px; height: 150px"
             />
             <p style="margin: 5px 0 0 0; font-size: 0.7rem; color: #555">
-              Aponte o "QR Scan" do sistema para localizar OS
+              Aponte o "QR Scan" do sistema para aceder
             </p>
           </div>
         </div>

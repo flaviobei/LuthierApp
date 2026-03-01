@@ -80,19 +80,6 @@ onMounted(async () => {
             <span class="icon-dinamico" style="font-size: 1rem">lightbulb</span>
             Tutorial
           </button>
-          <button
-            class="btn-outline"
-            @click="$emit('voltar')"
-            style="
-              font-size: 0.8rem;
-              display: flex;
-              align-items: center;
-              gap: 4px;
-            "
-          >
-            <span class="icon-dinamico" style="font-size: 1rem">logout</span>
-            Sair
-          </button>
         </div>
       </div>
 
