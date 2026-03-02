@@ -1,0 +1,23 @@
+name: Backup Automático do Banco de Dados
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: 
+
+jobs:
+  backup-to-drive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🗄️ Fazer o Dump usando Docker (PostgreSQL 17 Puro)
+        run: |
+          # O Docker baixa o Postgres 17 oficial e faz o dump diretamente para o arquivo
+          docker run --rm postgres:17 pg_dump "${{ secrets.SUPABASE_DB_URL }}" -c -O > backup_luthierapp.sql
+
+      - name: ☁️ Guardar Backup no Cofre do Supabase
+        run: |
+          curl -i -X POST "${{ secrets.SUPABASE_URL }}/storage/v1/object/backups/LuthierApp_Backup_${{ github.run_number }}.sql" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            -H "Content-Type: application/sql" \
+            --data-binary "@backup_luthierapp.sql"
