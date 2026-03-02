@@ -1,0 +1,30 @@
+name: Backup Automático do Banco de Dados
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup-to-drive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Instalar ferramentas do PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: 🗄️ Fazer o Dump (Exportação) do Banco de Dados
+        run: |
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" -c -O -f backup_luthierapp.sql
+
+      - name: ☁️ Enviar para o Google Drive
+        # ATENÇÃO: Verifique se esta linha abaixo diz skitionek e não adityak74
+        uses: skitionek/google-drive-upload-action@master
+        with:
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          filename: backup_luthierapp.sql
+          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+          name: "LuthierApp_Backup_${{ github.run_number }}.sql"
+          overwrite: "false"
