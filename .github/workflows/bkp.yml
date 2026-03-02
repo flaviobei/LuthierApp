@@ -15,11 +15,9 @@ jobs:
           # O Docker baixa o Postgres 17 oficial e faz o dump diretamente para o arquivo
           docker run --rm postgres:17 pg_dump "${{ secrets.SUPABASE_DB_URL }}" -c -O > backup_luthierapp.sql
 
-      - name: ☁️ Enviar para o Google Drive
-        uses: adityak74/google-drive-upload-git-action@main
-        with:
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          filename: backup_luthierapp.sql
-          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-          name: "LuthierApp_Backup_${{ github.run_number }}.sql"
-          overwrite: "false"
+      - name: ☁️ Guardar Backup no Cofre do Supabase
+        run: |
+          curl -i -X POST "${{ secrets.SUPABASE_URL }}/storage/v1/object/backups/LuthierApp_Backup_${{ github.run_number }}.sql" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            -H "Content-Type: application/sql" \
+            --data-binary "@backup_luthierapp.sql"
