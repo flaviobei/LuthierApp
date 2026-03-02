@@ -2,8 +2,8 @@ name: Backup Automático do Banco de Dados
 
 on:
   schedule:
-    - cron: "0 3 * * *"
-  workflow_dispatch:
+    - cron: '0 3 * * *'
+  workflow_dispatch: 
 
 jobs:
   backup-to-drive:
@@ -20,8 +20,8 @@ jobs:
           pg_dump "${{ secrets.SUPABASE_DB_URL }}" -c -O -f backup_luthierapp.sql
 
       - name: ☁️ Enviar para o Google Drive
-        # ATENÇÃO: Verifique se esta linha abaixo diz skitionek e não adityak74
-        uses: skitionek/google-drive-upload-action@master
+        # Usando Toms-Project que é uma das mais estáveis e suporta @master
+        uses: Toms-Project/google-drive-upload@master
         with:
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           filename: backup_luthierapp.sql
