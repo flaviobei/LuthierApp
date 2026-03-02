@@ -18,7 +18,7 @@ jobs:
 
       - name: 🗄️ Fazer o Dump (Exportação) do Banco de Dados
         run: |
-          # Gera o arquivo .sql usando a URL secreta do Supabase
+          # Usamos aspas para garantir que o bash leia a URL como um texto único
           pg_dump "${{ secrets.SUPABASE_DB_URL }}" -c -O -f backup_luthierapp.sql
 
       - name: ☁️ Enviar para o Google Drive
