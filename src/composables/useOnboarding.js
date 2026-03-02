@@ -49,7 +49,7 @@ export function useOnboarding(modoAtual, mostrarClientes) {
         popover: {
           title: "Agilidade",
           description:
-            "Registe seus serviços prestados, peças, acessórios e insumos. Defina custos e valores cobrados. Serviços possuem receitas que podem incluir insumos.",
+            "Registre seus serviços prestados, peças, acessórios e insumos. Defina custos e valores cobrados. Serviços possuem receitas que podem incluir insumos.",
         },
         onNextClick: () => {
           modoAtual.value = "bancada"; // Volta para o Início

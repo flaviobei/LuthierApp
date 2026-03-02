@@ -103,8 +103,11 @@ onMounted(carregarServicos);
           gap: 10px;
         "
       >
-        <h2 style="margin: 0">
-          📅 Agenda de
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 8px">
+          <span class="icon-dinamico" style="font-size: 1.8rem"
+            >calendar_month</span
+          >
+          Agenda de
           <span style="color: var(--primary)">{{ mesAtualNome }}</span>
           {{ anoAtual }}
         </h2>
@@ -131,8 +134,19 @@ onMounted(carregarServicos);
 
     <div v-else>
       <div class="aviso-mobile card">
-        <h3 style="color: var(--accent); margin-top: 0">
-          📅 Vista Indisponível
+        <h3
+          style="
+            color: var(--accent);
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span class="icon-dinamico" style="font-size: 1.5rem"
+            >event_busy</span
+          >
+          Vista Indisponível
         </h3>
         <p class="text-muted">
           A agenda em formato de calendário necessita de um ecrã mais largo para

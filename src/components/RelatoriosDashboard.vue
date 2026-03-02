@@ -13,38 +13,34 @@
  * ============================================================================
  */
 
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import Chart from "chart.js/auto";
 
 const transacoes = ref([]);
 const servicos = ref([]);
 const loading = ref(true);
 
+const tipoGraficoDash = ref("resumo"); // 'resumo' (6 Meses) ou 'temporal'
+const periodoTemporal = ref(90); // 30, 60, 90, 180, 365, ou 9999 (Todo o período)
+const graficoDashRef = ref(null);
+let instanceGraficoDash = null;
+
 async function carregarDados() {
   loading.value = true;
 
-  // Calculamos a data de corte para puxar no máximo os últimos 6 meses (Alivia 99% da memória RAM)
-  const dataCorte = new Date();
-  dataCorte.setMonth(dataCorte.getMonth() - 6);
-  // Garante que pegamos desde o dia 1º do mês do corte, às 00:00:00
-  dataCorte.setDate(1);
-  dataCorte.setHours(0, 0, 0, 0);
-
-  const isoCorte = dataCorte.toISOString();
-
-  // Busca as transações financeiras com limite matemático na query para evitar Memory Leak
+  // Resolvemos remover o limite matemático de 6 meses da query para que a visão temporal
+  // possa exibir até 'Todo o período'. A carga para aplicações de pequeno/médio porte em Luthieria é mínima.
   const { data: dadosTransacoes } = await supabase
     .from("transacoes")
-    .select("tipo, valor_bruto, data_pagamento")
-    .gte("data_pagamento", isoCorte);
+    .select("tipo, valor_bruto, data_pagamento");
 
   if (dadosTransacoes) transacoes.value = dadosTransacoes;
 
-  // Busca os serviços igualmente paginados daquele período cortado (Baseado na ultima atu)
+  // Busca os serviços globalmente (Para ter o 'Todo o período' ou métricas globais se necessário)
   const { data: dadosServicos } = await supabase
     .from("servicos")
-    .select("status, data_entrada, data_conclusao")
-    .gte("data_entrada", isoCorte);
+    .select("status, data_entrada, data_conclusao");
 
   if (dadosServicos) servicos.value = dadosServicos;
 
@@ -162,18 +158,195 @@ const ultimos6Meses = computed(() => {
     }
   });
 
-  // Calcula a altura da barra para o CSS (percentagem)
-  const maxValor = Math.max(
-    ...meses.map((m) => Math.max(m.entrada, m.saida, 1)),
-  ); // Evita dividir por zero
-  return meses.map((m) => ({
-    ...m,
-    pctEntrada: Math.round((m.entrada / maxValor) * 100),
-    pctSaida: Math.round((m.saida / maxValor) * 100),
-  }));
+  return meses;
 });
 
-onMounted(() => carregarDados());
+const dadosTemporais = computed(() => {
+  const trintaDiasAtras = new Date();
+  if (periodoTemporal.value === 9999) {
+    // Arbitrariamente 20 anos atrás para cobrir 'tudo'
+    trintaDiasAtras.setFullYear(trintaDiasAtras.getFullYear() - 20);
+  } else {
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - periodoTemporal.value);
+  }
+  trintaDiasAtras.setHours(0, 0, 0, 0);
+
+  const diasAgrupados = {};
+
+  // Se o período for maior ou igual a 6 meses (180 dias), o gráfico diário ficará
+  // ilegível com centenas de pontos. Por isso, agrupamos por "Mês/Ano".
+  const agruparPorMes = periodoTemporal.value >= 180;
+
+  transacoes.value.forEach((t) => {
+    const d = new Date(
+      t.data_pagamento + (t.data_pagamento.includes("T") ? "" : "T12:00:00"),
+    );
+
+    // Só pega as transações dentro do período de corte
+    if (d >= trintaDiasAtras) {
+      let labelStr = "";
+      if (agruparPorMes) {
+        // Ex: "03/2026"
+        labelStr = d.toLocaleDateString("pt-BR", {
+          month: "2-digit",
+          year: "numeric",
+        });
+      } else {
+        // Ex: "15/03"
+        labelStr = d.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+        });
+      }
+
+      if (!diasAgrupados[labelStr]) {
+        diasAgrupados[labelStr] = { ganhos: 0, gastos: 0, dateObj: d };
+      }
+
+      if (t.tipo === "Entrada") {
+        diasAgrupados[labelStr].ganhos += Number(t.valor_bruto);
+      } else if (t.tipo === "Saida") {
+        diasAgrupados[labelStr].gastos += Number(t.valor_bruto);
+      }
+    }
+  });
+
+  // Ordenar as chaves (datas) cronologicamente
+  const labelsOrdenadas = Object.values(diasAgrupados)
+    .sort((a, b) => a.dateObj - b.dateObj)
+    .map((x) => {
+      if (agruparPorMes) {
+        return x.dateObj.toLocaleDateString("pt-BR", {
+          month: "2-digit",
+          year: "numeric",
+        });
+      }
+      return x.dateObj.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      });
+    });
+
+  const dataGanhos = [];
+  const dataGastos = [];
+
+  labelsOrdenadas.forEach((lbl) => {
+    dataGanhos.push(diasAgrupados[lbl]?.ganhos || 0);
+    dataGastos.push(diasAgrupados[lbl]?.gastos || 0);
+  });
+
+  return {
+    labels: labelsOrdenadas,
+    ganhos: dataGanhos,
+    gastos: dataGastos,
+  };
+});
+
+// --- RENDERIZAR CHART.JS ---
+function construirGraficoDash() {
+  if (instanceGraficoDash) instanceGraficoDash.destroy();
+  if (!graficoDashRef.value) return;
+
+  const ctx = graficoDashRef.value.getContext("2d");
+
+  if (tipoGraficoDash.value === "resumo") {
+    // VISÃO 6 MESES (BARRAS)
+    const dados = ultimos6Meses.value;
+    instanceGraficoDash = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: dados.map((d) => d.label),
+        datasets: [
+          {
+            label: "Entradas / Receitas (R$)",
+            data: dados.map((d) => d.entrada),
+            backgroundColor: "#27ae60",
+            borderRadius: 4,
+          },
+          {
+            label: "Saídas / Despesas (R$)",
+            data: dados.map((d) => d.saida),
+            backgroundColor: "#c0392b",
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
+        },
+      },
+    });
+  } else if (tipoGraficoDash.value === "temporal") {
+    // VISÃO TEMPORAL (DINÂMICA)
+    const dados = dadosTemporais.value;
+    const isAgrupadoPorMes = periodoTemporal.value >= 180;
+    instanceGraficoDash = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: dados.labels,
+        datasets: [
+          {
+            label: isAgrupadoPorMes
+              ? "Ganhos Mensais (R$)"
+              : "Ganhos Diários (R$)",
+            data: dados.ganhos,
+            borderColor: "#27ae60",
+            backgroundColor: "rgba(39, 174, 96, 0.1)",
+            tension: 0.3,
+            fill: true,
+          },
+          {
+            label: isAgrupadoPorMes
+              ? "Gastos Mensais (R$)"
+              : "Gastos Diários (R$)",
+            data: dados.gastos,
+            borderColor: "#c0392b",
+            backgroundColor: "transparent",
+            borderDash: [5, 5],
+            tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            mode: "index",
+            intersect: false,
+          },
+          legend: { position: "bottom" },
+        },
+        interaction: {
+          mode: "nearest",
+          axis: "x",
+          intersect: false,
+        },
+      },
+    });
+  }
+}
+
+watch([tipoGraficoDash, periodoTemporal], () => {
+  nextTick(() => construirGraficoDash());
+});
+
+onMounted(async () => {
+  await carregarDados();
+  construirGraficoDash();
+});
+
+onUnmounted(() => {
+  if (instanceGraficoDash) instanceGraficoDash.destroy();
+});
 </script>
 
 <template>
@@ -246,48 +419,85 @@ onMounted(() => carregarDados());
 
     <div class="main-grid">
       <div class="card chart-card">
-        <h3
-          class="title-section"
-          style="margin-top: 0; display: flex; align-items: center; gap: 8px"
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+          "
         >
-          <span class="icon-dinamico">bar_chart</span> Evolução Financeira (6
-          Meses)
-        </h3>
-
-        <div class="legenda-grafico">
-          <span class="dot entrada"></span> Receitas
-          <span class="dot saida" style="margin-left: 15px"></span> Custos
+          <h3
+            class="title-section"
+            style="
+              margin-top: 0;
+              margin-bottom: 0;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            <span class="icon-dinamico">insights</span> Evolução Financeira
+          </h3>
+          <div style="display: flex; gap: 5px">
+            <button
+              class="btn-tab"
+              :class="{ active: tipoGraficoDash === 'resumo' }"
+              @click="tipoGraficoDash = 'resumo'"
+              style="
+                padding: 4px 10px;
+                font-size: 0.8rem;
+                border-radius: 4px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              "
+            >
+              <span class="icon-dinamico" style="font-size: 0.75rem"
+                >bar_chart</span
+              >
+              Balanço
+            </button>
+            <button
+              class="btn-tab"
+              :class="{ active: tipoGraficoDash === 'temporal' }"
+              @click="tipoGraficoDash = 'temporal'"
+              style="
+                padding: 4px 10px;
+                font-size: 0.8rem;
+                border-radius: 4px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              "
+            >
+              <span class="icon-dinamico" style="font-size: 0.75rem"
+                >show_chart</span
+              >
+              Curva
+            </button>
+            <select
+              v-if="tipoGraficoDash === 'temporal'"
+              v-model="periodoTemporal"
+              style="
+                padding: 4px 8px;
+                font-size: 0.8rem;
+                border-radius: 4px;
+                border: 1px solid var(--border);
+                color: var(--text-main);
+                background-color: var(--bg-card);
+              "
+            >
+              <option :value="90">90 Dias</option>
+              <option :value="180">6 Meses</option>
+              <option :value="365">1 Ano</option>
+              <option :value="9999">Tudo</option>
+            </select>
+          </div>
         </div>
 
-        <div class="chart-wrapper">
-          <div
-            v-for="(mes, index) in ultimos6Meses"
-            :key="index"
-            class="chart-column"
-          >
-            <div class="bars-container">
-              <div
-                class="bar-wrapper"
-                :title="'Custos: R$ ' + mes.saida.toFixed(2)"
-              >
-                <div
-                  class="bar bg-danger"
-                  :style="{ height: mes.pctSaida + '%' }"
-                ></div>
-              </div>
-              <div
-                class="bar-wrapper"
-                :title="'Faturamento: R$ ' + mes.entrada.toFixed(2)"
-              >
-                <div
-                  class="bar bg-success"
-                  :style="{ height: mes.pctEntrada + '%' }"
-                ></div>
-              </div>
-            </div>
-
-            <span class="chart-label">{{ mes.label }}</span>
-          </div>
+        <div class="chart-wrapper" style="border: none; padding-top: 5px">
+          <canvas ref="graficoDashRef"></canvas>
         </div>
       </div>
 
@@ -411,31 +621,10 @@ onMounted(() => carregarDados());
   font-size: 2rem;
 }
 
-/* Gráfico de Barras em CSS */
+/* Chart Component */
 .chart-card {
   display: flex;
   flex-direction: column;
-}
-.legenda-grafico {
-  display: flex;
-  align-items: center;
-  font-size: 0.8rem;
-  margin-bottom: 20px;
-  color: var(--text-muted);
-  font-weight: bold;
-}
-.dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 5px;
-}
-.dot.entrada {
-  background: var(--success);
-}
-.dot.saida {
-  background: var(--danger);
 }
 
 .chart-wrapper {
@@ -444,55 +633,8 @@ onMounted(() => carregarDados());
   align-items: flex-end;
   height: 250px;
   padding-top: 20px;
-  border-top: 1px dashed var(--border);
-  border-bottom: 1px solid var(--primary);
   margin-bottom: 10px;
-}
-.chart-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-  width: 15%;
-  justify-content: flex-end;
-}
-.bars-container {
-  display: flex;
-  gap: 5px;
-  align-items: flex-end;
-  height: 100%;
-  width: 100%;
-  justify-content: center;
-}
-.bar-wrapper {
-  height: 100%;
-  width: 30%;
-  max-width: 30px;
-  display: flex;
-  align-items: flex-end;
-  cursor: pointer;
-  transition: 0.2s;
-}
-.bar-wrapper:hover {
-  opacity: 0.8;
-}
-.bar {
-  width: 100%;
-  border-radius: 4px 4px 0 0;
-  min-height: 2px;
-  transition: height 0.5s ease-out;
-}
-.bg-success {
-  background: var(--success);
-}
-.bg-danger {
-  background: var(--danger);
-}
-.chart-label {
-  margin-top: 10px;
-  font-size: 0.7rem;
-  font-weight: bold;
-  color: var(--text-muted);
+  position: relative;
 }
 
 @keyframes spin {

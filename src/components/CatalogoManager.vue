@@ -33,6 +33,18 @@ const form = ref({
 const insumoSelecionado = ref(null);
 const insumoQuantidade = ref(1);
 const filtroTipo = ref("Todos");
+const termoBusca = ref("");
+const ordenacao = ref({ campo: "nome", direcao: "asc" });
+
+function alternarOrdenacao(campo) {
+  if (ordenacao.value.campo === campo) {
+    ordenacao.value.direcao =
+      ordenacao.value.direcao === "asc" ? "desc" : "asc";
+  } else {
+    ordenacao.value.campo = campo;
+    ordenacao.value.direcao = "asc";
+  }
+}
 
 // --- CARREGAMENTO ---
 async function carregarCatalogo() {
@@ -48,8 +60,51 @@ async function carregarCatalogo() {
 
 // --- LÓGICA DE NEGÓCIO (Mantida no componente por ser visual/local) ---
 const catalogoFiltrado = computed(() => {
-  if (filtroTipo.value === "Todos") return catalogo.value;
-  return catalogo.value.filter((item) => item.tipo === filtroTipo.value);
+  let result = catalogo.value;
+
+  if (filtroTipo.value !== "Todos") {
+    result = result.filter((item) => item.tipo === filtroTipo.value);
+  }
+
+  if (termoBusca.value) {
+    const termo = termoBusca.value.toLowerCase();
+    result = result.filter((item) => item.nome.toLowerCase().includes(termo));
+  }
+
+  result = result.slice().sort((a, b) => {
+    let valA, valB;
+    switch (ordenacao.value.campo) {
+      case "nome":
+        valA = a.nome.toLowerCase();
+        valB = b.nome.toLowerCase();
+        break;
+      case "tipo":
+        valA = a.tipo;
+        valB = b.tipo;
+        break;
+      case "preco":
+        valA = a.preco_padrao || 0;
+        valB = b.preco_padrao || 0;
+        break;
+      case "custo":
+        valA = calcularCustoTotal(a);
+        valB = calcularCustoTotal(b);
+        break;
+      case "estoque":
+        valA = a.controla_estoque ? a.quantidade_estoque : -1;
+        valB = b.controla_estoque ? b.quantidade_estoque : -1;
+        break;
+      default:
+        valA = a.nome.toLowerCase();
+        valB = b.nome.toLowerCase();
+    }
+
+    if (valA < valB) return ordenacao.value.direcao === "asc" ? -1 : 1;
+    if (valA > valB) return ordenacao.value.direcao === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  return result;
 });
 
 const insumosDisponiveis = computed(() => {
@@ -505,8 +560,8 @@ onMounted(() => carregarCatalogo());
               <td>{{ rec.quantidade }} un/ml</td>
               <td align="center">
                 <button
-                  class="btn-icon"
-                  style="color: #ff4757; background: transparent"
+                  class="btn-icon text-danger"
+                  style="background: transparent"
                   @click="removerInsumoDaReceita(rec.insumo_id)"
                   title="Remover Insumo"
                 >
@@ -580,9 +635,61 @@ onMounted(() => carregarCatalogo());
       "
     >
       <div
-        style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap"
+        style="
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          flex-wrap: wrap;
+          flex: 1;
+        "
       >
         <h3 style="margin: 0; color: var(--primary)">Itens Cadastrados</h3>
+
+        <div style="position: relative; display: flex; align-items: center">
+          <span
+            class="icon-dinamico"
+            style="
+              position: absolute;
+              left: 10px;
+              color: var(--text-muted);
+              font-size: 1.1rem;
+              pointer-events: none;
+            "
+            >search</span
+          >
+          <input
+            v-model="termoBusca"
+            placeholder="Buscar item..."
+            style="
+              padding-left: 36px;
+              padding-right: 30px;
+              border-radius: 20px;
+              border: 1px solid var(--border);
+              padding-top: 6px;
+              padding-bottom: 6px;
+              width: 220px;
+              font-size: 0.9rem;
+            "
+          />
+          <button
+            v-if="termoBusca"
+            @click="termoBusca = ''"
+            class="btn-icon"
+            style="
+              position: absolute;
+              right: 4px;
+              background: transparent;
+              padding: 4px;
+              color: var(--text-muted);
+              border: none;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+            "
+          >
+            <span class="icon-dinamico" style="font-size: 1.1rem">close</span>
+          </button>
+        </div>
         <button
           class="btn-outline"
           style="
@@ -639,10 +746,113 @@ onMounted(() => carregarCatalogo());
       <table class="tabela-padrao">
         <thead>
           <tr>
-            <th>Nome do Item</th>
-            <th>Tipo</th>
-            <th>Valores</th>
-            <th style="text-align: center">Estoque</th>
+            <th
+              @click="alternarOrdenacao('nome')"
+              style="cursor: pointer; user-select: none"
+            >
+              <div style="display: flex; align-items: center; gap: 4px">
+                Nome do Item
+                <span
+                  v-if="ordenacao.campo === 'nome'"
+                  class="icon-dinamico"
+                  style="font-size: 1rem"
+                >
+                  {{
+                    ordenacao.direcao === "asc"
+                      ? "arrow_upward"
+                      : "arrow_downward"
+                  }}
+                </span>
+                <span
+                  v-else
+                  class="icon-dinamico"
+                  style="font-size: 1rem; color: transparent"
+                  >arrow_upward</span
+                >
+              </div>
+            </th>
+            <th
+              @click="alternarOrdenacao('tipo')"
+              style="cursor: pointer; user-select: none"
+            >
+              <div style="display: flex; align-items: center; gap: 4px">
+                Tipo
+                <span
+                  v-if="ordenacao.campo === 'tipo'"
+                  class="icon-dinamico"
+                  style="font-size: 1rem"
+                >
+                  {{
+                    ordenacao.direcao === "asc"
+                      ? "arrow_upward"
+                      : "arrow_downward"
+                  }}
+                </span>
+                <span
+                  v-else
+                  class="icon-dinamico"
+                  style="font-size: 1rem; color: transparent"
+                  >arrow_upward</span
+                >
+              </div>
+            </th>
+            <th
+              @click="alternarOrdenacao('preco')"
+              style="cursor: pointer; user-select: none"
+            >
+              <div style="display: flex; align-items: center; gap: 4px">
+                Valores
+                <span
+                  v-if="ordenacao.campo === 'preco'"
+                  class="icon-dinamico"
+                  style="font-size: 1rem"
+                >
+                  {{
+                    ordenacao.direcao === "asc"
+                      ? "arrow_upward"
+                      : "arrow_downward"
+                  }}
+                </span>
+                <span
+                  v-else
+                  class="icon-dinamico"
+                  style="font-size: 1rem; color: transparent"
+                  >arrow_upward</span
+                >
+              </div>
+            </th>
+            <th
+              @click="alternarOrdenacao('estoque')"
+              style="text-align: center; cursor: pointer; user-select: none"
+            >
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 4px;
+                "
+              >
+                Estoque
+                <span
+                  v-if="ordenacao.campo === 'estoque'"
+                  class="icon-dinamico"
+                  style="font-size: 1rem"
+                >
+                  {{
+                    ordenacao.direcao === "asc"
+                      ? "arrow_upward"
+                      : "arrow_downward"
+                  }}
+                </span>
+                <span
+                  v-else
+                  class="icon-dinamico"
+                  style="font-size: 1rem; color: transparent"
+                  >arrow_upward</span
+                >
+              </div>
+            </th>
             <th style="text-align: center">Ações</th>
           </tr>
         </thead>

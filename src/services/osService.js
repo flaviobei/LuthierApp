@@ -158,4 +158,35 @@ export const osService = {
       .eq("id", id);
     if (error) throw error;
   },
+
+  /** * 7. Gera uma O.S. de Retrabalho/Garantia baseada numa O.S. finalizada
+   */
+  async gerarRetrabalho(osOriginalId, motivo) {
+    // Busca os dados da O.S. antiga
+    const osOriginal = await this.buscarPorId(osOriginalId);
+    if (!osOriginal) throw new Error("O.S. original não encontrada.");
+
+    // Monta o "esqueleto" da nova O.S. de Retrabalho usando OS NOMES CORRETOS do seu BD
+    const novaOS = {
+      instrumento_id: osOriginal.instrumento_id,
+      // Como a sua tabela não tem "titulo", usamos a descricao_cliente para o aviso
+      descricao_cliente: `🚨 [RETRABALHO] Garantia O.S. #${osOriginal.numero_os}.\n\nMotivo relatado pelo cliente: ${motivo}\n\n--- Histórico Original ---\n${osOriginal.descricao_cliente || "Sem descrição original"}`,
+      status: "Aberto", // Volta para Aberto para você fazer o checklist de entrada
+      fase_projeto: "Fila de Espera",
+      tipo_os: "Retrabalho",
+      os_origem_id: osOriginal.id,
+      motivo_retorno: motivo,
+      // Se tiver outros campos que deseja copiar (ex: relatorio_tecnico), insira-os aqui, mas vazios.
+    };
+
+    // Salva no banco de dados
+    const { data, error } = await supabase
+      .from("servicos")
+      .insert([novaOS])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };

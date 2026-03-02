@@ -7,9 +7,13 @@ const { showToast, toastMessage, toastType } = useToast();
 <template>
   <transition name="slide-fade">
     <div v-if="showToast" class="toast-container" :class="'toast-' + toastType">
-      <span class="icon">
+      <span class="icon-dinamico" style="font-size: 1.5rem; margin-right: 8px">
         {{
-          toastType === "success" ? "✅" : toastType === "error" ? "❌" : "ℹ️"
+          toastType === "success"
+            ? "check_circle"
+            : toastType === "error"
+              ? "cancel"
+              : "info"
         }}
       </span>
       <span class="message">{{ toastMessage }}</span>

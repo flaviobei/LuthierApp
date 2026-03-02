@@ -149,12 +149,12 @@ onMounted(carregarItens);
 
       <div class="grid-buttons-config">
         <div class="field">
-          <label style="color: #10b981">Botão Positivo</label>
+          <label class="text-success">Botão Positivo</label>
           <input v-model="novoItem.opcao_positiva" />
         </div>
 
         <div class="field">
-          <label style="color: #f59e0b">Botão Negativo</label>
+          <label class="text-warning">Botão Negativo</label>
           <input
             v-model="novoItem.opcao_negativa"
             @keyup.enter="adicionarItem"

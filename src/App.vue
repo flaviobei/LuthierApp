@@ -261,7 +261,12 @@ onMounted(() => {
         v-if="!isSuperAdmin && assinatura?.status === 'trial'"
         class="banner-trial"
       >
-        ⚠️ Modo de Teste: Faltam {{ diasTrialRestantes }} dias.
+        <span
+          class="icon-dinamico"
+          style="vertical-align: middle; margin-right: 6px"
+          >warning</span
+        >
+        Modo de Teste: Faltam {{ diasTrialRestantes }} dias.
         <button class="btn-trial" @click="assinatura.status = 'expirado'">
           Ver Planos
         </button>
@@ -288,6 +293,7 @@ onMounted(() => {
 
         <div class="header-buttons">
           <button
+            id="tour-home"
             @click="irParaInicio"
             class="btn-menu"
             :class="{ active: modoAtual === 'bancada' && !servicoDireto }"
@@ -316,6 +322,7 @@ onMounted(() => {
             ><span class="lbl">Arquivo</span>
           </button>
           <button
+            id="tour-admin"
             @click="modoAtual = 'admin'"
             class="btn-menu"
             :class="{ active: modoAtual === 'admin' }"
@@ -405,6 +412,7 @@ onMounted(() => {
             <DashboardAtividades @abrirOS="abrirServicoPeloDashboard" />
             <div class="controle-clientes">
               <button
+                id="tour-clientes"
                 class="btn-toggle-clientes"
                 @click="mostrarClientes = !mostrarClientes"
               >

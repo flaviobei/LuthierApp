@@ -53,7 +53,7 @@ async function atualizarStatus(assinante) {
   if (error) {
     mensagem.value = "Erro: " + error.message;
   } else {
-    mensagem.value = "✅ Alteração guardada com sucesso!";
+    mensagem.value = "Alteração guardada com sucesso!";
     setTimeout(() => (mensagem.value = ""), 3000);
   }
 }

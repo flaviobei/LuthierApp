@@ -42,7 +42,7 @@ function chamarClientePosVenda(os) {
   if (!cli || !cli.telefone)
     return triggerToast("Este cliente não tem telefone registado.", "error");
 
-  const msg = `Olá *${cli.nome}*! Tudo bem?\n\nAqui é da Luthieria. Notei que já faz um tempo que entregámos o seu *${os.instrumentos.marca} ${os.instrumentos.modelo}* (O.S. #${os.numero_os}).\n\nComo ele se tem comportado? Se precisar de dar uma revisão ou um ajuste para manter a tocabilidade 100%, é só dizer! 🎸`;
+  const msg = `Olá *${cli.nome}*! Tudo bem?\n\nAqui é da Luthieria. Notei que já faz um tempo que entregámos o seu *${os.instrumentos.marca} ${os.instrumentos.modelo}* (O.S. #${os.numero_os}).\n\nComo ele se tem comportado? Se precisar de dar uma revisão ou um ajuste para manter a tocabilidade 100%, é só dizer!`;
   abrirWhatsapp(cli, msg);
 }
 
@@ -111,8 +111,17 @@ onMounted(() => carregarDadosIniciais());
   <div class="dash-container">
     <div v-if="oportunidadesPosVenda.length > 0" class="crm-box card">
       <div class="crm-header">
-        <h3 style="margin: 0; color: #fff">
-          💡 Retenção de Clientes (Pós-Venda)
+        <h3
+          style="
+            margin: 0;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span class="icon-dinamico">lightbulb</span> Retenção de Clientes
+          (Pós-Venda)
         </h3>
         <span class="badge-crm"
           >{{ oportunidadesPosVenda.length }} Pendentes</span
@@ -155,9 +164,13 @@ onMounted(() => carregarDadosIniciais());
                 cursor: pointer;
                 background: #10b981;
                 color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
               "
             >
-              📱 Chamar no Zap
+              <span class="icon-dinamico">chat</span> Chamar no Zap
             </button>
             <div
               class="crm-actions-secundary"
@@ -172,9 +185,16 @@ onMounted(() => carregarDadosIniciais());
                   font-size: 0.85rem;
                   border: 1px solid var(--border);
                   border-radius: 4px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 4px;
                 "
               >
-                ⏰ Adiar 15d
+                <span class="icon-dinamico" style="font-size: 1rem"
+                  >schedule</span
+                >
+                Adiar 15d
               </button>
               <button
                 class="btn-icon bg-light text-success"
@@ -185,9 +205,16 @@ onMounted(() => carregarDadosIniciais());
                   font-size: 0.85rem;
                   border: 1px solid var(--border);
                   border-radius: 4px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 4px;
                 "
               >
-                ✅ Já Falei
+                <span class="icon-dinamico" style="font-size: 1rem"
+                  >check_circle</span
+                >
+                Já Falei
               </button>
             </div>
           </div>
@@ -202,7 +229,17 @@ onMounted(() => carregarDadosIniciais());
         border-bottom: 2px solid var(--border);
       "
     >
-      <h2 style="color: var(--primary); margin: 0">🛠️ Bancada de Trabalho</h2>
+      <h2
+        style="
+          color: var(--primary);
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico">handyman</span> Bancada de Trabalho
+      </h2>
     </div>
 
     <div v-if="loading" class="text-muted text-center" style="padding: 40px">
@@ -210,8 +247,22 @@ onMounted(() => carregarDadosIniciais());
     </div>
 
     <div v-else-if="servicosAbertos.length === 0" class="card empty-state">
-      <p style="font-size: 1.1rem; color: var(--text-muted)">
-        🎉 Nenhuma pendência! Tudo entregue ou bancada limpa.
+      <p
+        style="
+          font-size: 1.1rem;
+          color: var(--text-muted);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        "
+      >
+        <span
+          class="icon-dinamico"
+          style="color: var(--success); font-size: 1.5rem"
+          >celebration</span
+        >
+        Nenhuma pendência! Tudo entregue ou bancada limpa.
       </p>
     </div>
 
@@ -231,7 +282,17 @@ onMounted(() => carregarDadosIniciais());
 
         <h3 class="modelo">{{ os.instrumentos?.modelo }}</h3>
         <span class="marca">{{ os.instrumentos?.marca }}</span>
-        <div class="cliente">👤 {{ os.instrumentos?.cliente?.nome }}</div>
+        <div
+          class="cliente"
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <span
+            class="icon-dinamico"
+            style="font-size: 1.1rem; color: var(--text-muted)"
+            >person</span
+          >
+          {{ os.instrumentos?.cliente?.nome }}
+        </div>
 
         <p class="desc">
           {{

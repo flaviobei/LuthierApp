@@ -122,7 +122,7 @@ async function apagarDados(tipo) {
       <h3
         style="
           margin-top: 0;
-          color: #b91c1c;
+          color: var(--danger);
           display: flex;
           align-items: center;
           gap: 8px;
@@ -131,7 +131,7 @@ async function apagarDados(tipo) {
         <span class="icon-dinamico">warning</span> Zona de Perigo - Limpeza de
         Banco de Dados
       </h3>
-      <p style="color: #991b1b">
+      <p class="text-danger">
         Esta área permite-lhe apagar os <strong>seus registos</strong> em massa
         para limpar testes ou começar a oficina do zero.
         <strong>Esta ação é irreversível.</strong> <br />Os serviços/produtos do
@@ -147,7 +147,7 @@ async function apagarDados(tipo) {
           display: inline-block;
         "
       >
-        <label style="font-weight: bold; color: #7f1d1d"
+        <label class="text-danger" style="font-weight: bold"
           >Digite a palavra LIMPAR em maiúsculas para desbloquear os
           botões:</label
         ><br />

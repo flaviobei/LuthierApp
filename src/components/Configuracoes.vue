@@ -250,7 +250,7 @@ onMounted(() => carregarConfiguracoes());
 
     <div
       class="box mb-2"
-      style="border-left: 4px solid #0ea5e9; background-color: #f0f9ff"
+      style="border-left: 4px solid var(--primary); background-color: #f0f9ff"
     >
       <h4
         style="
@@ -337,7 +337,7 @@ onMounted(() => carregarConfiguracoes());
 
     <div
       class="box mb-2"
-      style="border-left: 4px solid #6366f1; background-color: #eef2ff"
+      style="border-left: 4px solid var(--primary); background-color: #eef2ff"
     >
       <h4
         style="
@@ -360,12 +360,12 @@ onMounted(() => carregarConfiguracoes());
       <div class="form-group">
         <label>Formato do Recibo Direto:</label>
         <select v-model="form.tipo_impressora" style="max-width: 400px">
-          <option value="padrao">📄 Folha A4 (Impressora Convencional)</option>
+          <option value="padrao">Folha A4 (Impressora Convencional)</option>
           <option value="termica_80mm">
-            🧾 Bobina 80mm (Impressora Térmica Larga)
+            Bobina 80mm (Impressora Térmica Larga)
           </option>
           <option value="termica_58mm">
-            🧾 Bobina 58mm (Impressora Térmica Estreita)
+            Bobina 58mm (Impressora Térmica Estreita)
           </option>
         </select>
       </div>
@@ -538,7 +538,7 @@ onMounted(() => carregarConfiguracoes());
 
     <div
       class="box mb-2"
-      style="border-left: 4px solid #d946ef; background-color: #fdf4ff"
+      style="border-left: 4px solid var(--accent); background-color: #fdf4ff"
     >
       <h4
         style="

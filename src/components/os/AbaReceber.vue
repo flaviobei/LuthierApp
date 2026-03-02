@@ -198,16 +198,21 @@ async function salvarObservacoes() {
     <div
       v-if="mostrarBannerFinalizacao"
       class="banner-aviso mb-2"
-      style="background: #dcfce7; color: #166534; border-color: #22c55e"
+      style="
+        background: #dcfce7;
+        color: var(--success);
+        border-color: var(--success);
+      "
     >
-      <p style="margin-top: 0">
-        🎉 Saldo liquidado! Deseja finalizar e bloquear a O.S. agora?
+      <p style="margin-top: 0; display: flex; align-items: center; gap: 8px">
+        <span class="icon-dinamico" style="font-size: 1.2rem">celebration</span>
+        Saldo liquidado! Deseja finalizar e bloquear a O.S. agora?
       </p>
       <div class="flex-gap-10">
         <button
           class="btn-primary"
           @click="finalizarOSManual"
-          style="background: #10b981"
+          style="background: var(--success)"
         >
           Sim, Finalizar O.S.
         </button>
@@ -293,7 +298,13 @@ async function salvarObservacoes() {
           :class="{ 'btn-warning': pgtoExcedenteConfirmado }"
           style="flex: 1; min-width: 120px"
         >
-          {{ pgtoExcedenteConfirmado ? "⚠️ Confirmar?" : "Receber" }}
+          <span
+            v-if="pgtoExcedenteConfirmado"
+            class="icon-dinamico"
+            style="font-size: 1.1rem; vertical-align: middle; margin-right: 4px"
+            >warning</span
+          >
+          {{ pgtoExcedenteConfirmado ? "Confirmar?" : "Receber" }}
         </button>
       </div>
     </div>

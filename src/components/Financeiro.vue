@@ -10,6 +10,7 @@ const transacoes = ref([]);
 const carregando = ref(true);
 const mesFiltro = ref(new Date().toISOString().substring(0, 7));
 const graficoRef = ref(null);
+const tipoGrafico = ref("resumo"); // 'resumo' ou 'temporal'
 let instanceGrafico = null;
 
 const kpis = ref({
@@ -54,24 +55,91 @@ function renderizarGrafico() {
   if (!graficoRef.value) return;
 
   const ctx = graficoRef.value.getContext("2d");
-  instanceGrafico = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: ["Faturamento Bruto", "Despesas", "Saldo Real"],
-      datasets: [
-        {
-          label: "Movimentações (R$)",
-          data: [
-            kpis.value.receitaBruta,
-            kpis.value.despesas,
-            kpis.value.lucroReal,
-          ],
-          backgroundColor: ["#27ae60", "#c0392b", "#2980b9"],
+
+  if (tipoGrafico.value === "resumo") {
+    instanceGrafico = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: ["Faturamento Bruto", "Despesas", "Saldo Real"],
+        datasets: [
+          {
+            label: "Movimentações (R$)",
+            data: [
+              kpis.value.receitaBruta,
+              kpis.value.despesas,
+              kpis.value.lucroReal,
+            ],
+            backgroundColor: ["#27ae60", "#c0392b", "#2980b9"],
+          },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false },
+    });
+  } else if (tipoGrafico.value === "temporal") {
+    // Agrupar por dia
+    const diasAgrupados = {};
+
+    [...transacoesFiltradas.value]
+      .sort((a, b) => new Date(a.data_pagamento) - new Date(b.data_pagamento))
+      .forEach((t) => {
+        const d = t.data_pagamento.substring(5, 10); // MM-DD
+        const labelStr = d.split("-").reverse().join("/"); // DD/MM
+
+        if (!diasAgrupados[labelStr]) {
+          diasAgrupados[labelStr] = { ganhos: 0, gastos: 0 };
+        }
+
+        if (t.tipo === "Entrada") {
+          diasAgrupados[labelStr].ganhos += t.valor_bruto || 0;
+        } else {
+          diasAgrupados[labelStr].gastos += t.valor_bruto || 0;
+        }
+      });
+
+    const labelsData = Object.keys(diasAgrupados);
+    const ganhosData = labelsData.map((d) => diasAgrupados[d].ganhos);
+    const gastosData = labelsData.map((d) => diasAgrupados[d].gastos);
+
+    instanceGrafico = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labelsData,
+        datasets: [
+          {
+            label: "Ganhos / Entradas (R$)",
+            data: ganhosData,
+            borderColor: "#27ae60",
+            backgroundColor: "rgba(39, 174, 96, 0.1)",
+            tension: 0.3,
+            fill: true,
+          },
+          {
+            label: "Gastos / Saídas (R$)",
+            data: gastosData,
+            borderColor: "#c0392b",
+            backgroundColor: "transparent",
+            borderDash: [5, 5],
+            tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            mode: "index",
+            intersect: false,
+          },
         },
-      ],
-    },
-    options: { responsive: true, maintainAspectRatio: false },
-  });
+        interaction: {
+          mode: "nearest",
+          axis: "x",
+          intersect: false,
+        },
+      },
+    });
+  }
 }
 
 // CARREGAMENTO BRUTO (Vem do banco)
@@ -151,6 +219,11 @@ watch(
   },
   { deep: true },
 );
+
+// 3. Quando o utilizador mudar o tipo de gráfico (linha vs barra)
+watch(tipoGrafico, () => {
+  nextTick(() => renderizarGrafico());
+});
 
 // Atualiza o backend quando os filtros de data manual são alterados, para garantir sincronia UI x Banco
 watch([filtroDataInicio, filtroDataFim], () => {
@@ -251,7 +324,52 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="card mb-2 chart-container" style="height: 300px">
+    <div
+      class="card mb-2 chart-container"
+      style="position: relative; height: 360px; padding-top: 50px"
+    >
+      <div
+        style="
+          position: absolute;
+          top: 15px;
+          left: 15px;
+          display: flex;
+          gap: 5px;
+        "
+      >
+        <button
+          class="btn-tab"
+          :class="{ active: tipoGrafico === 'resumo' }"
+          @click="tipoGrafico = 'resumo'"
+          style="
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          "
+        >
+          <span class="icon-dinamico" style="font-size: 1rem">bar_chart</span>
+          Resumo
+        </button>
+        <button
+          class="btn-tab"
+          :class="{ active: tipoGrafico === 'temporal' }"
+          @click="tipoGrafico = 'temporal'"
+          style="
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          "
+        >
+          <span class="icon-dinamico" style="font-size: 1rem">show_chart</span>
+          Evolução Temporal
+        </button>
+      </div>
       <canvas ref="graficoRef"></canvas>
     </div>
 

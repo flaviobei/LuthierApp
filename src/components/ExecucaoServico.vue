@@ -3,7 +3,7 @@
  * ============================================================================
  * @file        ExecucaoServico.vue
  * @description Gestão da O.S. (Pai Orquestrador).
- * ATUALIZAÇÃO: Layouts responsivos de impressão (A4, Térmica 80mm e 58mm).
+ * ATUALIZAÇÃO: Adição de alerta de retrabalho e edição de data de entrega.
  * ============================================================================
  */
 import { ref, computed, onMounted, nextTick } from "vue";
@@ -92,6 +92,10 @@ async function carregarDadosCompletosDaOS() {
     if (data) {
       dadosInstrumento.value = data.instrumentos;
       dadosCliente.value = data.instrumentos?.clientes;
+      // Garante que o servicoLocal tem as informações mais frescas
+      servicoLocal.value.data_previsao_entrega = data.data_previsao_entrega;
+      servicoLocal.value.tipo_os = data.tipo_os;
+      servicoLocal.value.motivo_retorno = data.motivo_retorno;
     }
   } catch (err) {}
 }
@@ -133,6 +137,23 @@ function marcarComoFinalizada() {
   servicoLocal.value.fase_projeto = "Pronto para Entrega";
 }
 
+// NOVA FUNÇÃO: Salvar Data de Previsão
+async function salvarDataPrevisao() {
+  try {
+    const novaData = servicoLocal.value.data_previsao_entrega || null;
+    const { error } = await supabase
+      .from("servicos")
+      .update({ data_previsao_entrega: novaData })
+      .eq("id", servicoLocal.value.id);
+
+    if (error) throw error;
+    triggerToast("Data de previsão atualizada!", "success");
+  } catch (error) {
+    triggerToast("Erro ao salvar data.", "error");
+    console.error(error);
+  }
+}
+
 // MÉTODOS DE IMPRESSÃO
 async function imprimirOrcamento() {
   tipoImpressao.value = "orcamento";
@@ -166,6 +187,9 @@ onMounted(carregarTudo);
       <div
         class="flex-header mb-2"
         style="
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
           flex-wrap: wrap;
           gap: 10px;
           background: #f8fafc;
@@ -174,37 +198,68 @@ onMounted(carregarTudo);
           border: 1px solid var(--border);
         "
       >
-        <div
-          style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap"
-        >
-          <h2 style="margin: 0; color: var(--primary)">
-            O.S. #{{ servicoLocal.numero_os }}
-          </h2>
-          <span class="badge text-muted" style="font-size: 0.9rem">{{
-            servicoLocal.fase_projeto
-          }}</span>
-
-          <button
-            class="btn-outline"
-            @click="imprimirQRCode"
-            title="Imprimir Etiqueta QR Code"
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div
             style="
-              padding: 6px 12px;
-              font-weight: bold;
-              font-size: 0.85rem;
-              display: inline-flex;
+              display: flex;
               align-items: center;
-              gap: 6px;
-              border-color: var(--primary);
-              color: var(--primary);
-              background: white;
+              gap: 15px;
+              flex-wrap: wrap;
             "
           >
-            <span class="icon-dinamico" style="font-size: 1.2rem"
-              >qr_code_scanner</span
+            <h2 style="margin: 0; color: var(--primary)">
+              O.S. #{{ servicoLocal.numero_os }}
+            </h2>
+            <span class="badge text-muted" style="font-size: 0.9rem">{{
+              servicoLocal.fase_projeto
+            }}</span>
+
+            <button
+              class="btn-outline"
+              @click="imprimirQRCode"
+              title="Imprimir Etiqueta QR Code"
+              style="
+                padding: 6px 12px;
+                font-weight: bold;
+                font-size: 0.85rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                border-color: var(--primary);
+                color: var(--primary);
+                background: white;
+              "
             >
-            Imprimir Etiqueta
-          </button>
+              <span class="icon-dinamico" style="font-size: 1.2rem"
+                >qr_code_scanner</span
+              >
+              Imprimir Etiqueta
+            </button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px">
+            <label style="font-size: 0.9rem; font-weight: bold; color: #475569">
+              <span
+                class="icon-dinamico"
+                style="font-size: 1rem; vertical-align: middle"
+                >event</span
+              >
+              Previsão de Entrega:
+            </label>
+            <input
+              type="date"
+              v-model="servicoLocal.data_previsao_entrega"
+              @change="salvarDataPrevisao"
+              :disabled="osFinalizada"
+              style="
+                padding: 4px 8px;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                color: #334155;
+                font-family: inherit;
+              "
+            />
+          </div>
         </div>
 
         <button
@@ -222,6 +277,38 @@ onMounted(carregarTudo);
           >
           Voltar
         </button>
+      </div>
+
+      <div
+        v-if="servicoLocal.tipo_os === 'Retrabalho'"
+        class="alert-retrabalho mb-2"
+      >
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+          "
+        >
+          <span class="icon-dinamico" style="font-size: 1.5rem">warning</span>
+          <h3 style="margin: 0; font-size: 1.1rem">
+            ATENÇÃO: O.S. de Retrabalho / Garantia
+          </h3>
+        </div>
+        <p style="margin: 0; font-size: 0.95rem">
+          <strong>Motivo do Retorno:</strong>
+          {{ servicoLocal.motivo_retorno || "Motivo não especificado." }}
+        </p>
+      </div>
+
+      <div
+        v-if="osFinalizada"
+        class="banner-aviso mb-2"
+        style="background: #e2e8f0; color: #475569; border-color: #cbd5e1"
+      >
+        <span class="icon-dinamico">lock</span> O.S. Concluída. A edição de
+        dados está bloqueada.
       </div>
 
       <div class="tabs-clean mb-2">
@@ -269,15 +356,6 @@ onMounted(carregarTudo);
           >
           Receber
         </button>
-      </div>
-
-      <div
-        v-if="osFinalizada"
-        class="banner-aviso mb-2"
-        style="background: #e2e8f0; color: #475569; border-color: #cbd5e1"
-      >
-        <span class="icon-dinamico">lock</span> O.S. Concluída. A edição de
-        dados está bloqueada.
       </div>
 
       <AbaChecklist
@@ -484,6 +562,16 @@ onMounted(carregarTudo);
 </template>
 
 <style scoped>
+/* CSS do Alerta de Retrabalho */
+.alert-retrabalho {
+  background-color: #fef2f2;
+  border-left: 5px solid #ef4444;
+  color: #991b1b;
+  padding: 12px 15px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
 /* ESTRUTURA GERAL */
 .execucao-container {
   animation: fadeIn 0.3s ease-in-out;

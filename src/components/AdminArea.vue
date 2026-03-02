@@ -165,10 +165,9 @@ onMounted(async () => {
         </button>
 
         <button
-          class="btn-tab"
+          class="btn-tab text-danger"
           :class="{ active: abaAtual === 'limpeza' }"
           @click="abaAtual = 'limpeza'"
-          style="color: #ef4444"
         >
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >delete_sweep</span

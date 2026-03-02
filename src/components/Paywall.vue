@@ -46,7 +46,11 @@ async function simularPagamento() {
 <template>
   <div class="paywall-wrapper">
     <div class="paywall-card card">
-      <div style="font-size: 3rem; margin-bottom: 10px">⏳</div>
+      <div style="margin-bottom: 10px; color: var(--primary)">
+        <span class="icon-dinamico" style="font-size: 4rem"
+          >hourglass_empty</span
+        >
+      </div>
       <h2 style="color: var(--primary); margin-top: 0">
         O seu período de teste terminou
       </h2>
@@ -63,10 +67,58 @@ async function simularPagamento() {
           <h3>Plano Profissional</h3>
           <div class="preco"><span>R$</span> 0 <span>/mês</span></div>
           <ul class="beneficios">
-            <li>✅ Ordens de Serviço Ilimitadas</li>
-            <li>✅ Gestão de Estoque</li>
-            <li>✅ CRM e Pós-venda Automático</li>
-            <li>✅ Suporte Prioritário</li>
+            <li>
+              <span
+                class="icon-dinamico"
+                style="
+                  color: var(--success);
+                  font-size: 1.1rem;
+                  vertical-align: middle;
+                  margin-right: 6px;
+                "
+                >check_circle</span
+              >
+              Ordens de Serviço Ilimitadas
+            </li>
+            <li>
+              <span
+                class="icon-dinamico"
+                style="
+                  color: var(--success);
+                  font-size: 1.1rem;
+                  vertical-align: middle;
+                  margin-right: 6px;
+                "
+                >check_circle</span
+              >
+              Gestão de Estoque
+            </li>
+            <li>
+              <span
+                class="icon-dinamico"
+                style="
+                  color: var(--success);
+                  font-size: 1.1rem;
+                  vertical-align: middle;
+                  margin-right: 6px;
+                "
+                >check_circle</span
+              >
+              CRM e Pós-venda Automático
+            </li>
+            <li>
+              <span
+                class="icon-dinamico"
+                style="
+                  color: var(--success);
+                  font-size: 1.1rem;
+                  vertical-align: middle;
+                  margin-right: 6px;
+                "
+                >check_circle</span
+              >
+              Suporte Prioritário
+            </li>
           </ul>
           <!--
           <button
@@ -86,7 +138,12 @@ async function simularPagamento() {
           @click="$emit('sair')"
           style="border: none"
         >
-          🚪 Sair da conta
+          <span
+            class="icon-dinamico"
+            style="vertical-align: middle; margin-right: 4px"
+            >logout</span
+          >
+          Sair da conta
         </button>
       </div>
     </div>

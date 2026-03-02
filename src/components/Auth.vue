@@ -48,8 +48,18 @@ async function handleAuth() {
 <template>
   <div class="auth-wrapper">
     <div class="card auth-card">
-      <h1 style="text-align: center; color: var(--primary)">
-        🎸 Gestão Luthieria
+      <h1
+        style="
+          text-align: center;
+          color: var(--primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        "
+      >
+        <span class="icon-dinamico" style="font-size: 2.5rem">music_note</span>
+        Gestão Luthieria
       </h1>
       <h3
         style="
