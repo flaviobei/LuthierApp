@@ -2,7 +2,7 @@ name: Backup Automático do Banco de Dados
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '0 6 * * *'
   workflow_dispatch: 
 
 jobs:
