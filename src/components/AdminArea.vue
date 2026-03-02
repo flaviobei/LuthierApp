@@ -13,6 +13,7 @@ import Configuracoes from "./Configuracoes.vue";
 import RelatoriosDashboard from "./RelatoriosDashboard.vue";
 import MinhaConta from "./MinhaConta.vue";
 import Ajuda from "./Ajuda.vue";
+import TermosDeUso from "./TermosDeUso.vue";
 import GerenciarSaaS from "./GerenciarSaaS.vue";
 import ConfigChecklist from "./ConfigChecklist.vue";
 import LimpezaBanco from "./LimpezaBanco.vue";
@@ -98,6 +99,22 @@ onMounted(async () => {
           >
             <span class="icon-dinamico" style="font-size: 1rem">lightbulb</span>
             Tutorial
+          </button>
+          <button
+            class="btn-outline"
+            :class="{ active: abaAtual === 'termos' }"
+            @click="abaAtual = 'termos'"
+            style="
+              font-size: 0.8rem;
+              color: var(--accent);
+              border-color: var(--accent);
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            "
+          >
+            <span class="icon-dinamico" style="font-size: 1rem">gavel</span>
+            Termos
           </button>
         </div>
       </div>
@@ -216,6 +233,7 @@ onMounted(async () => {
 
         <MinhaConta v-if="abaAtual === 'conta'" />
         <Ajuda v-if="abaAtual === 'ajuda'" />
+        <TermosDeUso v-if="abaAtual === 'termos'" />
 
         <LimpezaBanco v-if="abaAtual === 'limpeza'" />
         <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />

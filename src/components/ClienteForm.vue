@@ -2,20 +2,27 @@
 /**
  * ============================================================================
  * @file        ClienteForm.vue
- * @description Gestão de clientes refatorada para usar clienteService.
+ * @description Gestão de clientes com suporte a endereço de delivery.
  * ============================================================================
  */
 
 import { ref, watch } from "vue";
 import { useToast } from "../composables/useToast";
-import { clienteService } from "../services/clienteService"; // Importação do Serviço
+import { clienteService } from "../services/clienteService";
 
 const props = defineProps(["clienteEdit"]);
 const emit = defineEmits(["clienteSalvo", "cancelarEdicao"]);
 
 const { triggerToast } = useToast();
 
-const form = ref({ nome: "", telefone: "", email: "", cpf_cnpj: "" });
+// Variável 'endereco' adicionada ao estado do formulário
+const form = ref({
+  nome: "",
+  telefone: "",
+  email: "",
+  cpf_cnpj: "",
+  endereco: "",
+});
 const loading = ref(false);
 const isEditing = ref(false);
 const currentEditId = ref(null);
@@ -32,6 +39,7 @@ watch(
         telefone: newVal.telefone || "",
         email: newVal.email || "",
         cpf_cnpj: newVal.cpf_cnpj || "",
+        endereco: newVal.endereco || "", // Carrega o endereço ao editar
       };
     } else {
       resetarFormulario();
@@ -43,7 +51,13 @@ watch(
 function resetarFormulario() {
   isEditing.value = false;
   currentEditId.value = null;
-  form.value = { nome: "", telefone: "", email: "", cpf_cnpj: "" };
+  form.value = {
+    nome: "",
+    telefone: "",
+    email: "",
+    cpf_cnpj: "",
+    endereco: "",
+  };
 }
 
 function cancelar() {
@@ -60,11 +74,9 @@ async function salvarCliente() {
 
   try {
     if (isEditing.value) {
-      // === LÓGICA DE ATUALIZAÇÃO (via Service) ===
       await clienteService.atualizar(currentEditId.value, form.value);
       triggerToast("Cliente atualizado com sucesso!", "success");
     } else {
-      // === LÓGICA DE CRIAÇÃO (via Service) ===
       await clienteService.criar(form.value);
       triggerToast("Cliente cadastrado com sucesso!", "success");
     }
@@ -119,6 +131,25 @@ async function salvarCliente() {
         type="text"
         placeholder="(00) 00000-0000"
       />
+    </div>
+
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 5px">
+        Endereço (Recolha/Entrega):
+      </label>
+      <textarea
+        v-model="form.endereco"
+        rows="3"
+        placeholder="Rua, Número, Bairro, Cidade. Pontos de referência..."
+        style="
+          width: 100%;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 10px;
+          font-family: inherit;
+          resize: vertical;
+        "
+      ></textarea>
     </div>
 
     <div class="form-group">
