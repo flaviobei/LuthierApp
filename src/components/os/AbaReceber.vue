@@ -39,6 +39,7 @@ const novoPagamento = ref({
 
 const pgtoExcedenteConfirmado = ref(false);
 const mostrarBannerFinalizacao = ref(false);
+const bannerOcultadoManual = ref(false);
 const novoDesconto = ref({ motivo: "", valor: null });
 const idPgtoConfirmar = ref(null);
 const obsFechamentoLocal = ref(props.servico.obs_fechamento || "");
@@ -196,7 +197,11 @@ async function salvarObservacoes() {
     </div>
 
     <div
-      v-if="mostrarBannerFinalizacao"
+      v-if="
+        (mostrarBannerFinalizacao || saldoDevedor <= 0) &&
+        !osFinalizada &&
+        !bannerOcultadoManual
+      "
       class="banner-aviso mb-2"
       style="
         background: #dcfce7;
@@ -206,7 +211,12 @@ async function salvarObservacoes() {
     >
       <p style="margin-top: 0; display: flex; align-items: center; gap: 8px">
         <span class="icon-dinamico" style="font-size: 1.2rem">celebration</span>
-        Saldo liquidado! Deseja finalizar e bloquear a O.S. agora?
+        <span v-if="totalOrcamento === 0"
+          >O.S. sem custo pendente. Deseja finalizar a O.S. agora?</span
+        >
+        <span v-else
+          >Saldo liquidado! Deseja finalizar e bloquear a O.S. agora?</span
+        >
       </p>
       <div class="flex-gap-10">
         <button
@@ -216,7 +226,13 @@ async function salvarObservacoes() {
         >
           Sim, Finalizar O.S.
         </button>
-        <button class="btn-outline" @click="mostrarBannerFinalizacao = false">
+        <button
+          class="btn-outline"
+          @click="
+            mostrarBannerFinalizacao = false;
+            bannerOcultadoManual = true;
+          "
+        >
           Agora não
         </button>
       </div>
@@ -314,13 +330,30 @@ async function salvarObservacoes() {
       style="border-top: 1px solid var(--border); padding-top: 20px"
     >
       <h4 style="margin: 0">Histórico de Transações</h4>
-      <button
-        class="btn-outline"
-        @click="$emit('imprimirRecibo')"
-        title="Imprimir Recibo"
-      >
-        <span class="icon-dinamico">print</span> Recibo
-      </button>
+      <div style="display: flex; gap: 10px">
+        <button
+          v-if="!osFinalizada && bannerOcultadoManual && saldoDevedor <= 0"
+          class="btn-primary"
+          @click="
+            bannerOcultadoManual = false;
+            mostrarBannerFinalizacao = true;
+          "
+          style="
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+          "
+        >
+          <span class="icon-dinamico">check_circle</span> Finalizar O.S.
+        </button>
+        <button
+          class="btn-outline"
+          @click="$emit('imprimirRecibo')"
+          title="Imprimir Recibo"
+        >
+          <span class="icon-dinamico">print</span> Recibo
+        </button>
+      </div>
     </div>
 
     <table class="tabela-padrao">

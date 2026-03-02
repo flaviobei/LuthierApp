@@ -12,6 +12,7 @@ import Financeiro from "./Financeiro.vue";
 import Configuracoes from "./Configuracoes.vue";
 import RelatoriosDashboard from "./RelatoriosDashboard.vue";
 import MinhaConta from "./MinhaConta.vue";
+import Ajuda from "./Ajuda.vue";
 import GerenciarSaaS from "./GerenciarSaaS.vue";
 import ConfigChecklist from "./ConfigChecklist.vue";
 import LimpezaBanco from "./LimpezaBanco.vue";
@@ -65,6 +66,24 @@ onMounted(async () => {
       >
         <h2 style="margin: 0; color: var(--primary)">Painel de Gestão</h2>
         <div style="display: flex; gap: 10px">
+          <button
+            class="btn-outline"
+            :class="{ active: abaAtual === 'ajuda' }"
+            @click="abaAtual = 'ajuda'"
+            style="
+              font-size: 0.8rem;
+              color: var(--accent);
+              border-color: var(--accent);
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            "
+          >
+            <span class="icon-dinamico" style="font-size: 1rem"
+              >help_center</span
+            >
+            Ajuda
+          </button>
           <button
             @click="iniciarTour"
             class="btn-outline"
@@ -196,6 +215,7 @@ onMounted(async () => {
         <ConfigChecklist v-if="abaAtual === 'checklist'" />
 
         <MinhaConta v-if="abaAtual === 'conta'" />
+        <Ajuda v-if="abaAtual === 'ajuda'" />
 
         <LimpezaBanco v-if="abaAtual === 'limpeza'" />
         <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />

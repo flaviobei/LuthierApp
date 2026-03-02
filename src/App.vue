@@ -331,19 +331,10 @@ onMounted(() => {
             ><span class="lbl">Admin</span>
           </button>
           <button
-            @click="modoAtual = 'ajuda'"
-            class="btn-menu"
-            :class="{ active: modoAtual === 'ajuda' }"
-          >
-            <span class="icon-dinamico">help_center</span
-            ><span class="lbl">Ajuda</span>
-          </button>
-          <button
             @click="fazerLogout"
             class="btn-menu text-danger btn-sair-mobile"
           >
-            <span class="icon-dinamico">logout</span
-            ><span class="lbl">Sair</span>
+            <span class="icon-dinamico">logout</span>
           </button>
         </div>
       </div>

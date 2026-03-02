@@ -78,6 +78,7 @@ async function atualizarStatusChecklist(item, statusOpcao) {
   }
 }
 
+// CORREÇÃO: Ordenando as chaves para Entrada sempre vir antes de Saída
 const checklistsAgrupados = computed(() => {
   const grupos = {};
   checklistItens.value.forEach((item) => {
@@ -85,7 +86,12 @@ const checklistsAgrupados = computed(() => {
     if (!grupos[etapaNome]) grupos[etapaNome] = [];
     grupos[etapaNome].push(item);
   });
-  return Object.keys(grupos).map((etapa) => ({ etapa, itens: grupos[etapa] }));
+
+  // Extrai as chaves (ex: ["Saída", "Entrada"]), ordena alfabeticamente (fica ["Entrada", "Saída"])
+  // e depois mapeia para o formato esperado pelo template
+  return Object.keys(grupos)
+    .sort()
+    .map((etapa) => ({ etapa, itens: grupos[etapa] }));
 });
 
 async function carregarFotosChecklist() {

@@ -3,7 +3,7 @@
  * ============================================================================
  * @file        ExecucaoServico.vue
  * @description Gestão da O.S. (Pai Orquestrador).
- * ATUALIZAÇÃO: Adição de alerta de retrabalho e edição de data de entrega.
+ * ATUALIZAÇÃO: Cabeçalho slim com data compacta e exibição de Serviço Solicitado.
  * ============================================================================
  */
 import { ref, computed, onMounted, nextTick } from "vue";
@@ -96,6 +96,7 @@ async function carregarDadosCompletosDaOS() {
       servicoLocal.value.data_previsao_entrega = data.data_previsao_entrega;
       servicoLocal.value.tipo_os = data.tipo_os;
       servicoLocal.value.motivo_retorno = data.motivo_retorno;
+      servicoLocal.value.descricao_cliente = data.descricao_cliente;
     }
   } catch (err) {}
 }
@@ -185,98 +186,150 @@ onMounted(carregarTudo);
 
     <div v-else>
       <div
-        class="flex-header mb-2"
+        class="card mb-2"
         style="
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          flex-wrap: wrap;
-          gap: 10px;
           background: #f8fafc;
-          padding: 15px;
+          padding: 12px 15px;
           border-radius: 8px;
           border: 1px solid var(--border);
         "
       >
-        <div style="display: flex; flex-direction: column; gap: 10px">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+          "
+        >
           <div
             style="
               display: flex;
               align-items: center;
-              gap: 15px;
+              gap: 12px;
               flex-wrap: wrap;
             "
           >
-            <h2 style="margin: 0; color: var(--primary)">
+            <h2 style="margin: 0; color: var(--primary); font-size: 1.3rem">
               O.S. #{{ servicoLocal.numero_os }}
             </h2>
-            <span class="badge text-muted" style="font-size: 0.9rem">{{
-              servicoLocal.fase_projeto
-            }}</span>
+            <span
+              class="badge text-muted"
+              style="font-size: 0.75rem; padding: 2px 8px"
+              >{{ servicoLocal.fase_projeto }}</span
+            >
 
+            <span style="font-size: 0.85rem; color: #64748b"
+              >Previsão de Entrega:</span
+            >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                background: white;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 2px 6px;
+              "
+              title="Previsão de Entrega"
+            >
+              <span
+                class="icon-dinamico text-muted"
+                style="font-size: 1rem; margin-right: 4px"
+                >event</span
+              >
+
+              <input
+                type="date"
+                v-model="servicoLocal.data_previsao_entrega"
+                @change="salvarDataPrevisao"
+                :disabled="osFinalizada"
+                style="
+                  border: none;
+                  outline: none;
+                  background: transparent;
+                  font-size: 0.85rem;
+                  color: #334155;
+                  padding: 0;
+                  cursor: pointer;
+                  height: 22px;
+                "
+              />
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px">
             <button
               class="btn-outline"
               @click="imprimirQRCode"
-              title="Imprimir Etiqueta QR Code"
+              title="Imprimir Etiqueta"
               style="
-                padding: 6px 12px;
+                padding: 4px 10px;
                 font-weight: bold;
-                font-size: 0.85rem;
+                font-size: 0.8rem;
                 display: inline-flex;
                 align-items: center;
-                gap: 6px;
-                border-color: var(--primary);
-                color: var(--primary);
+                gap: 4px;
                 background: white;
               "
             >
-              <span class="icon-dinamico" style="font-size: 1.2rem"
+              <span class="icon-dinamico" style="font-size: 1.1rem"
                 >qr_code_scanner</span
               >
-              Imprimir Etiqueta
+              Etiqueta
             </button>
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 10px">
-            <label style="font-size: 0.9rem; font-weight: bold; color: #475569">
-              <span
-                class="icon-dinamico"
-                style="font-size: 1rem; vertical-align: middle"
-                >event</span
-              >
-              Previsão de Entrega:
-            </label>
-            <input
-              type="date"
-              v-model="servicoLocal.data_previsao_entrega"
-              @change="salvarDataPrevisao"
-              :disabled="osFinalizada"
+            <button
+              class="btn-outline"
+              @click="$emit('voltar')"
               style="
-                padding: 4px 8px;
-                border: 1px solid #cbd5e1;
-                border-radius: 4px;
-                color: #334155;
-                font-family: inherit;
+                padding: 4px 10px;
+                font-weight: bold;
+                font-size: 0.8rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                background: white;
               "
-            />
+            >
+              <span class="icon-dinamico" style="font-size: 1.1rem"
+                >arrow_back</span
+              >
+              Voltar
+            </button>
           </div>
         </div>
 
-        <button
-          class="btn-outline"
-          @click="$emit('voltar')"
+        <div
+          v-if="servicoLocal.descricao_cliente"
           style="
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: white;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #cbd5e1;
           "
         >
-          <span class="icon-dinamico" style="font-size: 1.1rem"
-            >arrow_back</span
+          <span
+            style="
+              font-size: 0.75rem;
+              font-weight: bold;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            "
+            >Serviço Solicitado</span
           >
-          Voltar
-        </button>
+          <p
+            style="
+              margin: 4px 0 0 0;
+              font-size: 0.95rem;
+              color: #1e293b;
+              white-space: pre-wrap;
+              line-height: 1.4;
+            "
+          >
+            {{ servicoLocal.descricao_cliente }}
+          </p>
+        </div>
       </div>
 
       <div
@@ -576,14 +629,11 @@ onMounted(carregarTudo);
 .execucao-container {
   animation: fadeIn 0.3s ease-in-out;
 }
-.flex-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+
+/* Reduzi o padding para compactar e deixei as tags em linha */
 .badge {
   background: #e2e8f0;
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: bold;
