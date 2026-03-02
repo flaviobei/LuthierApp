@@ -615,7 +615,7 @@ onMounted(carregarTudo);
 </template>
 
 <style scoped>
-/* CSS do Alerta de Retrabalho */
+/* CSS do Alerta de Retrabalho (Específico desta página) */
 .alert-retrabalho {
   background-color: #fef2f2;
   border-left: 5px solid #ef4444;
@@ -625,50 +625,16 @@ onMounted(carregarTudo);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* ESTRUTURA GERAL */
 .execucao-container {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Reduzi o padding para compactar e deixei as tags em linha */
 .badge {
   background: #e2e8f0;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: bold;
-}
-
-/* ABAS (TABS) */
-.tabs-clean {
-  display: flex;
-  gap: 5px;
-  background: var(--border);
-  padding: 5px;
-  border-radius: var(--radius-sm);
-  overflow-x: auto;
-  white-space: nowrap;
-}
-.tabs-clean button {
-  flex: 1;
-  border: none;
-  padding: 12px 15px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.tabs-clean button.active {
-  background: white;
-  color: var(--primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .banner-aviso {

@@ -18,6 +18,7 @@ import GerenciarSaaS from "./GerenciarSaaS.vue";
 import ConfigChecklist from "./ConfigChecklist.vue";
 import LimpezaBanco from "./LimpezaBanco.vue";
 import { useOnboarding } from "../composables/useOnboarding";
+import GestaoBackups from "./GestaoBackups.vue";
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
@@ -55,63 +56,30 @@ onMounted(async () => {
 <template>
   <div class="admin-wrapper">
     <div class="admin-menu card">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 15px;
-          border-bottom: 2px solid var(--border);
-          padding-bottom: 10px;
-        "
-      >
+      <div class="admin-header">
         <h2 style="margin: 0; color: var(--primary)">Painel de Gestão</h2>
-        <div style="display: flex; gap: 10px">
+
+        <div class="admin-actions">
           <button
-            class="btn-outline"
+            class="btn-outline btn-action"
             :class="{ active: abaAtual === 'ajuda' }"
             @click="abaAtual = 'ajuda'"
-            style="
-              font-size: 0.8rem;
-              color: var(--accent);
-              border-color: var(--accent);
-              display: flex;
-              align-items: center;
-              gap: 4px;
-            "
           >
             <span class="icon-dinamico" style="font-size: 1rem"
               >help_center</span
             >
             Ajuda
           </button>
-          <button
-            @click="iniciarTour"
-            class="btn-outline"
-            style="
-              font-size: 0.8rem;
-              color: var(--accent);
-              border-color: var(--accent);
-              display: flex;
-              align-items: center;
-              gap: 4px;
-            "
-          >
+
+          <button @click="iniciarTour" class="btn-outline btn-action">
             <span class="icon-dinamico" style="font-size: 1rem">lightbulb</span>
             Tutorial
           </button>
+
           <button
-            class="btn-outline"
+            class="btn-outline btn-action"
             :class="{ active: abaAtual === 'termos' }"
             @click="abaAtual = 'termos'"
-            style="
-              font-size: 0.8rem;
-              color: var(--accent);
-              border-color: var(--accent);
-              display: flex;
-              align-items: center;
-              gap: 4px;
-            "
           >
             <span class="icon-dinamico" style="font-size: 1rem">gavel</span>
             Termos
@@ -201,6 +169,19 @@ onMounted(async () => {
         </button>
 
         <button
+          v-if="isSuperAdmin"
+          class="btn-tab"
+          :class="{ active: abaAtual === 'backups' }"
+          @click="abaAtual = 'backups'"
+          style="background-color: #0f172a; color: white; border-color: #0f172a"
+        >
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >cloud_download</span
+          >
+          Backups
+        </button>
+
+        <button
           class="btn-tab text-danger"
           :class="{ active: abaAtual === 'limpeza' }"
           @click="abaAtual = 'limpeza'"
@@ -237,17 +218,51 @@ onMounted(async () => {
 
         <LimpezaBanco v-if="abaAtual === 'limpeza'" />
         <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
+
+        <GestaoBackups v-if="abaAtual === 'backups' && isSuperAdmin" />
       </template>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* =======================================================
+   ESTILOS DO CABEÇALHO E AÇÕES (Agora Responsivos!)
+   ======================================================= */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-action {
+  font-size: 0.8rem;
+  color: var(--accent);
+  border-color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  min-height: 36px; /* Um pouco mais compactos que os botões padrão */
+}
+
+/* =======================================================
+   ESTILOS DAS ABAS
+   ======================================================= */
 .admin-tabs {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
+
 .btn-tab {
   flex: 1;
   min-width: 140px;
@@ -259,19 +274,43 @@ onMounted(async () => {
   font-weight: bold;
   transition: 0.2s;
   color: var(--text-muted);
-
-  /* Flexbox para alinhar ícone e texto */
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
 }
+
 .btn-tab.active {
   background: var(--primary);
   color: white;
   box-shadow: var(--shadow);
 }
+
 .admin-content {
   margin-top: 20px;
+}
+
+/* =======================================================
+   REGRAS PARA DISPOSITIVOS MÓVEIS (A Magia Acontece Aqui)
+   ======================================================= */
+@media (max-width: 768px) {
+  .admin-header {
+    flex-direction: column; /* Empilha o título e os botões */
+    align-items: stretch;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .admin-actions {
+    flex-wrap: wrap; /* Permite que os botões quebrem linha se necessário */
+    width: 100%;
+  }
+
+  .btn-action {
+    flex: 1 1 30%; /* Os 3 botões dividem o espaço por igual */
+    justify-content: center;
+    padding: 8px 4px !important; /* Reduz o padding para caberem lado a lado */
+    font-size: 0.75rem; /* Texto ligeiramente menor para não estourar */
+  }
 }
 </style>

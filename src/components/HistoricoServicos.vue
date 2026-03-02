@@ -383,7 +383,10 @@ onMounted(() => carregarHistorico());
               R$ {{ (os._valor_calculado || 0).toFixed(2) }}
             </td>
             <td align="center">
-              <div style="display: flex; gap: 5px; justify-content: center">
+              <div
+                class="card-actions"
+                style="display: flex; gap: 5px; justify-content: center"
+              >
                 <button
                   class="btn-primary"
                   @click="$emit('abrirOS', os)"
@@ -528,5 +531,23 @@ onMounted(() => carregarHistorico());
   width: 90%;
   max-width: 450px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================================= */
+/* AÇÕES DOS CARDS (BOTÕES LADO A LADO NO MOBILE) */
+/* ========================================================= */
+.card-actions {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+  margin-top: 15px; /* Dá um respiro em relação ao preço (R$ 0.00) */
+}
+
+.card-actions button {
+  flex: 1; /* O SEGREDO 1: Obriga os botões a dividirem o espaço 50/50 */
+  white-space: nowrap; /* O SEGREDO 2: Proíbe terminantemente a palavra de quebrar */
+  justify-content: center;
+  padding-left: 4px; /* Reduz o padding lateral interno para telas muito estreitas */
+  padding-right: 4px;
 }
 </style>

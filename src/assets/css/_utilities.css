@@ -51,3 +51,28 @@
   gap: 15px;
   align-items: center;
 }
+/* MÁGICA 4: Flexbox Inteligente para Mobile */
+@media (max-width: 768px) {
+  /* Transforma "Lado a Lado" em "Um em cima do outro" ocupando a tela toda */
+  .flex-between {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  /* Permite que botões e itens quebrem a linha se não couberem */
+  .flex-gap-10,
+  .flex-gap-15 {
+    flex-wrap: wrap;
+    justify-content: center; /* Centraliza itens pequenos no mobile */
+  }
+
+  /* Utilitários Extras Mobile */
+  .text-center-mobile {
+    text-align: center !important;
+  }
+
+  .w-full-mobile {
+    width: 100% !important;
+  }
+}

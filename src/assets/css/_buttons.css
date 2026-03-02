@@ -69,3 +69,50 @@ button {
   background: rgba(0, 0, 0, 0.05);
   border-color: var(--border);
 }
+/* MÁGICA 5: Botões Padrão Dedo-Gordo (Thumb-friendly) */
+@media (max-width: 768px) {
+  .btn-primary,
+  .btn-accent,
+  .btn-outline {
+    width: 100%; /* Botões ocupam a largura toda no mobile */
+    justify-content: center;
+    padding: 12px 20px;
+    font-size: 1rem; /* Mais fáceis de ler */
+  }
+
+  /* Se precisar DE FATO de botões lado a lado (ex: Voltar e Salvar), 
+     adicione a classe 'btn-inline' a eles no HTML/Vue */
+  .btn-inline {
+    width: auto;
+    flex: 1; /* Dividem o espaço igual */
+  }
+}
+/* ========================================================= */
+/* ADIÇÕES DE REFINAMENTO PARA BOTÕES */
+/* ========================================================= */
+
+/* 1. Melhorar estados de interação e profundidade */
+.btn-primary:hover,
+.btn-accent:hover {
+  filter: brightness(0.95); /* Ajuste sutil de brilho */
+  transform: translateY(-1px); /* */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Adiciona sombra sutil para profundidade */
+}
+
+/* 2. Refinar botões com contorno padrão */
+.btn-outline {
+  border: 1px solid var(--primary); /* Refinamento: Bordas de 1px ficam mais limpas */
+}
+
+/* 3. Criar a variante "Garantia/Alerta" corretamente usando CSS */
+/* Esta classe substitui qualquer estilo inline no botão Garantia */
+.btn-outline-danger {
+  background-color: transparent; /* */
+  color: var(--danger); /* Usa #c0392b */
+  border: 1px solid var(--danger); /* */
+}
+
+.btn-outline-danger:hover {
+  background-color: rgba(192, 57, 43, 0.05); /* Hover sutil na cor danger */
+  transform: translateY(-1px); /* */
+}
