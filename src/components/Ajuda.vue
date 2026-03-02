@@ -50,6 +50,14 @@
             você pode iniciar um serviço (O.S.). Ele aparecerá na sua bancada
             imediatamente com o status "Fila de Espera".
           </li>
+
+          <li>
+            <strong>Localizando uma OS com QRCode:</strong> Na aba da OS você
+            encontra o botão de QRCode. Você pode imprimir um canhoto e juntar
+            ao instrumento para facilitar a localização da OS. Para ler um
+            QRCode, clique no boão QRScan, autorize o uso da câmera e aponte
+            para o QRCode.
+          </li>
         </ul>
       </section>
 
