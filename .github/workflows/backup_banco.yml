@@ -1,0 +1,32 @@
+name: Backup Automático do Banco de Dados
+
+# Define quando o script vai rodar
+on:
+  schedule:
+    # Roda todos os dias às 03:00 da manhã (UTC)
+    - cron: "0 3 * * *"
+  # Permite que você rode o backup manualmente a qualquer momento clicando num botão no GitHub
+  workflow_dispatch:
+
+jobs:
+  backup-to-drive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Instalar ferramentas do PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: 🗄️ Fazer o Dump (Exportação) do Banco de Dados
+        run: |
+          # Gera o arquivo .sql usando a URL secreta do Supabase
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" -c -O -f backup_luthierapp.sql
+
+      - name: ☁️ Enviar para o Google Drive
+        uses: adityak74/google-drive-upload-action@v0.3
+        with:
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          filename: backup_luthierapp.sql
+          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+          # Dá um nome único ao ficheiro baseado na data e número da execução
+          name: "LuthierApp_Backup_${{ github.run_number }}_${{ github.run_id }}.sql"
+          overwrite: "false"
