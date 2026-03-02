@@ -1,4 +1,4 @@
-name: Backup Automático do Banco de Dados
+name: Backup Automático do Supabase
 
 on:
   schedule:
