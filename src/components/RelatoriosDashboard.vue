@@ -176,7 +176,7 @@ const dadosMarcas = computed(() => {
     .map((k) => ({ marca: k, valor: agregados[k] }))
     .sort((a, b) => b.valor - a.valor);
 
-  const top5 = sorted.slice(0, 5);
+  const top5 = sorted.slice(0, 10);
 
   return {
     labels: top5.map((x) => x.marca),

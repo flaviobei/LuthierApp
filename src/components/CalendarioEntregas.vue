@@ -3,12 +3,12 @@
  * ============================================================================
  * @file        CalendarioEntregas.vue
  * @description Módulo de agendamento e prazos.
- * ATUALIZAÇÃO: Refatorado para usar a camada osService.
+ * ATUALIZAÇÃO: Destaque visual inteligente para o dia atual (Hoje).
  * ============================================================================
  */
 
 import { ref, computed, onMounted } from "vue";
-import { osService } from "../services/osService"; // Novo Service
+import { osService } from "../services/osService";
 import { useToast } from "../composables/useToast";
 
 const emit = defineEmits(["abrirOS", "voltar"]);
@@ -37,6 +37,12 @@ const meses = [
 const mesAtualNome = computed(() => meses[dataAtual.value.getMonth()]);
 const anoAtual = computed(() => dataAtual.value.getFullYear());
 
+// Gera a data de HOJE no formato ISO (YYYY-MM-DD) baseado no fuso local do navegador
+const hojeIso = computed(() => {
+  const hoje = new Date();
+  return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+});
+
 const diasNoMes = computed(() => {
   const ano = dataAtual.value.getFullYear();
   const mes = dataAtual.value.getMonth();
@@ -49,7 +55,11 @@ const diasNoMes = computed(() => {
   }
   for (let d = 1; d <= ultimoDia; d++) {
     const dataIso = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    listaDias.push({ dia: d, dataIso });
+    listaDias.push({
+      dia: d,
+      dataIso: dataIso,
+      isHoje: dataIso === hojeIso.value, // MÁGICA: Flag para saber se é hoje
+    });
   }
   return listaDias;
 });
@@ -60,7 +70,6 @@ const diasNoMes = computed(() => {
 async function carregarServicos() {
   carregando.value = true;
   try {
-    // Agora o componente apenas solicita os dados ao serviço
     servicos.value = await osService.buscarParaCalendario();
   } catch (error) {
     triggerToast("Erro ao carregar a agenda: " + error.message, "error");
@@ -82,10 +91,9 @@ function mudarMes(delta) {
 }
 
 function getStatusCor(os) {
-  const hoje = new Date().toISOString().substring(0, 10);
-  if (os.data_previsao_entrega < hoje) return "bg-danger";
-  if (os.data_previsao_entrega === hoje) return "bg-warning";
-  return "bg-primary";
+  if (os.data_previsao_entrega < hojeIso.value) return "bg-danger"; // Atrasado
+  if (os.data_previsao_entrega === hojeIso.value) return "bg-warning"; // Hoje
+  return "bg-primary"; // No prazo
 }
 
 onMounted(carregarServicos);
@@ -176,9 +184,18 @@ onMounted(carregarServicos);
           v-for="(item, index) in diasNoMes"
           :key="index"
           class="dia-celula"
-          :class="{ vazio: !item.dia }"
+          :class="{
+            vazio: !item.dia,
+            'celula-hoje': item.isHoje,
+          }"
         >
-          <div v-if="item.dia" class="dia-numero">{{ item.dia }}</div>
+          <div
+            v-if="item.dia"
+            class="dia-numero"
+            :class="{ 'numero-hoje': item.isHoje }"
+          >
+            {{ item.dia }}
+          </div>
 
           <div class="lista-servicos-dia">
             <div
@@ -238,6 +255,7 @@ onMounted(carregarServicos);
   min-height: 120px;
   padding: 8px;
   transition: 0.2s;
+  position: relative; /* Para garantir sobreposições se necessário */
 }
 .dia-celula:hover:not(.vazio) {
   background: #f1f5f9;
@@ -245,11 +263,37 @@ onMounted(carregarServicos);
 .dia-celula.vazio {
   background: #f8fafc;
 }
+
+/* ========================================= */
+/* DESTAQUE DO DIA DE HOJE                   */
+/* ========================================= */
+.celula-hoje {
+  /* Usa a cor primária (Azul Marinho/Escuro) com 5% de opacidade */
+  background-color: color-mix(
+    in srgb,
+    var(--primary) 5%,
+    transparent
+  ) !important;
+  /* Uma borda suave interna para enquadrar o dia atual */
+  box-shadow: inset 0 0 0 2px
+    color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
 .dia-numero {
   font-weight: bold;
   color: #94a3b8;
   margin-bottom: 5px;
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
+
+.numero-hoje {
+  background-color: var(--primary);
+  color: white;
+}
+
+/* ========================================= */
 
 .lista-servicos-dia {
   display: flex;
@@ -297,15 +341,15 @@ onMounted(carregarServicos);
 /* ========================================= */
 @media (max-width: 900px) {
   .calendario-grid {
-    display: none !important; /* Força a grelha a desaparecer */
+    display: none !important;
   }
 
   .calendario-header {
-    display: none !important; /* Força o menu do topo a desaparecer */
+    display: none !important;
   }
 
   .aviso-mobile {
-    display: block !important; /* Força o aviso a aparecer */
+    display: block !important;
     text-align: center;
     padding: 40px 20px;
     margin-top: 20px;
