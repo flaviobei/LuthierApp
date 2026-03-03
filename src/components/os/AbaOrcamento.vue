@@ -4,12 +4,14 @@
  * @file        AbaOrcamento.vue
  * @description Sub-componente responsável pela montagem do orçamento,
  * catálogo, descontos e custos estimados.
+ * ATUALIZAÇÃO: Mensagem de WhatsApp profissional estruturada.
  * ============================================================================
  */
 import { ref, computed, onMounted } from "vue";
 import { supabase } from "../../lib/supabaseClient";
 import { useToast } from "../../composables/useToast";
 import { calcularCustoEstimado } from "../../lib/financeiroUtils";
+import { abrirWhatsapp } from "../../lib/whatsappUtils"; // Importação do utilitário
 
 const props = defineProps({
   servico: Object,
@@ -66,6 +68,8 @@ async function adicionarItemOrcamento() {
       descricao: novoItem.value.descricao,
       valor: novoItem.value.valor,
       tipo: novoItem.value.tipo,
+      // ESTA É A MÁGICA: Guarda o ID do catálogo se ele existir
+      catalogo_id: idItemCatalogo.value ? idItemCatalogo.value : null,
     };
     const { data, error } = await supabase
       .from("orcamento_itens")
@@ -124,29 +128,50 @@ async function removerItemOrcamento(id) {
   }
 }
 
+// ============================================================================
+// NOVO WHATSAPP ESTRUTURADO (App 5 Estrelas)
+// ============================================================================
 async function enviarOrcamentoWhatsApp() {
   if (props.itensOrcamento.length === 0) {
     return triggerToast("Adicione itens ao orçamento primeiro.", "warning");
   }
+
   try {
     if (!props.dadosCliente || !props.dadosCliente.telefone) {
       return triggerToast("Telefone do cliente não encontrado.", "error");
     }
 
-    let mensagem = `Olá, ${props.dadosCliente.nome}! Aqui está o orçamento da O.S. #${props.servico.numero_os}:\n\n`;
+    // Busca o nome do instrumento para personalizar a mensagem
+    const instrumento = props.servico?.instrumentos;
+    const nomeInst = instrumento
+      ? `${instrumento.marca} ${instrumento.modelo}`
+      : "instrumento";
+
+    // Constrói a mensagem com formatação rica do WhatsApp (Negrito = *, Itálico = _)
+    let mensagem = `Olá, *${props.dadosCliente.nome}*! Tudo bem?\n\n`;
+    mensagem += `Aqui é da oficina e o orçamento para o seu *${nomeInst}* (O.S. #${props.servico.numero_os}) já está pronto! 🎸✨\n\n`;
+
+    mensagem += `*🛠️ SERVIÇOS E PEÇAS:*\n`;
+    mensagem += `-----------------------------------\n`;
+
     props.itensOrcamento.forEach((item) => {
-      mensagem += `- ${item.descricao}: R$ ${Number(item.valor).toFixed(2)}\n`;
+      // Usa ícones diferentes dependendo do tipo de item
+      let icone = "🔧";
+      if (item.tipo === "Peça") icone = "⚙️";
+      if (item.tipo === "Desconto") icone = "🎁";
+
+      let valorFormatado = Number(item.valor).toFixed(2);
+      mensagem += `${icone} ${item.descricao}\n      *R$ ${valorFormatado}*\n`;
     });
-    mensagem += `\n*Total: R$ ${props.totalOrcamento.toFixed(2)}*\n\nQualquer dúvida, estamos à disposição!`;
 
-    const numeroLimpo = props.dadosCliente.telefone.replace(/\D/g, "");
-    const numeroFinal =
-      numeroLimpo.length <= 11 ? `55${numeroLimpo}` : numeroLimpo;
+    mensagem += `-----------------------------------\n`;
+    mensagem += `*💰 TOTAL DO ORÇAMENTO: R$ ${props.totalOrcamento.toFixed(2)}*\n\n`;
 
-    window.open(
-      `https://wa.me/${numeroFinal}?text=${encodeURIComponent(mensagem)}`,
-      "_blank",
-    );
+    mensagem += `Aprova a execução do serviço? Basta responder a esta mensagem com um *"Sim"*! 👍\n\n`;
+    mensagem += `_Qualquer dúvida sobre os itens, estou à total disposição._`;
+
+    // Usa a função padronizada do seu whatsappUtils.js
+    abrirWhatsapp(props.dadosCliente, mensagem);
   } catch (err) {
     triggerToast("Erro ao gerar link do WhatsApp.", "error");
   }

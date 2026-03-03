@@ -16,6 +16,7 @@ import AbaChecklist from "./os/AbaChecklist.vue";
 import AbaDiario from "./os/AbaDiario.vue";
 import AbaOrcamento from "./os/AbaOrcamento.vue";
 import AbaReceber from "./os/AbaReceber.vue";
+import { catalogoService } from "../services/catalogoService";
 
 const props = defineProps(["servico"]);
 const emit = defineEmits(["voltar"]);
@@ -133,9 +134,16 @@ async function carregarPagamentos() {
   } catch (e) {}
 }
 
-function marcarComoFinalizada() {
+async function marcarComoFinalizada() {
   servicoLocal.value.status = "Finalizado";
   servicoLocal.value.fase_projeto = "Pronto para Entrega";
+
+  // Dispara a baixa automática no catálogo em background
+  try {
+    await catalogoService.abaterEstoqueOS(servicoLocal.value.id);
+  } catch (err) {
+    console.error("Erro ao atualizar estoque automático:", err);
+  }
 }
 
 // NOVA FUNÇÃO: Salvar Data de Previsão

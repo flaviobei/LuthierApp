@@ -65,6 +65,62 @@ async function carregarChecklist() {
   }
 }
 
+// NOVA FUNÇÃO: Sincroniza regras novas sem apagar as antigas
+async function sincronizarChecklist() {
+  try {
+    triggerToast("A verificar novas regras...", "info");
+
+    // 1. Puxa o padrão atual do painel Admin
+    const { data: padrao, error: errPadrao } = await supabase
+      .from("checklist_padrao")
+      .select("*");
+    if (errPadrao) throw errPadrao;
+
+    if (!padrao || padrao.length === 0) {
+      return triggerToast(
+        "Não há regras no padrão para sincronizar.",
+        "warning",
+      );
+    }
+
+    // 2. Descobre o que falta nesta O.S. comparando os nomes das áreas
+    const areasAtuais = checklistItens.value.map((i) => i.area);
+    const novosItens = padrao
+      .filter((p) => !areasAtuais.includes(p.item_nome))
+      .map((p) => ({
+        servico_id: props.servico.id,
+        etapa: p.tipo || "Geral",
+        area: p.item_nome || "Item sem nome",
+        condicao: "Pendente",
+        observacao: "",
+      }));
+
+    // 3. Se não houver nada novo, avisa e para
+    if (novosItens.length === 0) {
+      return triggerToast(
+        "O checklist já está 100% atualizado com o padrão!",
+        "success",
+      );
+    }
+
+    // 4. Insere apenas os itens em falta no banco
+    const { data: inseridos, error: errInsert } = await supabase
+      .from("checklist")
+      .insert(novosItens)
+      .select();
+    if (errInsert) throw errInsert;
+
+    // 5. Atualiza a tela instantaneamente
+    checklistItens.value = [...checklistItens.value, ...inseridos];
+    triggerToast(
+      `${novosItens.length} novas regras adicionadas à O.S.!`,
+      "success",
+    );
+  } catch (error) {
+    triggerToast("Erro ao sincronizar regras: " + error.message, "error");
+  }
+}
+
 async function atualizarStatusChecklist(item, statusOpcao) {
   try {
     const { error } = await supabase
@@ -78,7 +134,6 @@ async function atualizarStatusChecklist(item, statusOpcao) {
   }
 }
 
-// CORREÇÃO: Ordenando as chaves para Entrada sempre vir antes de Saída
 const checklistsAgrupados = computed(() => {
   const grupos = {};
   checklistItens.value.forEach((item) => {
@@ -87,8 +142,6 @@ const checklistsAgrupados = computed(() => {
     grupos[etapaNome].push(item);
   });
 
-  // Extrai as chaves (ex: ["Saída", "Entrada"]), ordena alfabeticamente (fica ["Entrada", "Saída"])
-  // e depois mapeia para o formato esperado pelo template
   return Object.keys(grupos)
     .sort()
     .map((etapa) => ({ etapa, itens: grupos[etapa] }));
@@ -189,6 +242,28 @@ onMounted(() => {
 <template>
   <div>
     <div
+      class="flex-between mb-2"
+      v-if="!osFinalizada && checklistsAgrupados.length > 0"
+    >
+      <span class="text-muted" style="font-size: 0.85rem">
+        Inspeção baseada no momento da abertura.
+      </span>
+      <button
+        class="btn-outline"
+        style="padding: 4px 10px; font-size: 0.8rem"
+        @click="sincronizarChecklist"
+        title="Busca novas regras adicionadas no Painel Admin"
+      >
+        <span
+          class="icon-dinamico"
+          style="font-size: 1.1rem; vertical-align: middle"
+          >sync</span
+        >
+        Sincronizar Regras
+      </button>
+    </div>
+
+    <div
       v-if="checklistsAgrupados.length === 0"
       class="card mb-2 text-muted text-center py-5"
     >
@@ -197,9 +272,15 @@ onMounted(() => {
         style="font-size: 3rem; color: var(--text-muted)"
         >sentiment_dissatisfied</span
       ><br />
-      Nenhuma regra de checklist encontrada.<br /><small
-        >Configure regras em "Admin > Checklist".</small
+      Nenhuma regra de checklist encontrada.<br />
+      <small>Configure regras em "Admin > Checklist".</small><br /><br />
+      <button
+        v-if="!osFinalizada"
+        class="btn-outline"
+        @click="sincronizarChecklist"
       >
+        <span class="icon-dinamico">sync</span> Tentar Sincronizar Agora
+      </button>
     </div>
 
     <div class="checklists-grid mb-2">

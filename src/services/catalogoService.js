@@ -2,42 +2,31 @@
  * ============================================================================
  * @file        catalogoService.js
  * @description Centraliza a gestão de preços, peças e insumos.
+ * ATUALIZAÇÃO: Motor de baixa automática de estoque.
  * ============================================================================
  */
 import { supabase } from "../lib/supabaseClient";
 
 export const catalogoService = {
-  /**
-   * Busca todos os itens do catálogo
-   */
   async buscarTodos() {
     const { data, error } = await supabase
       .from("catalogo")
       .select("*")
       .order("nome", { ascending: true });
-
     if (error) throw error;
     return data;
   },
 
-  /**
-   * Busca apenas itens que podem ser vendidos (Mão de Obra e Peças)
-   * Útil para os dropdowns de Orçamento.
-   */
   async buscarItensVenda() {
     const { data, error } = await supabase
       .from("catalogo")
       .select("*")
       .neq("tipo", "Insumo")
       .order("nome", { ascending: true });
-
     if (error) throw error;
     return data;
   },
 
-  /**
-   * Salva um item (Criação ou Atualização)
-   */
   async salvar(item) {
     const isUpdate = !!item.id;
     let query = supabase.from("catalogo");
@@ -56,11 +45,81 @@ export const catalogoService = {
     }
   },
 
-  /**
-   * Remove um item do catálogo
-   */
   async excluir(id) {
     const { error } = await supabase.from("catalogo").delete().eq("id", id);
     if (error) throw error;
+  },
+
+  // ==========================================================================
+  // MOTOR DE ESTOQUE INTELIGENTE
+  // ==========================================================================
+  async abaterEstoqueOS(servicoId) {
+    // 1. Verifica a trava de segurança (Se já foi descontado, aborta)
+    const { data: os } = await supabase
+      .from("servicos")
+      .select("estoque_abatido")
+      .eq("id", servicoId)
+      .single();
+    if (os?.estoque_abatido) return;
+
+    // 2. Busca os itens do orçamento que estão linkados ao catálogo
+    const { data: itens } = await supabase
+      .from("orcamento_itens")
+      .select("catalogo_id")
+      .eq("servico_id", servicoId)
+      .not("catalogo_id", "is", null);
+
+    if (!itens || itens.length === 0) {
+      // Se não tem peças de catálogo, só marca como abatido e encerra
+      await supabase
+        .from("servicos")
+        .update({ estoque_abatido: true })
+        .eq("id", servicoId);
+      return;
+    }
+
+    // 3. Puxa as regras do catálogo
+    const { data: catalogo } = await supabase.from("catalogo").select("*");
+    const deducoes = {}; // Armazena o que precisamos descontar { id_do_item: quantidade }
+
+    itens.forEach((itemOS) => {
+      const catItem = catalogo.find((c) => c.id === itemOS.catalogo_id);
+      if (!catItem) return;
+
+      // Se for Peça com controlo de estoque (1 unidade por cada vez que aparece no orçamento)
+      if (catItem.tipo === "Peca" && catItem.controla_estoque) {
+        deducoes[catItem.id] = (deducoes[catItem.id] || 0) + 1;
+      }
+
+      // Se for Serviço, vai descontar os insumos "invisíveis" baseados na Receita configurada
+      if (
+        catItem.tipo === "MaoDeObra" &&
+        catItem.insumos_consumidos?.length > 0
+      ) {
+        catItem.insumos_consumidos.forEach((ins) => {
+          deducoes[ins.insumo_id] =
+            (deducoes[ins.insumo_id] || 0) + Number(ins.quantidade);
+        });
+      }
+    });
+
+    // 4. Executa a baixa real no banco de dados
+    for (const [catId, qtdAbater] of Object.entries(deducoes)) {
+      const itemRef = catalogo.find((c) => c.id === catId);
+      if (itemRef && itemRef.quantidade_estoque !== null) {
+        // Impede que o estoque fique negativo (abaixo de zero)
+        const novaQtd = Math.max(0, itemRef.quantidade_estoque - qtdAbater);
+        await supabase
+          .from("catalogo")
+          .update({ quantidade_estoque: novaQtd })
+          .eq("id", catId);
+      }
+    }
+
+    // 5. Aciona a trava de segurança da O.S.
+    await supabase
+      .from("servicos")
+      .update({ estoque_abatido: true })
+      .eq("id", servicoId);
   },
 };

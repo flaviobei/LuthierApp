@@ -3,32 +3,41 @@
  * ============================================================================
  * @file        DashboardAtividades.vue
  * @description Painel principal de indicadores (KPIs).
- * ATUALIZAÇÃO: Refatoração completa para a camada osService (Bancada e CRM).
+ * ATUALIZAÇÃO: Alerta Inteligente de Estoque.
  * ============================================================================
  */
 import { ref, onMounted } from "vue";
 import { abrirWhatsapp } from "../lib/whatsappUtils";
 import { useToast } from "../composables/useToast";
 import { osService } from "../services/osService";
+import { catalogoService } from "../services/catalogoService"; // Novo Serviço
 
-const emit = defineEmits(["abrirOS"]);
+const emit = defineEmits(["abrirOS", "mudarAba"]); // Adicionado mudarAba para o botão do estoque
 const { triggerToast } = useToast();
 
 const servicosAbertos = ref([]);
 const oportunidadesPosVenda = ref([]);
+const alertasEstoque = ref([]); // Nova variável
 const loading = ref(true);
 
 // --- CARREGAMENTO ---
 async function carregarDadosIniciais() {
   loading.value = true;
   try {
-    const [pendencias, crm] = await Promise.all([
+    // Carrega tudo ao mesmo tempo
+    const [pendencias, crm, catalogo] = await Promise.all([
       osService.buscarPendenciasDash(),
       osService.buscarOportunidadesPosVenda(),
+      catalogoService.buscarTodos(),
     ]);
 
     servicosAbertos.value = pendencias;
     oportunidadesPosVenda.value = crm;
+
+    // Filtra o catálogo para mostrar apenas os itens abaixo do mínimo!
+    alertasEstoque.value = catalogo.filter(
+      (c) => c.controla_estoque && c.quantidade_estoque <= c.estoque_minimo,
+    );
   } catch (error) {
     triggerToast("Erro ao carregar dashboard: " + error.message, "error");
   } finally {
@@ -109,6 +118,53 @@ onMounted(() => carregarDadosIniciais());
 
 <template>
   <div class="dash-container">
+    <div
+      v-if="alertasEstoque.length > 0"
+      class="crm-box card"
+      style="border-color: var(--danger)"
+    >
+      <div class="crm-header" style="background: var(--danger)">
+        <h3
+          style="
+            margin: 0;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span class="icon-dinamico">running_with_errors</span> Alertas de
+          Estoque Baixo
+        </h3>
+        <span class="badge-crm" style="color: var(--danger)"
+          >{{ alertasEstoque.length }} Itens</span
+        >
+      </div>
+      <div class="crm-list" style="padding-top: 15px">
+        <div
+          v-for="item in alertasEstoque"
+          :key="item.id"
+          class="crm-item"
+          style="border-left: 4px solid var(--danger)"
+        >
+          <div class="crm-info">
+            <strong style="color: var(--danger); font-size: 1.1rem">{{
+              item.nome
+            }}</strong>
+            <span style="color: var(--text-main); font-size: 0.9rem">
+              Estoque Atual:
+              <strong style="font-size: 1.1rem">{{
+                item.quantidade_estoque
+              }}</strong>
+              <span class="text-muted">
+                (Mínimo recomendado: {{ item.estoque_minimo }})</span
+              >
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="oportunidadesPosVenda.length > 0" class="crm-box card">
       <div class="crm-header">
         <h3

@@ -4,12 +4,6 @@
  * @file        RelatoriosDashboard.vue
  * @description Dashboard analítico avançado. Focado em métricas de performance
  * financeira e operacional para auxílio na tomada de decisão.
- * ATUALIZAÇÃO: Correção de status (Finalizado/Entregue), cálculo de dias e ícones.
- * @project     LuthierApp
- * ============================================================================
- * @dependencies
- * - chart.js: Renderização de gráficos de barras e pizzas.
- * - supabaseClient: Agrupamento de dados financeiros.
  * ============================================================================
  */
 
@@ -21,26 +15,32 @@ const transacoes = ref([]);
 const servicos = ref([]);
 const loading = ref(true);
 
-const tipoGraficoDash = ref("resumo"); // 'resumo' (6 Meses) ou 'temporal'
-const periodoTemporal = ref(90); // 30, 60, 90, 180, 365, ou 9999 (Todo o período)
+const tipoGraficoDash = ref("resumo");
+const periodoTemporal = ref(90);
 const graficoDashRef = ref(null);
+const graficoMarcasRef = ref(null);
+const graficoTiposRef = ref(null);
+
 let instanceGraficoDash = null;
+let instanceGraficoMarcas = null;
+let instanceGraficoTipos = null;
 
 async function carregarDados() {
   loading.value = true;
 
-  // Resolvemos remover o limite matemático de 6 meses da query para que a visão temporal
-  // possa exibir até 'Todo o período'. A carga para aplicações de pequeno/médio porte em Luthieria é mínima.
+  // Busca transações incluindo o servico_id para cruzar com os instrumentos
   const { data: dadosTransacoes } = await supabase
     .from("transacoes")
-    .select("tipo, valor_bruto, data_pagamento");
+    .select("tipo, valor_bruto, data_pagamento, servico_id");
 
   if (dadosTransacoes) transacoes.value = dadosTransacoes;
 
-  // Busca os serviços globalmente (Para ter o 'Todo o período' ou métricas globais se necessário)
+  // Busca os serviços puxando a relação com a marca do instrumento
   const { data: dadosServicos } = await supabase
     .from("servicos")
-    .select("status, data_entrada, data_conclusao");
+    .select(
+      "id, status, data_entrada, data_conclusao, tipo_os, instrumentos(marca)",
+    );
 
   if (dadosServicos) servicos.value = dadosServicos;
 
@@ -76,7 +76,6 @@ const lucroMes = computed(() => faturamentoMes.value - despesasMes.value);
 
 // --- KPIs DE PRODUÇÃO ---
 
-// OS em Andamento: Conta todas que NÃO são "Finalizado" nem "Entregue"
 const osEmAndamento = computed(
   () =>
     servicos.value.filter(
@@ -84,7 +83,6 @@ const osEmAndamento = computed(
     ).length,
 );
 
-// OS Finalizadas/Entregues no Mês atual
 const osFinalizadasMes = computed(() => {
   return servicos.value.filter((s) => {
     if (s.status !== "Entregue" && s.status !== "Finalizado") return false;
@@ -97,13 +95,14 @@ const osFinalizadasMes = computed(() => {
   }).length;
 });
 
-// Tempo Médio (apenas de OS Finalizadas ou Entregues)
+// Tempo Médio GERAL
 const tempoMedioServico = computed(() => {
   const concluidos = servicos.value.filter(
     (s) =>
       (s.status === "Entregue" || s.status === "Finalizado") &&
       s.data_entrada &&
-      s.data_conclusao,
+      s.data_conclusao &&
+      s.tipo_os !== "Retrabalho",
   );
 
   if (concluidos.length === 0) return 0;
@@ -115,22 +114,88 @@ const tempoMedioServico = computed(() => {
     const fim = new Date(
       s.data_conclusao + (s.data_conclusao.includes("T") ? "" : "T12:00:00"),
     );
-
-    // Zera a hora para calcular a diferença exata de dias
     inicio.setHours(0, 0, 0, 0);
     fim.setHours(0, 0, 0, 0);
-
     const diffTime = Math.abs(fim - inicio);
-    // Se fez no mesmo dia, conta como 1 dia de trabalho. Se não, conta os dias normais.
     const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
     return acc + diffDays;
   }, 0);
 
   return Math.round(totalDias / concluidos.length);
 });
 
-// --- LÓGICA DO GRÁFICO DE BARRAS (ÚLTIMOS 6 MESES) ---
+// Tempo Médio RETRABALHO
+const tempoMedioRetrabalho = computed(() => {
+  const concluidos = servicos.value.filter(
+    (s) =>
+      (s.status === "Entregue" || s.status === "Finalizado") &&
+      s.data_entrada &&
+      s.data_conclusao &&
+      s.tipo_os === "Retrabalho",
+  );
+
+  if (concluidos.length === 0) return 0;
+
+  const totalDias = concluidos.reduce((acc, s) => {
+    const inicio = new Date(
+      s.data_entrada + (s.data_entrada.includes("T") ? "" : "T12:00:00"),
+    );
+    const fim = new Date(
+      s.data_conclusao + (s.data_conclusao.includes("T") ? "" : "T12:00:00"),
+    );
+    inicio.setHours(0, 0, 0, 0);
+    fim.setHours(0, 0, 0, 0);
+    const diffTime = Math.abs(fim - inicio);
+    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    return acc + diffDays;
+  }, 0);
+
+  return Math.round(totalDias / concluidos.length);
+});
+
+// --- LÓGICA DE DADOS PARA GRÁFICOS AVANÇADOS ---
+
+// Ranking de Marcas (Top 5 Faturamento)
+const dadosMarcas = computed(() => {
+  const agregados = {};
+  transacoes.value.forEach((t) => {
+    if (t.tipo === "Entrada") {
+      const svc = servicos.value.find((s) => s.id === t.servico_id);
+      let marca = svc?.instrumentos?.marca;
+      if (!marca || typeof marca !== "string" || marca.trim() === "") {
+        marca = "Outras";
+      } else {
+        marca = marca.trim();
+        marca = marca.charAt(0).toUpperCase() + marca.slice(1).toLowerCase();
+      }
+      agregados[marca] = (agregados[marca] || 0) + Number(t.valor_bruto);
+    }
+  });
+
+  const sorted = Object.keys(agregados)
+    .map((k) => ({ marca: k, valor: agregados[k] }))
+    .sort((a, b) => b.valor - a.valor);
+
+  const top5 = sorted.slice(0, 5);
+
+  return {
+    labels: top5.map((x) => x.marca),
+    valores: top5.map((x) => x.valor),
+  };
+});
+
+// Volume de Retrabalho (O.S. Normal vs Garantia)
+const dadosTiposOS = computed(() => {
+  let retrabalho = 0;
+  let normal = 0;
+  servicos.value.forEach((s) => {
+    if (s.tipo_os === "Retrabalho") retrabalho++;
+    else normal++;
+  });
+  return [normal, retrabalho];
+});
+
+// Evolução 6 Meses
 const ultimos6Meses = computed(() => {
   const meses = [];
   for (let i = 5; i >= 0; i--) {
@@ -157,14 +222,12 @@ const ultimos6Meses = computed(() => {
       if (t.tipo === "Saida") meses[index].saida += Number(t.valor_bruto);
     }
   });
-
   return meses;
 });
 
 const dadosTemporais = computed(() => {
   const trintaDiasAtras = new Date();
   if (periodoTemporal.value === 9999) {
-    // Arbitrariamente 20 anos atrás para cobrir 'tudo'
     trintaDiasAtras.setFullYear(trintaDiasAtras.getFullYear() - 20);
   } else {
     trintaDiasAtras.setDate(trintaDiasAtras.getDate() - periodoTemporal.value);
@@ -172,9 +235,6 @@ const dadosTemporais = computed(() => {
   trintaDiasAtras.setHours(0, 0, 0, 0);
 
   const diasAgrupados = {};
-
-  // Se o período for maior ou igual a 6 meses (180 dias), o gráfico diário ficará
-  // ilegível com centenas de pontos. Por isso, agrupamos por "Mês/Ano".
   const agruparPorMes = periodoTemporal.value >= 180;
 
   transacoes.value.forEach((t) => {
@@ -182,64 +242,51 @@ const dadosTemporais = computed(() => {
       t.data_pagamento + (t.data_pagamento.includes("T") ? "" : "T12:00:00"),
     );
 
-    // Só pega as transações dentro do período de corte
     if (d >= trintaDiasAtras) {
       let labelStr = "";
       if (agruparPorMes) {
-        // Ex: "03/2026"
         labelStr = d.toLocaleDateString("pt-BR", {
           month: "2-digit",
           year: "numeric",
         });
       } else {
-        // Ex: "15/03"
         labelStr = d.toLocaleDateString("pt-BR", {
           day: "2-digit",
           month: "2-digit",
         });
       }
 
-      if (!diasAgrupados[labelStr]) {
+      if (!diasAgrupados[labelStr])
         diasAgrupados[labelStr] = { ganhos: 0, gastos: 0, dateObj: d };
-      }
-
-      if (t.tipo === "Entrada") {
+      if (t.tipo === "Entrada")
         diasAgrupados[labelStr].ganhos += Number(t.valor_bruto);
-      } else if (t.tipo === "Saida") {
+      else if (t.tipo === "Saida")
         diasAgrupados[labelStr].gastos += Number(t.valor_bruto);
-      }
     }
   });
 
-  // Ordenar as chaves (datas) cronologicamente
   const labelsOrdenadas = Object.values(diasAgrupados)
     .sort((a, b) => a.dateObj - b.dateObj)
-    .map((x) => {
-      if (agruparPorMes) {
-        return x.dateObj.toLocaleDateString("pt-BR", {
-          month: "2-digit",
-          year: "numeric",
-        });
-      }
-      return x.dateObj.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-      });
-    });
+    .map((x) =>
+      agruparPorMes
+        ? x.dateObj.toLocaleDateString("pt-BR", {
+            month: "2-digit",
+            year: "numeric",
+          })
+        : x.dateObj.toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+          }),
+    );
 
   const dataGanhos = [];
   const dataGastos = [];
-
   labelsOrdenadas.forEach((lbl) => {
     dataGanhos.push(diasAgrupados[lbl]?.ganhos || 0);
     dataGastos.push(diasAgrupados[lbl]?.gastos || 0);
   });
 
-  return {
-    labels: labelsOrdenadas,
-    ganhos: dataGanhos,
-    gastos: dataGastos,
-  };
+  return { labels: labelsOrdenadas, ganhos: dataGanhos, gastos: dataGastos };
 });
 
 // --- RENDERIZAR CHART.JS ---
@@ -250,7 +297,6 @@ function construirGraficoDash() {
   const ctx = graficoDashRef.value.getContext("2d");
 
   if (tipoGraficoDash.value === "resumo") {
-    // VISÃO 6 MESES (BARRAS)
     const dados = ultimos6Meses.value;
     instanceGraficoDash = new Chart(ctx, {
       type: "bar",
@@ -258,13 +304,13 @@ function construirGraficoDash() {
         labels: dados.map((d) => d.label),
         datasets: [
           {
-            label: "Entradas / Receitas (R$)",
+            label: "Receitas (R$)",
             data: dados.map((d) => d.entrada),
             backgroundColor: "#27ae60",
             borderRadius: 4,
           },
           {
-            label: "Saídas / Despesas (R$)",
+            label: "Despesas (R$)",
             data: dados.map((d) => d.saida),
             backgroundColor: "#c0392b",
             borderRadius: 4,
@@ -274,18 +320,10 @@ function construirGraficoDash() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "bottom" },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-          },
-        },
+        plugins: { legend: { position: "bottom" } },
       },
     });
   } else if (tipoGraficoDash.value === "temporal") {
-    // VISÃO TEMPORAL (DINÂMICA)
     const dados = dadosTemporais.value;
     const isAgrupadoPorMes = periodoTemporal.value >= 180;
     instanceGraficoDash = new Chart(ctx, {
@@ -294,9 +332,7 @@ function construirGraficoDash() {
         labels: dados.labels,
         datasets: [
           {
-            label: isAgrupadoPorMes
-              ? "Ganhos Mensais (R$)"
-              : "Ganhos Diários (R$)",
+            label: isAgrupadoPorMes ? "Ganhos Mensais" : "Ganhos Diários",
             data: dados.ganhos,
             borderColor: "#27ae60",
             backgroundColor: "rgba(39, 174, 96, 0.1)",
@@ -304,9 +340,7 @@ function construirGraficoDash() {
             fill: true,
           },
           {
-            label: isAgrupadoPorMes
-              ? "Gastos Mensais (R$)"
-              : "Gastos Diários (R$)",
+            label: isAgrupadoPorMes ? "Gastos Mensais" : "Gastos Diários",
             data: dados.gastos,
             borderColor: "#c0392b",
             backgroundColor: "transparent",
@@ -318,17 +352,79 @@ function construirGraficoDash() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          tooltip: {
-            mode: "index",
-            intersect: false,
+        plugins: { legend: { position: "bottom" } },
+        interaction: { mode: "nearest", axis: "x", intersect: false },
+      },
+    });
+  }
+}
+
+function construirGraficosAvancados() {
+  if (instanceGraficoMarcas) instanceGraficoMarcas.destroy();
+  if (instanceGraficoTipos) instanceGraficoTipos.destroy();
+
+  // Gráfico Horizontal de Marcas Rentáveis
+  if (graficoMarcasRef.value && dadosMarcas.value.labels.length > 0) {
+    instanceGraficoMarcas = new Chart(graficoMarcasRef.value.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: dadosMarcas.value.labels,
+        datasets: [
+          {
+            label: "Faturamento",
+            data: dadosMarcas.value.valores,
+            backgroundColor: "#3498db",
+            borderRadius: 4,
           },
-          legend: { position: "bottom" },
+        ],
+      },
+      options: {
+        indexAxis: "y", // Barra horizontal
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `R$ ${ctx.parsed.x.toFixed(2)}`,
+            },
+          },
         },
-        interaction: {
-          mode: "nearest",
-          axis: "x",
-          intersect: false,
+        scales: { x: { ticks: { callback: (val) => `R$ ${val}` } } },
+      },
+    });
+  }
+
+  // Gráfico Circular de Retrabalho
+  if (graficoTiposRef.value) {
+    instanceGraficoTipos = new Chart(graficoTiposRef.value.getContext("2d"), {
+      type: "doughnut",
+      data: {
+        labels: ["O.S. Padrão", "Retrabalho/Garantia"],
+        datasets: [
+          {
+            data: dadosTiposOS.value,
+            backgroundColor: ["#2c3e50", "#e74c3c"],
+            borderWidth: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "65%",
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                const perc =
+                  total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
+                return ` ${ctx.parsed} O.S. (${perc}%)`;
+              },
+            },
+          },
         },
       },
     });
@@ -342,19 +438,21 @@ watch([tipoGraficoDash, periodoTemporal], () => {
 onMounted(async () => {
   await carregarDados();
   construirGraficoDash();
+  construirGraficosAvancados();
 });
 
 onUnmounted(() => {
   if (instanceGraficoDash) instanceGraficoDash.destroy();
+  if (instanceGraficoMarcas) instanceGraficoMarcas.destroy();
+  if (instanceGraficoTipos) instanceGraficoTipos.destroy();
 });
 </script>
 
 <template>
   <div
     v-if="loading"
-    class="text-muted text-center"
+    class="text-muted text-center py-5"
     style="
-      padding: 40px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -366,7 +464,7 @@ onUnmounted(() => {
       style="font-size: 2rem; animation: spin 1s linear infinite"
       >sync</span
     >
-    A calcular métricas...
+    A calcular métricas e montar gráficos...
   </div>
 
   <div v-else class="relatorios-container">
@@ -417,87 +515,102 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="main-grid">
-      <div class="card chart-card">
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-          "
+    <div class="card chart-card mb-2">
+      <div class="flex-between mb-2" style="flex-wrap: wrap">
+        <h3
+          class="title-section"
+          style="margin: 0; display: flex; align-items: center; gap: 8px"
         >
-          <h3
-            class="title-section"
+          <span class="icon-dinamico">insights</span> Evolução Financeira
+        </h3>
+        <div style="display: flex; gap: 5px; align-items: center">
+          <button
+            class="btn-tab"
+            :class="{ active: tipoGraficoDash === 'resumo' }"
+            @click="tipoGraficoDash = 'resumo'"
             style="
-              margin-top: 0;
-              margin-bottom: 0;
+              padding: 4px 10px;
+              font-size: 0.8rem;
+              border-radius: 4px;
               display: flex;
               align-items: center;
-              gap: 8px;
+              gap: 4px;
             "
           >
-            <span class="icon-dinamico">insights</span> Evolução Financeira
-          </h3>
-          <div style="display: flex; gap: 5px">
-            <button
-              class="btn-tab"
-              :class="{ active: tipoGraficoDash === 'resumo' }"
-              @click="tipoGraficoDash = 'resumo'"
-              style="
-                padding: 4px 10px;
-                font-size: 0.8rem;
-                border-radius: 4px;
-                display: flex;
-                align-items: center;
-                gap: 4px;
-              "
+            <span class="icon-dinamico" style="font-size: 0.75rem"
+              >bar_chart</span
             >
-              <span class="icon-dinamico" style="font-size: 0.75rem"
-                >bar_chart</span
-              >
-              Balanço
-            </button>
-            <button
-              class="btn-tab"
-              :class="{ active: tipoGraficoDash === 'temporal' }"
-              @click="tipoGraficoDash = 'temporal'"
-              style="
-                padding: 4px 10px;
-                font-size: 0.8rem;
-                border-radius: 4px;
-                display: flex;
-                align-items: center;
-                gap: 4px;
-              "
+            Balanço
+          </button>
+          <button
+            class="btn-tab"
+            :class="{ active: tipoGraficoDash === 'temporal' }"
+            @click="tipoGraficoDash = 'temporal'"
+            style="
+              padding: 4px 10px;
+              font-size: 0.8rem;
+              border-radius: 4px;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            "
+          >
+            <span class="icon-dinamico" style="font-size: 0.75rem"
+              >show_chart</span
             >
-              <span class="icon-dinamico" style="font-size: 0.75rem"
-                >show_chart</span
-              >
-              Curva
-            </button>
-            <select
-              v-if="tipoGraficoDash === 'temporal'"
-              v-model="periodoTemporal"
-              style="
-                padding: 4px 8px;
-                font-size: 0.8rem;
-                border-radius: 4px;
-                border: 1px solid var(--border);
-                color: var(--text-main);
-                background-color: var(--bg-card);
-              "
-            >
-              <option :value="90">90 Dias</option>
-              <option :value="180">6 Meses</option>
-              <option :value="365">1 Ano</option>
-              <option :value="9999">Tudo</option>
-            </select>
-          </div>
+            Curva
+          </button>
+          <select
+            v-if="tipoGraficoDash === 'temporal'"
+            v-model="periodoTemporal"
+            style="
+              padding: 4px 8px;
+              font-size: 0.8rem;
+              border-radius: 4px;
+              border: 1px solid var(--border);
+            "
+          >
+            <option :value="90">90 Dias</option>
+            <option :value="180">6 Meses</option>
+            <option :value="365">1 Ano</option>
+            <option :value="9999">Tudo</option>
+          </select>
         </div>
+      </div>
+      <div class="chart-wrapper" style="height: 250px">
+        <canvas ref="graficoDashRef"></canvas>
+      </div>
+    </div>
 
-        <div class="chart-wrapper" style="border: none; padding-top: 5px">
-          <canvas ref="graficoDashRef"></canvas>
+    <div class="advanced-grid">
+      <div class="card chart-card">
+        <h3
+          class="title-section"
+          style="
+            margin-top: 0;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          "
+        >
+          <span class="icon-dinamico" style="color: #3498db"
+            >workspace_premium</span
+          >
+          Top Marcas (Receita)
+        </h3>
+        <div class="chart-wrapper" style="height: 200px">
+          <canvas
+            ref="graficoMarcasRef"
+            v-if="dadosMarcas.labels.length > 0"
+          ></canvas>
+          <div
+            v-else
+            class="text-muted text-center w-full"
+            style="padding-top: 50px; font-size: 0.85rem"
+          >
+            Sem dados comerciais ainda.
+          </div>
         </div>
       </div>
 
@@ -509,11 +622,21 @@ onUnmounted(() => {
             >
           </div>
           <div class="info">
-            <span class="kpi-title">Tempo Médio de Entrega</span><br />
+            <span class="kpi-title">Tempo Médio (Geral)</span><br />
             <strong class="kpi-value">{{ tempoMedioServico }} dias</strong>
           </div>
         </div>
-
+        <div class="card kpi-prod">
+          <div class="icon">
+            <span class="icon-dinamico" style="color: var(--danger)"
+              >assignment_return</span
+            >
+          </div>
+          <div class="info">
+            <span class="kpi-title">Tempo (Retrabalho)</span><br />
+            <strong class="kpi-value">{{ tempoMedioRetrabalho }} dias</strong>
+          </div>
+        </div>
         <div class="card kpi-prod">
           <div class="icon">
             <span class="icon-dinamico" style="color: var(--warning)"
@@ -525,17 +648,24 @@ onUnmounted(() => {
             <strong class="kpi-value">{{ osEmAndamento }} O.S.</strong>
           </div>
         </div>
+      </div>
 
-        <div class="card kpi-prod">
-          <div class="icon">
-            <span class="icon-dinamico" style="color: var(--success)"
-              >check_circle</span
-            >
-          </div>
-          <div class="info">
-            <span class="kpi-title">Entregues neste mês</span><br />
-            <strong class="kpi-value">{{ osFinalizadasMes }} O.S.</strong>
-          </div>
+      <div class="card chart-card">
+        <h3
+          class="title-section"
+          style="
+            margin-top: 0;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          "
+        >
+          <span class="icon-dinamico" style="color: #e74c3c">pie_chart</span>
+          Taxa de Retrabalho
+        </h3>
+        <div class="chart-wrapper" style="height: 200px">
+          <canvas ref="graficoTiposRef"></canvas>
         </div>
       </div>
     </div>
@@ -549,7 +679,7 @@ onUnmounted(() => {
   gap: 20px;
 }
 
-/* Grid Superior de KPIs */
+/* KPIs Superiores (Financeiro) */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -583,14 +713,19 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* Grid Principal (Gráfico + Produtividade) */
-.main-grid {
+/* Grid Inferior (Avançado) */
+.advanced-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 20px;
 }
+@media (max-width: 1024px) {
+  .advanced-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 @media (max-width: 768px) {
-  .main-grid {
+  .advanced-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -599,42 +734,43 @@ onUnmounted(() => {
 .producao-grid {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 15px;
 }
 .kpi-prod {
   display: flex;
   align-items: center;
   gap: 15px;
-  padding: 20px;
+  padding: 15px 20px;
+  margin-bottom: 0;
+  flex: 1;
 }
 .kpi-prod .icon {
   font-size: 2rem;
   background: var(--bg-body);
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
 }
 .kpi-prod .icon .icon-dinamico {
-  font-size: 2rem;
+  font-size: 1.8rem;
 }
 
-/* Chart Component */
+/* Estrutura do Chart */
 .chart-card {
   display: flex;
   flex-direction: column;
+  margin-bottom: 0;
 }
-
 .chart-wrapper {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: flex-end;
-  height: 250px;
-  padding-top: 20px;
-  margin-bottom: 10px;
   position: relative;
+  width: 100%;
 }
 
 @keyframes spin {
