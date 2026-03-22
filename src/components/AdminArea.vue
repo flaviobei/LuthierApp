@@ -22,7 +22,7 @@ import GestaoBackups from "./GestaoBackups.vue";
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
-const { iniciarTour } = useOnboarding(ref("admin"), ref(false));
+const { iniciarTour } = useOnboarding();
 
 const isSuperAdmin = ref(false);
 const carregandoSeguranca = ref(true);
@@ -182,6 +182,7 @@ onMounted(async () => {
         </button>
 
         <button
+          id="tour-limpeza"
           class="btn-tab text-danger"
           :class="{ active: abaAtual === 'limpeza' }"
           @click="abaAtual = 'limpeza'"
