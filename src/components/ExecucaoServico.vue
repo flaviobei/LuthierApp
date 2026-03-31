@@ -535,6 +535,12 @@ onMounted(carregarTudo);
                   : "RECIBO DE PAGAMENTO"
               }}
             </h3>
+            <p>
+              <strong>Cliente:</strong> {{ dadosCliente?.nome }}<br />
+              <strong>Instrumento:</strong> {{ dadosInstrumento?.marca }}<br />
+              <strong>Modelo:</strong> {{ dadosInstrumento?.modelo }}<br />
+            </p>
+
             <p><strong>O.S. Nº:</strong> {{ servicoLocal.numero_os }}</p>
             <p><strong>Data:</strong> {{ new Date().toLocaleDateString() }}</p>
           </div>
