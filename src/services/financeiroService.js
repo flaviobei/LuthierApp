@@ -20,7 +20,7 @@ export const financeiroService = {
     if (dataInicio && dataFim) {
       query = query
         .gte("data_pagamento", dataInicio)
-        .lte("data_pagamento", dataFim);
+        .lte("data_pagamento", dataFim + "T23:59:59.999Z");
     } else if (mesFiltro) {
       // Fallback: se não vier início/fim, usa o mês base (comportamento antigo)
       const [ano, mes] = mesFiltro.split("-");
@@ -31,7 +31,7 @@ export const financeiroService = {
 
       query = query
         .gte("data_pagamento", inicioMes)
-        .lte("data_pagamento", fimMes);
+        .lte("data_pagamento", fimMes + "T23:59:59.999Z");
     }
 
     const { data, error } = await query;

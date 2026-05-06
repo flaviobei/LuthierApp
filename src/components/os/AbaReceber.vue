@@ -31,10 +31,14 @@ const emit = defineEmits([
 
 const { triggerToast } = useToast();
 
+function getLocalDatetime() {
+  return new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 const novoPagamento = ref({
   valor: 0,
   metodo: "PIX",
-  data_pagamento: new Date().toISOString().substring(0, 10),
+  data_pagamento: getLocalDatetime(),
 });
 
 const pgtoExcedenteConfirmado = ref(false);
@@ -110,9 +114,9 @@ async function registrarPagamento() {
       tipo: "Entrada",
       categoria: "Servico",
       forma_pagamento: novoPagamento.value.metodo,
-      data_pagamento:
-        novoPagamento.value.data_pagamento ||
-        new Date().toISOString().substring(0, 10),
+      data_pagamento: novoPagamento.value.data_pagamento
+        ? new Date(novoPagamento.value.data_pagamento).toISOString()
+        : new Date().toISOString(),
     };
 
     const { error } = await supabase.from("transacoes").insert([transacao]);
@@ -127,9 +131,7 @@ async function registrarPagamento() {
     }
 
     pgtoExcedenteConfirmado.value = false;
-    novoPagamento.value.data_pagamento = new Date()
-      .toISOString()
-      .substring(0, 10);
+    novoPagamento.value.data_pagamento = getLocalDatetime();
     triggerToast("Pagamento registrado!", "success");
     emit("recarregarPagamentos"); // Pede ao pai para carregar os pagamentos atualizados
   } catch (err) {
@@ -288,7 +290,7 @@ async function salvarObservacoes() {
       </h4>
       <div class="flex-gap-10 mt-1" style="flex-wrap: wrap">
         <input
-          type="date"
+          type="datetime-local"
           v-model="novoPagamento.data_pagamento"
           style="flex: 1; min-width: 120px"
           title="Data do Pagamento"
@@ -365,7 +367,7 @@ async function salvarObservacoes() {
             new Date(
               p.data_pagamento +
                 (p.data_pagamento.includes("T") ? "" : "T12:00:00"),
-            ).toLocaleDateString()
+            ).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
           }}</small>
         </td>
         <td>R$ {{ Number(p.valor_bruto).toFixed(2) }}</td>

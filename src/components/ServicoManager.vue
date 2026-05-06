@@ -25,9 +25,13 @@ const servicos = ref([]);
 const loading = ref(false);
 const servicoEmExecucao = ref(null);
 
+function getLocalDatetime() {
+  return new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 const novaOS = ref({
   descricao_cliente: "",
-  data_entrada: new Date().toISOString().substring(0, 10), // Padrão: Hoje
+  data_entrada: getLocalDatetime(), // Padrão: Agora
   data_previsao_entrega: "",
   tolerancia_dias: 0,
   data_previsao_pecas: "",
@@ -50,8 +54,9 @@ async function abrirOS() {
 
   loading.value = true;
 
-  const entradaFinal =
-    novaOS.value.data_entrada || new Date().toISOString().substring(0, 10);
+  const entradaFinal = novaOS.value.data_entrada
+    ? new Date(novaOS.value.data_entrada).toISOString()
+    : new Date().toISOString();
 
   const { error } = await supabase.from("servicos").insert([
     {
@@ -71,7 +76,7 @@ async function abrirOS() {
   if (!error) {
     novaOS.value = {
       descricao_cliente: "",
-      data_entrada: new Date().toISOString().substring(0, 10),
+      data_entrada: getLocalDatetime(),
       data_previsao_entrega: "",
       tolerancia_dias: 0,
       data_previsao_pecas: "",
@@ -90,7 +95,12 @@ function abrirExecucao(os) {
 
 function formatarData(dataString) {
   if (!dataString) return "-";
-  return new Date(dataString + "T12:00:00").toLocaleDateString("pt-BR");
+  const d = new Date(dataString + (dataString.includes("T") ? "" : "T12:00:00"));
+  if (dataString.includes("T")) {
+    return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+  } else {
+    return d.toLocaleDateString("pt-BR");
+  }
 }
 
 onMounted(() => buscarServicos());
@@ -174,7 +184,7 @@ onMounted(() => buscarServicos());
 
         <div class="form-group">
           <label>Data de Entrada (Retroativa para trabalhos antigos):</label>
-          <input type="date" v-model="novaOS.data_entrada" />
+          <input type="datetime-local" v-model="novaOS.data_entrada" />
         </div>
 
         <div

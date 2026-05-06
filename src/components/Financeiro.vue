@@ -24,21 +24,26 @@ const filtroDataInicio = ref("");
 const filtroDataFim = ref("");
 const filtroCategoria = ref("Todas");
 
+function getLocalDatetime() {
+  return new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 const novaDespesa = ref({
   descricao: "",
   valor: null,
   categoria: "Outros",
-  data_pagamento: new Date().toISOString().substring(0, 10),
+  data_pagamento: getLocalDatetime(),
 });
 
 // LÓGICA DE FILTRO: Só filtra se o input tiver algo escrito
 const transacoesFiltradas = computed(() => {
   if (!transacoes.value) return [];
   return transacoes.value.filter((t) => {
+    const dataPag = t.data_pagamento.substring(0, 10);
     const passaInicio =
-      !filtroDataInicio.value || t.data_pagamento >= filtroDataInicio.value;
+      !filtroDataInicio.value || dataPag >= filtroDataInicio.value;
     const passaFim =
-      !filtroDataFim.value || t.data_pagamento <= filtroDataFim.value;
+      !filtroDataFim.value || dataPag <= filtroDataFim.value;
     const passaCategoria =
       filtroCategoria.value === "Todas" ||
       t.categoria === filtroCategoria.value;
@@ -177,7 +182,7 @@ async function salvarDespesa() {
       descricao: novaDespesa.value.descricao,
       valor_bruto: novaDespesa.value.valor,
       categoria: novaDespesa.value.categoria,
-      data_pagamento: novaDespesa.value.data_pagamento,
+      data_pagamento: novaDespesa.value.data_pagamento ? new Date(novaDespesa.value.data_pagamento).toISOString() : new Date().toISOString(),
       tipo: "Saída",
     });
     triggerToast("Saída registrada!", "success");
@@ -422,7 +427,7 @@ onUnmounted(() => {
         </div>
         <div class="form-group">
           <label>Data</label>
-          <input v-model="novaDespesa.data_pagamento" type="date" />
+          <input v-model="novaDespesa.data_pagamento" type="datetime-local" />
         </div>
         <button
           class="btn-primary"
@@ -478,9 +483,7 @@ onUnmounted(() => {
               <tr v-for="t in transacoesFiltradas" :key="t.id">
                 <td>
                   {{
-                    new Date(t.data_pagamento + "T12:00:00").toLocaleDateString(
-                      "pt-BR",
-                    )
+                    new Date(t.data_pagamento + (t.data_pagamento.includes("T") ? "" : "T12:00:00")).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
                   }}
                 </td>
                 <td>

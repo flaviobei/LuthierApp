@@ -20,10 +20,14 @@ const emit = defineEmits(["faseAtualizada"]);
 const { triggerToast } = useToast();
 
 const diario = ref([]);
+function getLocalDatetime() {
+  return new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 const novaEntradaDiario = ref({
   descricao: "",
   fase_projeto: props.servico.fase_projeto || "Na Bancada",
-  data_registro: new Date().toISOString().substring(0, 10),
+  data_registro: getLocalDatetime(),
 });
 const fotoDiarioUpload = ref(null);
 const carregandoFotoDiario = ref(false);
@@ -82,8 +86,9 @@ async function adicionarEntradaDiario() {
       descricao: novaEntradaDiario.value.descricao,
       fase_projeto: novaEntradaDiario.value.fase_projeto,
       foto_url: urlFotoDiario,
-      data_registro:
-        novaEntradaDiario.value.data_registro || new Date().toISOString(),
+      data_registro: novaEntradaDiario.value.data_registro
+        ? new Date(novaEntradaDiario.value.data_registro).toISOString()
+        : new Date().toISOString(),
     };
 
     const { data, error } = await supabase
@@ -109,9 +114,7 @@ async function adicionarEntradaDiario() {
       emit("faseAtualizada", novaEntradaDiario.value.fase_projeto);
 
       novaEntradaDiario.value.descricao = "";
-      novaEntradaDiario.value.data_registro = new Date()
-        .toISOString()
-        .substring(0, 10);
+      novaEntradaDiario.value.data_registro = getLocalDatetime();
       fotoDiarioUpload.value = null;
       triggerToast("Anotação salva!", "success");
     }
@@ -142,11 +145,11 @@ onMounted(() => carregarDiario());
 
       <div class="flex-gap-10 mt-1" style="flex-wrap: wrap">
         <input
-          type="date"
+          type="datetime-local"
           v-model="novaEntradaDiario.data_registro"
           class="flex-1"
           style="min-width: 120px"
-          title="Data da Execução (Retroativa)"
+          title="Data e Hora da Execução (Retroativa)"
         />
 
         <select
@@ -201,7 +204,7 @@ onMounted(() => carregarDiario());
               new Date(
                 nota.data_registro +
                   (nota.data_registro.includes("T") ? "" : "T12:00:00"),
-              ).toLocaleDateString()
+              ).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
             }}
           </div>
           <div class="timeline-content">
