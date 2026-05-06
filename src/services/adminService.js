@@ -2,12 +2,14 @@ import { supabase } from "../lib/supabaseClient";
 export const adminService = {
   async verificarSuperAdmin(email) {
     if (!email) return false;
-    const { data } = await supabase
-      .from("super_admins")
-      .select("*")
-      .eq("email", email)
-      .maybeSingle();
-    return !!data;
+    try {
+      const { data, error } = await supabase.functions.invoke("verificar-super-admin");
+      if (error) throw error;
+      return !!data?.isSuperAdmin;
+    } catch (err) {
+      console.error("Erro na Edge Function:", err);
+      return false;
+    }
   },
   async buscarAssinatura() {
     const user = await supabase.auth.getUser();

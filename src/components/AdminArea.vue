@@ -35,13 +35,9 @@ onMounted(async () => {
     } = await supabase.auth.getSession();
 
     if (session?.user?.email) {
-      const { data, error } = await supabase
-        .from("super_admins")
-        .select("*")
-        .eq("email", session.user.email)
-        .maybeSingle();
-
-      if (data && !error) {
+      // Validação via Edge Function
+      const { data, error } = await supabase.functions.invoke("verificar-super-admin");
+      if (!error && data?.isSuperAdmin) {
         isSuperAdmin.value = true;
       }
     }
@@ -182,6 +178,7 @@ onMounted(async () => {
         </button>
 
         <button
+          v-if="isSuperAdmin"
           id="tour-limpeza"
           class="btn-tab text-danger"
           :class="{ active: abaAtual === 'limpeza' }"
@@ -217,7 +214,7 @@ onMounted(async () => {
         <Ajuda v-if="abaAtual === 'ajuda'" />
         <TermosDeUso v-if="abaAtual === 'termos'" />
 
-        <LimpezaBanco v-if="abaAtual === 'limpeza'" />
+        <LimpezaBanco v-if="abaAtual === 'limpeza' && isSuperAdmin" />
         <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
 
         <GestaoBackups v-if="abaAtual === 'backups' && isSuperAdmin" />

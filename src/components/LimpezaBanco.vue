@@ -49,6 +49,17 @@ async function apagarDados(tipo) {
   statusMensagem.value = "A procurar e apagar os seus dados com segurança...";
 
   try {
+    // Verificação dupla de segurança
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error("Usuário não autenticado.");
+
+    // Verifica se é super admin para prosseguir (via Edge Function)
+    const { data: adminData, error: funcError } = await supabase.functions.invoke("verificar-super-admin");
+
+    if (funcError || !adminData?.isSuperAdmin) {
+      throw new Error("Acesso negado: Requer privilégios de administrador.");
+    }
+
     // ====================================================================
     // ORDEM RIGOROSA DE EXCLUSÃO (Para evitar bloqueios de Chave Estrangeira)
     // Apagamos sempre os "Filhos" antes dos "Pais".

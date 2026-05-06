@@ -103,16 +103,14 @@ export const catalogoService = {
       }
     });
 
-    // 4. Executa a baixa real no banco de dados
+    // 4. Executa a baixa real no banco de dados de forma atômica via RPC
     for (const [catId, qtdAbater] of Object.entries(deducoes)) {
       const itemRef = catalogo.find((c) => c.id === catId);
       if (itemRef && itemRef.quantidade_estoque !== null) {
-        // Impede que o estoque fique negativo (abaixo de zero)
-        const novaQtd = Math.max(0, itemRef.quantidade_estoque - qtdAbater);
-        await supabase
-          .from("catalogo")
-          .update({ quantidade_estoque: novaQtd })
-          .eq("id", catId);
+        await supabase.rpc('abater_estoque', {
+          p_item_id: catId,
+          p_quantidade: qtdAbater
+        });
       }
     }
 

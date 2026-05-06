@@ -67,10 +67,10 @@ export const financeiroService = {
     return resumo;
   },
 
-  /**
-   * Insere uma nova transação manual (ex: compra de ferramentas, aluguer)
-   */
   async salvarGasto(dados) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado");
+
     const { data, error } = await supabase
       .from("transacoes")
       .insert([
@@ -78,6 +78,7 @@ export const financeiroService = {
           ...dados,
           tipo: "Saída",
           categoria: dados.categoria || "Geral",
+          user_id: user.id,
         },
       ])
       .select();
@@ -86,11 +87,15 @@ export const financeiroService = {
     return data[0];
   },
 
-  /**
-   * Remove uma transação (Estorno/Exclusão)
-   */
   async excluirTransacao(id) {
-    const { error } = await supabase.from("transacoes").delete().eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const { error } = await supabase
+      .from("transacoes")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
     if (error) throw error;
   },
 };
