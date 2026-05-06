@@ -31,15 +31,27 @@ export const catalogoService = {
     const isUpdate = !!item.id;
     let query = supabase.from("catalogo");
 
+    // Whitelist: Proteção contra mass-assignment de campos não autorizados
+    const payload = {
+      nome: item.nome,
+      tipo: item.tipo,
+      custo_padrao: item.custo_padrao,
+      preco_padrao: item.preco_padrao,
+      controla_estoque: item.controla_estoque,
+      quantidade_estoque: item.quantidade_estoque,
+      estoque_minimo: item.estoque_minimo,
+      insumos_consumidos: item.insumos_consumidos,
+    };
+
     if (isUpdate) {
       const { data, error } = await query
-        .update(item)
+        .update(payload)
         .eq("id", item.id)
         .select();
       if (error) throw error;
       return data[0];
     } else {
-      const { data, error } = await query.insert([item]).select();
+      const { data, error } = await query.insert([payload]).select();
       if (error) throw error;
       return data[0];
     }

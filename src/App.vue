@@ -114,29 +114,45 @@ async function aplicarConfiguracoesVisuais() {
     configLuthieria.value.logo_url = data.logo_url || "";
 
     const root = document.documentElement;
+
+    // Funções de sanitização (Allowlist)
+    const sanearCor = (val) => {
+      if (!val) return null;
+      // Permite HEX, RGB, HSL e nomes de cores, bloqueando caracteres como ; { } e funções como url()
+      return /^[a-zA-Z0-9#(),.\s%-]+$/.test(val) && !val.toLowerCase().includes('url') ? val : null;
+    };
+    
+    const sanearFonte = (val) => {
+      if (!val) return null;
+      return /^[a-zA-Z0-9\s,'"-]+$/.test(val) ? val : null;
+    };
+
     const vars = {
-      "--primary": data.cor_primaria,
-      "--accent": data.cor_secundaria,
-      "--bg-body": data.cor_fundo,
-      "--text-main": data.text_color,
-      "--btn-primary-bg": data.btn_primary_bg,
-      "--btn-primary-text": data.btn_primary_text,
-      "--btn-accent-bg": data.btn_accent_bg,
-      "--btn-accent-text": data.btn_accent_text,
-      "--icon-family": data.estilo_icones ? `"${data.estilo_icones}"` : null,
+      "--primary": sanearCor(data.cor_primaria),
+      "--accent": sanearCor(data.cor_secundaria),
+      "--bg-body": sanearCor(data.cor_fundo),
+      "--text-main": sanearCor(data.text_color),
+      "--btn-primary-bg": sanearCor(data.btn_primary_bg),
+      "--btn-primary-text": sanearCor(data.btn_primary_text),
+      "--btn-accent-bg": sanearCor(data.btn_accent_bg),
+      "--btn-accent-text": sanearCor(data.btn_accent_text),
+      "--icon-family": data.estilo_icones && sanearFonte(data.estilo_icones) ? `"${data.estilo_icones}"` : null,
     };
 
     Object.entries(vars).forEach(([key, val]) => {
       if (val) root.style.setProperty(key, val);
     });
 
-    if (data.fonte_principal)
-      document.body.style.fontFamily = data.fonte_principal;
+    const fonteSegura = sanearFonte(data.fonte_principal);
+    if (fonteSegura) document.body.style.fontFamily = fonteSegura;
+    
     if (data.radius_perc !== null) {
-      root.style.setProperty("--radius", `${data.radius_perc}px`);
+      // Garantir que é um número e limitar entre 0 e 50 (border-radius típico)
+      const radiusSeguro = Math.max(0, Math.min(50, Number(data.radius_perc) || 0));
+      root.style.setProperty("--radius", `${radiusSeguro}px`);
       root.style.setProperty(
         "--radius-sm",
-        `${Math.max(4, data.radius_perc - 4)}px`,
+        `${Math.max(4, radiusSeguro - 4)}px`,
       );
     }
   } catch (e) {
