@@ -27,6 +27,10 @@ async function handleAuth() {
       const { error } = await supabase.auth.signUp({
         email: email.value,
         password: password.value,
+        options: {
+          // Isto pega automaticamente o domínio atual ou IP que está no navegador
+          emailRedirectTo: window.location.origin,
+        },
       });
       if (error) throw error;
       message.value = "Conta criada! Verifique o seu e-mail para confirmar.";
