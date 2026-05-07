@@ -46,7 +46,7 @@ const mostrarBannerFinalizacao = ref(false);
 const bannerOcultadoManual = ref(false);
 const novoDesconto = ref({ motivo: "", valor: null });
 const idPgtoConfirmar = ref(null);
-const obsFechamentoLocal = ref(props.servico.obs_fechamento || "");
+const obsFechamentoLocal = ref(props.servico.obs_fechamento || props.configLuthieria?.termos_garantia || "");
 
 // Mantém o campo de valor do pagamento sempre sincronizado com o que falta pagar
 watch(
@@ -159,9 +159,11 @@ async function finalizarOSManual() {
       status: "Finalizado",
       fase_projeto: "Pronto para Entrega",
       data_conclusao: new Date().toISOString(),
+      obs_fechamento: obsFechamentoLocal.value
     })
     .eq("id", props.servico.id);
 
+  emit("observacaoSalva", obsFechamentoLocal.value);
   mostrarBannerFinalizacao.value = false;
   emit("osFinalizadaSucesso"); // Pede ao pai para atualizar a interface visual
 }

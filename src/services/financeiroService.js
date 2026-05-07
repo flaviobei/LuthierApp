@@ -56,7 +56,7 @@ export const financeiroService = {
 
       if (t.tipo === "Entrada") {
         resumo.receitaBruta += valorBruto;
-        resumo.receitaLiquida += valorBruto - taxa;
+        resumo.receitaLiquida += (valorBruto - taxa);
         resumo.totalTaxas += taxa;
       } else {
         resumo.despesas += valorBruto;
@@ -64,23 +64,34 @@ export const financeiroService = {
     });
 
     resumo.lucroReal = resumo.receitaLiquida - resumo.despesas;
-    return resumo;
+
+    // Arredondamento seguro de 2 casas decimais no fechamento do objeto
+    return {
+      receitaBruta: Number(resumo.receitaBruta.toFixed(2)),
+      receitaLiquida: Number(resumo.receitaLiquida.toFixed(2)),
+      despesas: Number(resumo.despesas.toFixed(2)),
+      lucroReal: Number(resumo.lucroReal.toFixed(2)),
+      totalTaxas: Number(resumo.totalTaxas.toFixed(2)),
+    };
   },
 
   async salvarGasto(dados) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuário não autenticado");
 
+    // Whitelist: Apenas os campos permitidos passam
+    const payloadSeguro = {
+      descricao: dados.descricao,
+      valor_bruto: Number(dados.valor_bruto) || 0,
+      data_pagamento: dados.data_pagamento,
+      categoria: dados.categoria || "Geral",
+      tipo: "Saída", // Forçado pelo sistema
+      user_id: user.id, // Forçado pelo sistema
+    };
+
     const { data, error } = await supabase
       .from("transacoes")
-      .insert([
-        {
-          ...dados,
-          tipo: "Saída",
-          categoria: dados.categoria || "Geral",
-          user_id: user.id,
-        },
-      ])
+      .insert([payloadSeguro])
       .select();
 
     if (error) throw error;

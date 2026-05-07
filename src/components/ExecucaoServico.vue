@@ -613,11 +613,11 @@ onMounted(carregarTudo);
             </div>
           </div>
 
-          <div v-if="servicoLocal.obs_fechamento" class="print-notes">
+          <div v-if="servicoLocal.obs_fechamento || configLuthieria.termos_garantia" class="print-notes">
             <hr class="print-divider" />
             <p><strong>Notas Importantes:</strong></p>
             <p style="white-space: pre-wrap">
-              {{ servicoLocal.obs_fechamento }}
+              {{ servicoLocal.obs_fechamento || configLuthieria.termos_garantia }}
             </p>
           </div>
 
