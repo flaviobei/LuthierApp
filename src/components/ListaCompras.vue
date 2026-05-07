@@ -25,6 +25,90 @@ const form = ref({
   justificativa: "",
 });
 
+let linkBuscado = "";
+
+watch(() => form.value.link, async (newLink) => {
+  if (newLink && newLink.startsWith("http") && newLink !== linkBuscado) {
+    linkBuscado = newLink;
+    await buscarMetadadosDoLink(newLink);
+  }
+});
+
+async function buscarMetadadosDoLink(url) {
+  try {
+    triggerToast("A tentar ler dados do link...", "info");
+    
+    // Usamos um proxy CORS público para aceder ao HTML da página
+    const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    if (!data.contents) return;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(data.contents, "text/html");
+
+    // 1. TÍTULO
+    const ogTitle = doc.querySelector('meta[property="og:title"]')?.content;
+    let title = ogTitle || doc.querySelector('title')?.innerText || "";
+    
+    title = title.replace(/\|.*Mercado Livre.*/i, "").trim();
+    title = title.replace(/-.*Mercado Livre.*/i, "").trim();
+    title = title.replace(/Amazon\.com\.br.*/i, "").trim();
+    if (title.endsWith("-")) title = title.slice(0, -1).trim();
+
+    // 2. IMAGEM
+    const image = doc.querySelector('meta[property="og:image"]')?.content || "";
+
+    // 3. PREÇO
+    let price = 0;
+    
+    // Tenta formato OpenGraph
+    const ogPrice = doc.querySelector('meta[property="product:price:amount"]')?.content;
+    if (ogPrice) price = parseFloat(ogPrice);
+
+    // Tenta formato Mercado Livre Meta
+    if (!price) {
+      const metaPrice = doc.querySelector('meta[itemprop="price"]')?.content;
+      if (metaPrice) price = parseFloat(metaPrice);
+    }
+    
+    // Tenta formato Mercado Livre HTML
+    if (!price) {
+      const priceElement = doc.querySelector('.ui-pdp-price__second-line .andes-money-amount__fraction') || 
+                           doc.querySelector('.andes-money-amount__fraction');
+      if (priceElement) {
+        const centsElement = priceElement.parentElement.querySelector('.andes-money-amount__cents');
+        const priceStr = priceElement.innerText.replace(/\./g, '') + (centsElement ? '.' + centsElement.innerText : '');
+        price = parseFloat(priceStr);
+      }
+    }
+    
+    // Tenta formato Amazon
+    if (!price) {
+      const amzPrice = doc.querySelector('.a-price .a-offscreen')?.innerText;
+      if (amzPrice) {
+        const cleanPrice = amzPrice.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
+        price = parseFloat(cleanPrice);
+      }
+    }
+
+    // Apenas preenche se estiver vazio para não apagar o que o utilizador já digitou
+    let atualizouAlgo = false;
+    if (title && !form.value.nome) { form.value.nome = title; atualizouAlgo = true; }
+    if (image && !form.value.foto_url) { form.value.foto_url = image; atualizouAlgo = true; }
+    if (price && form.value.valor === 0) { form.value.valor = price; atualizouAlgo = true; }
+
+    if (atualizouAlgo) {
+      triggerToast("Dados do produto preenchidos!", "success");
+    }
+
+  } catch (err) {
+    console.error("Erro ao fazer scraping do link:", err);
+    // Falha silenciosa para não incomodar o utilizador
+  }
+}
+
 async function buscarItens() {
   loading.value = true;
   const { data, error } = await supabase
@@ -68,6 +152,7 @@ function getCorNecessidade(nivel) {
 function iniciarNovo() {
   isEditing.value = false;
   editId.value = null;
+  linkBuscado = ""; // Reseta o cache de link procurado
   form.value = {
     nome: "",
     foto_url: "",
@@ -83,6 +168,7 @@ function iniciarNovo() {
 function iniciarEdicao(item) {
   isEditing.value = true;
   editId.value = item.id;
+  linkBuscado = item.link || ""; // Previne buscar novamente ao editar
   form.value = { ...item };
   showForm.value = true;
 }
