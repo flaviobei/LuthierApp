@@ -214,19 +214,26 @@ function formatarLinkZap(t) {
 onMounted(() => {
   supabase.auth.onAuthStateChange((_event, _session) => {
     session.value = _session;
-    if (_session) {
-      inicializarApp().then(() => {
-        if (
-          (isSuperAdmin.value || assinatura.value) &&
-          !localStorage.getItem("luthierapp_onboarding_v1")
-        ) {
-          setTimeout(() => {
-            iniciarTour();
-            localStorage.setItem("luthierapp_onboarding_v1", "true");
-          }, 1500);
-        }
-      });
-    } else {
+    
+    // Evita recarregar toda a aplicação (loading screen e fetches) quando o Supabase
+    // apenas atualiza o token em background ao trocar de aba no navegador.
+    if (_event === 'INITIAL_SESSION' || _event === 'SIGNED_IN') {
+      if (_session) {
+        inicializarApp().then(() => {
+          if (
+            (isSuperAdmin.value || assinatura.value) &&
+            !localStorage.getItem("luthierapp_onboarding_v1")
+          ) {
+            setTimeout(() => {
+              iniciarTour();
+              localStorage.setItem("luthierapp_onboarding_v1", "true");
+            }, 1500);
+          }
+        });
+      } else {
+        aVerificarAcesso.value = false;
+      }
+    } else if (_event === 'SIGNED_OUT') {
       aVerificarAcesso.value = false;
     }
   });
