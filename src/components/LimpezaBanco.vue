@@ -2,8 +2,8 @@
 /**
  * ============================================================================
  * @file        LimpezaBanco.vue
- * @description Módulo de segurança ("Zona de Perigo") para eliminação de dados
- * em massa e injetor de dados de demonstração (Semeador).
+ * @description Módulo de segurança ("Zona de Perigo") para eliminação de dados.
+ * AGORA 100% BLINDADO: Delegação total da limpeza para função RPC no Supabase.
  * ============================================================================
  */
 
@@ -17,87 +17,20 @@ const processando = ref(false);
 
 const podeLimpar = computed(() => textoConfirmacao.value === "LIMPAR");
 
-// Função blindada: tenta apagar os dados do utilizador
-async function apagarTabela(nomeTabela) {
-  const { data, error } = await supabase.from(nomeTabela).select("id");
-
-  if (error) {
-    if (
-      error.message &&
-      (error.message.includes("schema cache") ||
-        error.message.includes("does not exist"))
-    ) {
-      console.warn(`A tabela '${nomeTabela}' não existe. Ignorando...`);
-      return;
-    }
-    throw error;
-  }
-
-  if (data && data.length > 0) {
-    const idsParaApagar = data.map((item) => item.id);
-    const { error: errDelete } = await supabase
-      .from(nomeTabela)
-      .delete()
-      .in("id", idsParaApagar);
-    if (errDelete) throw errDelete;
-  }
-}
-
 async function apagarDados(tipo) {
   if (!podeLimpar.value) return;
+
   processando.value = true;
-  statusMensagem.value = "A procurar e apagar os seus dados com segurança...";
+  statusMensagem.value = "A processar limpeza de segurança no servidor...";
 
   try {
-    // Verificação dupla de segurança
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error("Usuário não autenticado.");
+    // A mágica da segurança atómica! Um único pedido fechado envia a ordem para o Supabase
+    // O backend verifica por si mesmo se o utilizador é Super Admin antes de permitir qualquer exclusão
+    const { error } = await supabase.rpc("limpar_dados_oficina", {
+      tipo_limpeza: tipo,
+    });
 
-    // Verifica se é super admin para prosseguir (via Edge Function)
-    const { data: adminData, error: funcError } = await supabase.functions.invoke("verificar-super-admin");
-
-    if (funcError || !adminData?.isSuperAdmin) {
-      throw new Error("Acesso negado: Requer privilégios de administrador.");
-    }
-
-    // ====================================================================
-    // ORDEM RIGOROSA DE EXCLUSÃO (Para evitar bloqueios de Chave Estrangeira)
-    // Apagamos sempre os "Filhos" antes dos "Pais".
-    // ====================================================================
-
-    // 1. FINANCEIRO
-    if (tipo === "financeiro" || tipo === "os" || tipo === "tudo") {
-      await apagarTabela("transacoes");
-      await apagarTabela("fluxo_caixa");
-      await apagarTabela("caixa");
-      await apagarTabela("financeiro");
-    }
-
-    // 2. ORDENS DE SERVIÇO E DETALHES
-    if (tipo === "os" || tipo === "tudo") {
-      await apagarTabela("orcamento_itens");
-      await apagarTabela("itens_servico");
-      await apagarTabela("checklist");
-      await apagarTabela("checklist_servico");
-      await apagarTabela("checklist_fotos");
-      await apagarTabela("diario_servico");
-      await apagarTabela("servicos");
-    }
-
-    // 3. INSTRUMENTOS
-    if (tipo === "instrumentos" || tipo === "tudo") {
-      await apagarTabela("instrumentos");
-    }
-
-    // 4. CLIENTES
-    if (tipo === "clientes" || tipo === "tudo") {
-      await apagarTabela("clientes");
-    }
-
-    // 5. CATÁLOGO (Peças, Insumos, Serviços e Receitas)
-    if (tipo === "catalogo" || tipo === "tudo") {
-      await apagarTabela("catalogo");
-    }
+    if (error) throw error;
 
     // MENSAGENS DE SUCESSO
     if (tipo === "financeiro")
@@ -118,11 +51,11 @@ async function apagarDados(tipo) {
 
     textoConfirmacao.value = "";
   } catch (err) {
-    statusMensagem.value = "Erro ao apagar: " + err.message;
+    statusMensagem.value = "Erro de Segurança: " + err.message;
     console.error(err);
+  } finally {
+    processando.value = false;
   }
-
-  processando.value = false;
 }
 </script>
 
@@ -171,9 +104,8 @@ async function apagarDados(tipo) {
             margin-top: 10px;
           "
         >
-          <label class="text-danger" style="font-weight: bold"
-            >Digite a palavra LIMPAR em maiúsculas para desbloquear os
-            botões:</label
+          <label class="text-danger" style="font-weight: bold">
+            Digite a palavra LIMPAR em maiúsculas para desbloquear os botões: </label
           ><br />
           <input
             v-model="textoConfirmacao"
@@ -230,7 +162,6 @@ async function apagarDados(tipo) {
           <span class="icon-dinamico">group_remove</span> 4. Limpar Base de
           Clientes
         </button>
-
         <button
           class="btn-clean"
           :disabled="!podeLimpar || processando"
@@ -240,7 +171,6 @@ async function apagarDados(tipo) {
           <span class="icon-dinamico">inventory_2</span> 5. Limpar Catálogo
           (Peças, Insumos e Serviços)
         </button>
-
         <button
           class="btn-clean btn-nuke"
           :disabled="!podeLimpar || processando"
