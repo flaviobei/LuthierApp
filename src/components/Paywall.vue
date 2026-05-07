@@ -121,7 +121,7 @@ async function simularPagamento() {
             </li>
           </ul>
           <!--
-          <button
+          <button type="button"
             class="btn-primary"
             @click="simularPagamento"
             style="width: 100%; padding: 15px; font-size: 1.1rem"
@@ -133,7 +133,7 @@ async function simularPagamento() {
       </div>
 
       <div style="margin-top: 25px">
-        <button
+        <button type="button"
           class="btn-outline text-danger"
           @click="$emit('sair')"
           style="border: none"

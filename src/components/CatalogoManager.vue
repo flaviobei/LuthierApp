@@ -336,7 +336,7 @@ onMounted(() => carregarCatalogo());
           class="btn-group"
           style="display: flex; gap: 5px"
         >
-          <button
+          <button type="button"
             class="btn-tab"
             :class="{ active: abaEdicao === 'dados' }"
             @click="abaEdicao = 'dados'"
@@ -352,7 +352,7 @@ onMounted(() => carregarCatalogo());
             >
             Dados Básicos
           </button>
-          <button
+          <button type="button"
             class="btn-tab"
             :class="{ active: abaEdicao === 'insumos' }"
             @click="abaEdicao = 'insumos'"
@@ -530,7 +530,7 @@ onMounted(() => carregarCatalogo());
                 step="0.1"
               />
             </div>
-            <button
+            <button type="button"
               class="btn-primary"
               @click="adicionarInsumoNaReceita"
               style="
@@ -559,7 +559,7 @@ onMounted(() => carregarCatalogo());
               <td style="font-weight: bold">{{ rec.nome }}</td>
               <td>{{ rec.quantidade }} un/ml</td>
               <td align="center">
-                <button
+                <button type="button"
                   class="btn-icon text-danger"
                   style="background: transparent"
                   @click="removerInsumoDaReceita(rec.insumo_id)"
@@ -582,7 +582,7 @@ onMounted(() => carregarCatalogo());
           padding-top: 15px;
         "
       >
-        <button
+        <button type="button"
           class="btn-primary"
           @click="salvarItem"
           :disabled="loading"
@@ -607,7 +607,7 @@ onMounted(() => carregarCatalogo());
                 : "Cadastrar Item"
           }}
         </button>
-        <button
+        <button type="button"
           v-if="editandoId"
           class="btn-outline text-danger"
           @click="cancelarEdicao"
@@ -671,7 +671,7 @@ onMounted(() => carregarCatalogo());
               font-size: 0.9rem;
             "
           />
-          <button
+          <button type="button"
             v-if="termoBusca"
             @click="termoBusca = ''"
             class="btn-icon"
@@ -690,7 +690,7 @@ onMounted(() => carregarCatalogo());
             <span class="icon-dinamico" style="font-size: 1.1rem">close</span>
           </button>
         </div>
-        <button
+        <button type="button"
           class="btn-outline"
           style="
             border-color: #27ae60;
@@ -710,7 +710,7 @@ onMounted(() => carregarCatalogo());
         </button>
       </div>
       <div class="filtros-abas">
-        <button
+        <button type="button"
           v-for="t in ['Todos', 'MaoDeObra', 'Peca', 'Insumo']"
           :key="t"
           class="btn-tab"
@@ -908,14 +908,14 @@ onMounted(() => carregarCatalogo());
               <span v-else class="text-muted">--</span>
             </td>
             <td data-label="Ações" align="center" style="white-space: nowrap">
-              <button
+              <button type="button"
                 class="btn-icon bg-light"
                 @click="iniciarEdicao(item)"
                 title="Editar"
               >
                 <span class="icon-dinamico">edit</span>
               </button>
-              <button
+              <button type="button"
                 class="btn-delete-step"
                 :class="{ confirming: idParaExcluir === item.id }"
                 @click="excluirItem(item.id)"

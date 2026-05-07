@@ -85,7 +85,7 @@ async function handleAuth() {
         <input v-model="password" type="password" placeholder="********" />
       </div>
 
-      <button
+      <button type="button"
         class="btn-primary"
         @click="handleAuth"
         :disabled="loading"
@@ -103,7 +103,7 @@ async function handleAuth() {
       </p>
 
       <div style="text-align: center; margin-top: 20px">
-        <button
+        <button type="button"
           class="btn-icon"
           style="color: var(--accent); text-decoration: underline"
           @click="

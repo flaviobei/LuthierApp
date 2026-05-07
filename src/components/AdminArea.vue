@@ -20,6 +20,7 @@ import LimpezaBanco from "./LimpezaBanco.vue";
 import PopularContaDemo from "./PopularContaDemo.vue";
 import { useOnboarding } from "../composables/useOnboarding";
 import GestaoBackups from "./GestaoBackups.vue";
+import ListaCompras from "./ListaCompras.vue";
 
 const emit = defineEmits(["voltar"]);
 const abaAtual = ref("relatorios");
@@ -37,7 +38,9 @@ onMounted(async () => {
 
     if (session?.user?.email) {
       // Validação via Edge Function
-      const { data, error } = await supabase.functions.invoke("verificar-super-admin");
+      const { data, error } = await supabase.functions.invoke(
+        "verificar-super-admin",
+      );
       if (!error && data?.isSuperAdmin) {
         isSuperAdmin.value = true;
       }
@@ -57,7 +60,7 @@ onMounted(async () => {
         <h2 style="margin: 0; color: var(--primary)">Painel de Gestão</h2>
 
         <div class="admin-actions">
-          <button
+          <button type="button"
             class="btn-outline btn-action"
             :class="{ active: abaAtual === 'ajuda' }"
             @click="abaAtual = 'ajuda'"
@@ -68,12 +71,12 @@ onMounted(async () => {
             Ajuda
           </button>
 
-          <button @click="iniciarTour" class="btn-outline btn-action">
+          <button type="button" @click="iniciarTour" class="btn-outline btn-action">
             <span class="icon-dinamico" style="font-size: 1rem">lightbulb</span>
             Tutorial
           </button>
 
-          <button
+          <button type="button"
             class="btn-outline btn-action"
             :class="{ active: abaAtual === 'termos' }"
             @click="abaAtual = 'termos'"
@@ -85,7 +88,7 @@ onMounted(async () => {
       </div>
 
       <div class="admin-tabs">
-        <button
+        <button type="button"
           class="btn-tab"
           :class="{ active: abaAtual === 'relatorios' }"
           @click="abaAtual = 'relatorios'"
@@ -94,7 +97,7 @@ onMounted(async () => {
           Relatórios
         </button>
 
-        <button
+        <button type="button"
           id="tour-catalogo"
           class="btn-tab"
           :class="{ active: abaAtual === 'catalogo' }"
@@ -104,7 +107,7 @@ onMounted(async () => {
           Serviços
         </button>
 
-        <button
+        <button type="button"
           class="btn-tab"
           :class="{ active: abaAtual === 'financeiro' }"
           @click="abaAtual = 'financeiro'"
@@ -115,7 +118,7 @@ onMounted(async () => {
           Caixa
         </button>
 
-        <button
+        <button type="button"
           id="tour-config"
           class="btn-tab"
           :class="{ active: abaAtual === 'config' }"
@@ -125,7 +128,7 @@ onMounted(async () => {
           Oficina
         </button>
 
-        <button
+        <button type="button"
           id="tour-checklist"
           class="btn-tab"
           :class="{ active: abaAtual === 'checklist' }"
@@ -137,7 +140,18 @@ onMounted(async () => {
           Checklist
         </button>
 
-        <button
+        <button type="button"
+          class="btn-tab"
+          :class="{ active: abaAtual === 'compras' }"
+          @click="abaAtual = 'compras'"
+        >
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >shopping_cart</span
+          >
+          Compras
+        </button>
+
+        <button type="button"
           class="btn-tab"
           :class="{ active: abaAtual === 'conta' }"
           @click="abaAtual = 'conta'"
@@ -148,18 +162,16 @@ onMounted(async () => {
           Minha Conta
         </button>
 
-        <button
+        <button type="button"
           class="btn-tab text-primary"
           :class="{ active: abaAtual === 'demo' }"
           @click="abaAtual = 'demo'"
         >
-          <span class="icon-dinamico" style="font-size: 1.1rem"
-            >science</span
-          >
+          <span class="icon-dinamico" style="font-size: 1.1rem">science</span>
           Conta Demo
         </button>
 
-        <button
+        <button type="button"
           v-if="isSuperAdmin"
           class="btn-tab"
           :class="{ active: abaAtual === 'saas' }"
@@ -176,7 +188,7 @@ onMounted(async () => {
           Gestão SaaS
         </button>
 
-        <button
+        <button type="button"
           v-if="isSuperAdmin"
           class="btn-tab"
           :class="{ active: abaAtual === 'backups' }"
@@ -189,7 +201,7 @@ onMounted(async () => {
           Backups
         </button>
 
-        <button
+        <button type="button"
           v-if="isSuperAdmin"
           id="tour-limpeza"
           class="btn-tab text-danger"
@@ -209,29 +221,31 @@ onMounted(async () => {
         A validar credenciais...
       </div>
 
-      <template v-else>
+      <KeepAlive v-else>
         <RelatoriosDashboard v-if="abaAtual === 'relatorios'" />
         <CatalogoManager
-          v-if="abaAtual === 'catalogo'"
+          v-else-if="abaAtual === 'catalogo'"
           @voltar="$emit('voltar')"
         />
         <Financeiro
-          v-if="abaAtual === 'financeiro'"
+          v-else-if="abaAtual === 'financeiro'"
           @fechar="$emit('voltar')"
         />
-        <Configuracoes v-if="abaAtual === 'config'" />
-        <ConfigChecklist v-if="abaAtual === 'checklist'" />
+        <Configuracoes v-else-if="abaAtual === 'config'" />
+        <ConfigChecklist v-else-if="abaAtual === 'checklist'" />
 
-        <MinhaConta v-if="abaAtual === 'conta'" />
-        <Ajuda v-if="abaAtual === 'ajuda'" />
-        <TermosDeUso v-if="abaAtual === 'termos'" />
-        <PopularContaDemo v-if="abaAtual === 'demo'" />
+        <MinhaConta v-else-if="abaAtual === 'conta'" />
+        <Ajuda v-else-if="abaAtual === 'ajuda'" />
+        <TermosDeUso v-else-if="abaAtual === 'termos'" />
+        <PopularContaDemo v-else-if="abaAtual === 'demo'" />
 
-        <LimpezaBanco v-if="abaAtual === 'limpeza' && isSuperAdmin" />
-        <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />
+        <ListaCompras v-else-if="abaAtual === 'compras'" />
 
-        <GestaoBackups v-if="abaAtual === 'backups' && isSuperAdmin" />
-      </template>
+        <LimpezaBanco v-else-if="abaAtual === 'limpeza' && isSuperAdmin" />
+        <GerenciarSaaS v-else-if="abaAtual === 'saas' && isSuperAdmin" />
+
+        <GestaoBackups v-else-if="abaAtual === 'backups' && isSuperAdmin" />
+      </KeepAlive>
     </div>
   </div>
 </template>

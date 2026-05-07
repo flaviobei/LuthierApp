@@ -221,14 +221,14 @@ async function salvarObservacoes() {
         >
       </p>
       <div class="flex-gap-10">
-        <button
+        <button type="button"
           class="btn-primary"
           @click="finalizarOSManual"
           style="background: var(--success)"
         >
           Sim, Finalizar O.S.
         </button>
-        <button
+        <button type="button"
           class="btn-outline"
           @click="
             mostrarBannerFinalizacao = false;
@@ -268,7 +268,7 @@ async function salvarObservacoes() {
           style="flex: 1; min-width: 100px; border-color: #fbcfe8"
           placeholder="Valor R$"
         />
-        <button
+        <button type="button"
           class="btn-outline"
           @click="aplicarDesconto"
           style="
@@ -310,7 +310,7 @@ async function salvarObservacoes() {
           style="flex: 1; min-width: 100px"
           placeholder="R$"
         />
-        <button
+        <button type="button"
           class="btn-primary"
           @click="registrarPagamento"
           :class="{ 'btn-warning': pgtoExcedenteConfirmado }"
@@ -333,7 +333,7 @@ async function salvarObservacoes() {
     >
       <h4 style="margin: 0">Histórico de Transações</h4>
       <div style="display: flex; gap: 10px">
-        <button
+        <button type="button"
           v-if="!osFinalizada && bannerOcultadoManual && saldoDevedor <= 0"
           class="btn-primary"
           @click="
@@ -348,7 +348,7 @@ async function salvarObservacoes() {
         >
           <span class="icon-dinamico">check_circle</span> Finalizar O.S.
         </button>
-        <button
+        <button type="button"
           class="btn-outline"
           @click="$emit('imprimirRecibo')"
           title="Imprimir Recibo"
@@ -372,7 +372,7 @@ async function salvarObservacoes() {
         </td>
         <td>R$ {{ Number(p.valor_bruto).toFixed(2) }}</td>
         <td align="center" v-if="!osFinalizada">
-          <button
+          <button type="button"
             class="btn-delete-confirm"
             @click="estornarPagamento(p.id)"
             :class="{ confirming: idPgtoConfirmar === p.id }"
@@ -421,7 +421,7 @@ async function salvarObservacoes() {
         :disabled="osFinalizada"
         style="width: 100%"
       ></textarea>
-      <button
+      <button type="button"
         v-if="!osFinalizada"
         class="btn-primary"
         @click="salvarObservacoes"

@@ -141,7 +141,7 @@ onMounted(() => carregarUsuario());
       {{ mensagem.texto }}
     </div>
 
-    <button
+    <button type="button"
       class="btn-primary"
       @click="atualizarConta"
       :disabled="loading"

@@ -143,7 +143,7 @@ onMounted(() => buscarServicos());
           <span class="icon-dinamico">assignment</span> O.S. -
           {{ instrumento.modelo }}
         </h3>
-        <button
+        <button type="button"
           class="btn-outline"
           @click="$emit('voltar')"
           style="display: inline-flex; align-items: center; gap: 6px"
@@ -204,7 +204,7 @@ onMounted(() => buscarServicos());
           </div>
         </div>
 
-        <button
+        <button type="button"
           @click="abrirOS"
           :disabled="loading"
           class="btn-accent"
@@ -289,7 +289,7 @@ onMounted(() => buscarServicos());
                 }}</small>
               </td>
               <td align="center">
-                <button
+                <button type="button"
                   class="btn-primary"
                   @click="abrirExecucao(os)"
                   style="

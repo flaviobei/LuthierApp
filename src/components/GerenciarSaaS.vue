@@ -200,7 +200,7 @@ onMounted(() => carregarAssinantes());
               </select>
             </td>
             <td align="center">
-              <button
+              <button type="button"
                 class="btn-primary"
                 @click="atualizarStatus(assinante)"
                 style="

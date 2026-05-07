@@ -235,7 +235,7 @@ onMounted(() => buscarInstrumentos());
             padding-top: 10px;
           "
         >
-          <button
+          <button type="button"
             class="btn-icon bg-light"
             @click="iniciarEdicao(inst)"
             title="Editar Instrumento"
@@ -243,7 +243,7 @@ onMounted(() => buscarInstrumentos());
           >
             <span class="icon-dinamico">edit</span>
           </button>
-          <button
+          <button type="button"
             class="btn-accent"
             @click="$emit('selecionarInstrumento', inst)"
             style="flex: 1"
@@ -283,7 +283,7 @@ onMounted(() => buscarInstrumentos());
           }}</span>
           {{ isEditing ? "Editar Instrumento" : "Novo Instrumento" }}
         </h4>
-        <button
+        <button type="button"
           v-if="isEditing"
           class="btn-icon text-danger"
           @click="cancelarEdicao"
@@ -351,7 +351,7 @@ onMounted(() => buscarInstrumentos());
 
         <div v-if="form.foto_url" class="foto-preview">
           <img :src="form.foto_url" alt="Preview" />
-          <button
+          <button type="button"
             class="btn-icon text-danger btn-remove-foto"
             @click="removerFoto"
             title="Remover Foto"
@@ -375,7 +375,7 @@ onMounted(() => buscarInstrumentos());
         </label>
       </div>
 
-      <button
+      <button type="button"
         class="btn-primary w-full"
         @click="salvarInstrumento"
         :disabled="loading || uploadingFoto"

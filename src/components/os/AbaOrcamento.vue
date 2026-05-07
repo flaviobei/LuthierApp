@@ -209,7 +209,7 @@ onMounted(() => carregarCatalogo());
           type="number"
           placeholder="Valor R$"
         />
-        <button class="btn-primary" @click="adicionarItemOrcamento">
+        <button type="button" class="btn-primary" @click="adicionarItemOrcamento">
           Adicionar
         </button>
       </div>
@@ -225,7 +225,7 @@ onMounted(() => carregarCatalogo());
         </h4>
 
         <div style="display: flex; gap: 8px; align-items: center">
-          <button
+          <button type="button"
             class="btn-outline"
             @click="$emit('imprimir')"
             title="Imprimir Orçamento"
@@ -238,7 +238,7 @@ onMounted(() => carregarCatalogo());
             >
             Imprimir
           </button>
-          <button
+          <button type="button"
             class="btn-outline"
             @click="enviarOrcamentoWhatsApp"
             title="Enviar por WhatsApp"
@@ -285,7 +285,7 @@ onMounted(() => carregarCatalogo());
             R$ {{ Number(item.valor).toFixed(2) }}
           </td>
           <td align="center" v-if="!osFinalizada">
-            <button
+            <button type="button"
               class="btn-icon text-danger"
               @click="removerItemOrcamento(item.id)"
             >

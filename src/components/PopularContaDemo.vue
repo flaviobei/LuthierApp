@@ -595,7 +595,7 @@ async function limparDadosConta() {
           {{ progresso }}
         </p>
       </div>
-      <button
+      <button type="button"
         class="btn-primary"
         style="background: var(--danger); border: none; min-height: 50px"
         @click="gerarDadosDeExemplo"
@@ -634,7 +634,7 @@ async function limparDadosConta() {
           Isso é ideal para limpar a oficina após testar o sistema.
         </p>
       </div>
-      <button
+      <button type="button"
         class="btn-primary"
         style="background: #b91c1c; border: none; min-height: 50px"
         @click="limparDadosConta"

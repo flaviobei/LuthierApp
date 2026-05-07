@@ -248,7 +248,7 @@ onMounted(() => {
       <span class="text-muted" style="font-size: 0.85rem">
         Inspeção baseada no momento da abertura.
       </span>
-      <button
+      <button type="button"
         class="btn-outline"
         style="padding: 4px 10px; font-size: 0.8rem"
         @click="sincronizarChecklist"
@@ -274,7 +274,7 @@ onMounted(() => {
       ><br />
       Nenhuma regra de checklist encontrada.<br />
       <small>Configure regras em "Admin > Checklist".</small><br /><br />
-      <button
+      <button type="button"
         v-if="!osFinalizada"
         class="btn-outline"
         @click="sincronizarChecklist"
@@ -303,7 +303,7 @@ onMounted(() => {
         <div v-for="item in grupo.itens" :key="item.id" class="compact-row">
           <span class="item-name">{{ item.area }}</span>
           <div class="item-actions">
-            <button
+            <button type="button"
               class="btn-check"
               :class="{ active: item.condicao === '✅ Sim' }"
               @click="!osFinalizada && atualizarStatusChecklist(item, '✅ Sim')"
@@ -312,7 +312,7 @@ onMounted(() => {
             >
               <span class="icon-dinamico" style="font-size: 1.1rem">check</span>
             </button>
-            <button
+            <button type="button"
               class="btn-close"
               :class="{ active: item.condicao === '❌ Não' }"
               @click="!osFinalizada && atualizarStatusChecklist(item, '❌ Não')"
@@ -349,7 +349,7 @@ onMounted(() => {
         :disabled="osFinalizada"
         style="width: 100%"
       ></textarea>
-      <button
+      <button type="button"
         v-if="!osFinalizada"
         class="btn-primary"
         @click="salvarObservacoes"
@@ -407,7 +407,7 @@ onMounted(() => {
           <a :href="foto.foto_url" target="_blank"
             ><img :src="foto.foto_url" class="img-preview"
           /></a>
-          <button
+          <button type="button"
             v-if="!osFinalizada"
             class="btn-delete-confirm w-full"
             @click="deletarFoto(foto.id)"

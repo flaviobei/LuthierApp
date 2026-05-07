@@ -87,7 +87,7 @@ onMounted(carregarELimparBackups);
         >
         Cofre de Backups
       </h3>
-      <button
+      <button type="button"
         class="btn-outline"
         @click="carregarELimparBackups"
         title="Atualizar lista"
@@ -136,7 +136,7 @@ onMounted(carregarELimparBackups);
             <td>{{ new Date(backup.created_at).toLocaleString() }}</td>
             <td>{{ formatarTamanho(backup.metadata?.size) }}</td>
             <td class="text-center">
-              <button
+              <button type="button"
                 class="btn-accent"
                 style="padding: 6px 12px"
                 @click="baixarBackup(backup.name)"

@@ -167,7 +167,14 @@ async function fazerLogout() {
     session.value = null;
     assinatura.value = null;
     isSuperAdmin.value = false;
-    irParaInicio();
+    
+    // Resetar estados no logout
+    modoAtual.value = "bancada";
+    servicoDireto.value = null;
+    clienteSelecionado.value = null;
+    instrumentoSelecionado.value = null;
+    clienteParaEditar.value = null;
+    mostrarClientes.value = false;
   } catch (e) {
     triggerToast("Erro ao sair", "error");
   } finally {
@@ -176,12 +183,17 @@ async function fazerLogout() {
 }
 
 function irParaInicio() {
-  modoAtual.value = "bancada";
-  servicoDireto.value = null;
-  clienteSelecionado.value = null;
-  instrumentoSelecionado.value = null;
-  clienteParaEditar.value = null;
-  mostrarClientes.value = false;
+  if (modoAtual.value === "bancada") {
+    // Resetar a bancada apenas se já estivermos na aba Início
+    servicoDireto.value = null;
+    clienteSelecionado.value = null;
+    instrumentoSelecionado.value = null;
+    clienteParaEditar.value = null;
+    mostrarClientes.value = false;
+  } else {
+    // Apenas voltar para a aba Início, mantendo o estado dela intacto
+    modoAtual.value = "bancada";
+  }
 }
 
 function abrirServicoPeloDashboard(os) {
@@ -246,7 +258,7 @@ onMounted(() => {
         >
         <h3>Quase lá!</h3>
         <p>Ainda não encontramos os dados da sua oficina em nossa base.</p>
-        <button
+        <button type="button"
           @click="fazerLogout"
           class="btn-primary"
           style="
@@ -283,7 +295,7 @@ onMounted(() => {
           >warning</span
         >
         Modo de Teste: Faltam {{ diasTrialRestantes }} dias.
-        <button class="btn-trial" @click="assinatura.status = 'expirado'">
+        <button type="button" class="btn-trial" @click="assinatura.status = 'expirado'">
           Ver Planos
         </button>
       </div>
@@ -308,7 +320,7 @@ onMounted(() => {
         </div>
 
         <div class="header-buttons">
-          <button
+          <button type="button"
             id="tour-home"
             @click="irParaInicio"
             class="btn-menu"
@@ -317,7 +329,7 @@ onMounted(() => {
             <span class="icon-dinamico">home</span
             ><span class="lbl">Início</span>
           </button>
-          <button
+          <button type="button"
             @click="modoAtual = 'calendario'"
             class="btn-menu"
             :class="{ active: modoAtual === 'calendario' }"
@@ -325,11 +337,11 @@ onMounted(() => {
             <span class="icon-dinamico">calendar_month</span
             ><span class="lbl">Agenda</span>
           </button>
-          <button @click="mostrarScanner = true" class="btn-menu scan-btn">
+          <button type="button" @click="mostrarScanner = true" class="btn-menu scan-btn">
             <span class="icon-dinamico">qr_code_scanner</span
             ><span class="lbl">QR Scan</span>
           </button>
-          <button
+          <button type="button"
             @click="modoAtual = 'historico'"
             class="btn-menu"
             :class="{ active: modoAtual === 'historico' }"
@@ -337,7 +349,7 @@ onMounted(() => {
             <span class="icon-dinamico">inventory_2</span
             ><span class="lbl">Arquivo</span>
           </button>
-          <button
+          <button type="button"
             id="tour-admin"
             @click="modoAtual = 'admin'"
             class="btn-menu"
@@ -346,7 +358,7 @@ onMounted(() => {
             <span class="icon-dinamico">settings</span
             ><span class="lbl">Admin</span>
           </button>
-          <button
+          <button type="button"
             @click="fazerLogout"
             class="btn-menu text-danger btn-sair-mobile"
           >
@@ -367,25 +379,22 @@ onMounted(() => {
       />
 
       <div class="conteudo-principal">
-        <div v-if="modoAtual === 'admin'">
-          <AdminArea @voltar="irParaInicio" />
-        </div>
-        <div v-else-if="modoAtual === 'calendario'">
+        <KeepAlive>
+          <AdminArea v-if="modoAtual === 'admin'" @voltar="irParaInicio" />
           <CalendarioEntregas
+            v-else-if="modoAtual === 'calendario'"
             @abrirOS="abrirServicoPeloDashboard"
             @voltar="irParaInicio"
           />
-        </div>
-        <div v-else-if="modoAtual === 'historico'">
           <HistoricoServicos
+            v-else-if="modoAtual === 'historico'"
             @abrirOS="abrirServicoPeloDashboard"
             @voltar="irParaInicio"
           />
-        </div>
-        <div v-else-if="modoAtual === 'ajuda'">
-          <Ajuda />
-        </div>
-        <div v-else>
+          <Ajuda v-else-if="modoAtual === 'ajuda'" />
+        </KeepAlive>
+        
+        <div v-show="modoAtual === 'bancada'">
           <div v-if="servicoDireto">
             <ExecucaoServico
               :servico="servicoDireto"
@@ -399,7 +408,7 @@ onMounted(() => {
             />
           </div>
           <div v-else-if="clienteSelecionado">
-            <button
+            <button type="button"
               @click="clienteSelecionado = null"
               class="btn-outline mb-1"
               style="display: inline-flex; align-items: center; gap: 6px"
@@ -418,7 +427,7 @@ onMounted(() => {
           <div v-else>
             <DashboardAtividades @abrirOS="abrirServicoPeloDashboard" />
             <div class="controle-clientes">
-              <button
+              <button type="button"
                 id="tour-clientes"
                 class="btn-toggle-clientes"
                 @click="mostrarClientes = !mostrarClientes"
@@ -489,14 +498,14 @@ onMounted(() => {
                               align-items: center;
                             "
                           >
-                            <button
+                            <button type="button"
                               class="btn-icon"
                               @click="editarCliente(c)"
                               title="Editar Cliente"
                             >
                               <span class="icon-dinamico">edit</span>
                             </button>
-                            <button
+                            <button type="button"
                               class="btn-icon"
                               @click="clienteSelecionado = c"
                               title="Ver Instrumentos"

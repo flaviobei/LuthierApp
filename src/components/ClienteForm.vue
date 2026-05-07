@@ -109,7 +109,7 @@ async function salvarCliente() {
         {{ isEditing ? "Editar Cliente" : "Novo Cliente" }}
       </h3>
 
-      <button
+      <button type="button"
         v-if="isEditing"
         @click="cancelar"
         class="btn-icon text-danger"
@@ -162,7 +162,7 @@ async function salvarCliente() {
       <input v-model="form.cpf_cnpj" type="text" placeholder="000.000.000-00" />
     </div>
 
-    <button
+    <button type="button"
       class="btn-accent"
       style="
         width: 100%;

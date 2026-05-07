@@ -442,7 +442,7 @@ onMounted(() => carregarConfiguracoes());
                   :disabled="carregandoFoto"
                 /> </label
               ><br />
-              <button
+              <button type="button"
                 v-if="form.logo_url"
                 class="btn-icon text-danger"
                 @click="removerLogo"
@@ -559,7 +559,7 @@ onMounted(() => carregarConfiguracoes());
       <div
         style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px"
       >
-        <button
+        <button type="button"
           v-for="tema in temasPresets"
           :key="tema.nome"
           @click="aplicarPreset(tema)"
@@ -752,7 +752,7 @@ onMounted(() => carregarConfiguracoes());
       </div>
     </div>
 
-    <button
+    <button type="button"
       class="btn-primary"
       @click="salvarConfiguracoes"
       :disabled="loading"

@@ -213,7 +213,7 @@ onMounted(() => carregarHistorico());
       </div>
 
       <div style="display: flex; gap: 10px">
-        <button
+        <button type="button"
           class="btn-outline"
           style="
             border-color: #27ae60;
@@ -387,7 +387,7 @@ onMounted(() => carregarHistorico());
                 class="card-actions"
                 style="display: flex; gap: 5px; justify-content: center"
               >
-                <button
+                <button type="button"
                   class="btn-primary"
                   @click="$emit('abrirOS', os)"
                   style="
@@ -403,7 +403,7 @@ onMounted(() => carregarHistorico());
                   >
                   Ver
                 </button>
-                <button
+                <button type="button"
                   class="btn-outline"
                   @click="iniciarRetrabalho(os)"
                   style="
@@ -475,14 +475,14 @@ onMounted(() => carregarHistorico());
             margin-top: 20px;
           "
         >
-          <button
+          <button type="button"
             class="btn-outline"
             @click="cancelarRetrabalho"
             :disabled="salvandoRetrabalho"
           >
             Cancelar
           </button>
-          <button
+          <button type="button"
             class="btn-primary"
             style="background: #ef4444"
             @click="confirmarRetrabalho"

@@ -277,7 +277,7 @@ onUnmounted(() => {
           <span class="icon-dinamico">analytics</span> Filtros de Relatório
         </h4>
         <div style="display: flex; gap: 10px">
-          <button
+          <button type="button"
             class="btn-outline"
             style="
               border-color: #27ae60;
@@ -293,7 +293,7 @@ onUnmounted(() => {
             >
             Exportar Excel
           </button>
-          <button
+          <button type="button"
             class="btn-outline"
             style="display: flex; align-items: center; gap: 6px"
             @click="acionarImpressao"
@@ -342,7 +342,7 @@ onUnmounted(() => {
           gap: 5px;
         "
       >
-        <button
+        <button type="button"
           class="btn-tab"
           :class="{ active: tipoGrafico === 'resumo' }"
           @click="tipoGrafico = 'resumo'"
@@ -358,7 +358,7 @@ onUnmounted(() => {
           <span class="icon-dinamico" style="font-size: 1rem">bar_chart</span>
           Resumo
         </button>
-        <button
+        <button type="button"
           class="btn-tab"
           :class="{ active: tipoGrafico === 'temporal' }"
           @click="tipoGrafico = 'temporal'"
@@ -429,7 +429,7 @@ onUnmounted(() => {
           <label>Data</label>
           <input v-model="novaDespesa.data_pagamento" type="datetime-local" />
         </div>
-        <button
+        <button type="button"
           class="btn-primary"
           @click="salvarDespesa"
           style="

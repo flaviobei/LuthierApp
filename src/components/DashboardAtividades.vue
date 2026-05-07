@@ -208,7 +208,7 @@ onMounted(() => carregarDadosIniciais());
           </div>
 
           <div class="crm-actions-container">
-            <button
+            <button type="button"
               class="btn-success"
               @click="chamarClientePosVenda(opp)"
               style="
@@ -232,7 +232,7 @@ onMounted(() => carregarDadosIniciais());
               class="crm-actions-secundary"
               style="display: flex; gap: 8px; margin-top: 8px"
             >
-              <button
+              <button type="button"
                 class="btn-icon bg-light"
                 @click="adiarPosVenda(opp.id, 15)"
                 title="Lembrar daqui a 15 dias"
@@ -252,7 +252,7 @@ onMounted(() => carregarDadosIniciais());
                 >
                 Adiar 15d
               </button>
-              <button
+              <button type="button"
                 class="btn-icon bg-light text-success"
                 @click="marcarComoContatado(opp.id)"
                 title="Marcar como Concluído"

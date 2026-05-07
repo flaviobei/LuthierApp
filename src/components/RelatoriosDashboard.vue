@@ -524,7 +524,7 @@ onUnmounted(() => {
           <span class="icon-dinamico">insights</span> Evolução Financeira
         </h3>
         <div style="display: flex; gap: 5px; align-items: center">
-          <button
+          <button type="button"
             class="btn-tab"
             :class="{ active: tipoGraficoDash === 'resumo' }"
             @click="tipoGraficoDash = 'resumo'"
@@ -542,7 +542,7 @@ onUnmounted(() => {
             >
             Balanço
           </button>
-          <button
+          <button type="button"
             class="btn-tab"
             :class="{ active: tipoGraficoDash === 'temporal' }"
             @click="tipoGraficoDash = 'temporal'"

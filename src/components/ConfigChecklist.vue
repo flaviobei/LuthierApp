@@ -161,7 +161,7 @@ onMounted(carregarItens);
           />
         </div>
 
-        <button class="btn-primary btn-add-regra" @click="adicionarItem">
+        <button type="button" class="btn-primary btn-add-regra" @click="adicionarItem">
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >add_circle</span
           >
@@ -203,7 +203,7 @@ onMounted(carregarItens);
               }}]</small
             >
           </div>
-          <button
+          <button type="button"
             @click="confirmarRemocao(item.id)"
             class="btn-delete-confirm"
             :class="{ confirming: idParaRemover === item.id }"
@@ -232,7 +232,7 @@ onMounted(carregarItens);
               }}]</small
             >
           </div>
-          <button
+          <button type="button"
             @click="confirmarRemocao(item.id)"
             class="btn-delete-confirm"
             :class="{ confirming: idParaRemover === item.id }"

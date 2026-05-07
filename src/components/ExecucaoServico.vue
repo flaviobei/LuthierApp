@@ -268,7 +268,7 @@ onMounted(carregarTudo);
           </div>
 
           <div style="display: flex; align-items: center; gap: 8px">
-            <button
+            <button type="button"
               class="btn-outline"
               @click="imprimirQRCode"
               title="Imprimir Etiqueta"
@@ -287,7 +287,7 @@ onMounted(carregarTudo);
               >
               Etiqueta
             </button>
-            <button
+            <button type="button"
               class="btn-outline"
               @click="$emit('voltar')"
               style="
@@ -373,7 +373,7 @@ onMounted(carregarTudo);
       </div>
 
       <div class="tabs-clean mb-2">
-        <button
+        <button type="button"
           :class="{ active: abaAtual === 'checklist' }"
           @click="abaAtual = 'checklist'"
         >
@@ -384,7 +384,7 @@ onMounted(carregarTudo);
           >
           Checklist
         </button>
-        <button
+        <button type="button"
           :class="{ active: abaAtual === 'diario' }"
           @click="abaAtual = 'diario'"
         >
@@ -395,7 +395,7 @@ onMounted(carregarTudo);
           >
           Diário
         </button>
-        <button
+        <button type="button"
           :class="{ active: abaAtual === 'orcamento' }"
           @click="abaAtual = 'orcamento'"
         >
@@ -406,7 +406,7 @@ onMounted(carregarTudo);
           >
           Orçamento
         </button>
-        <button
+        <button type="button"
           :class="{ active: abaAtual === 'checkout' }"
           @click="abaAtual = 'checkout'"
         >
@@ -419,46 +419,48 @@ onMounted(carregarTudo);
         </button>
       </div>
 
-      <AbaChecklist
-        v-if="abaAtual === 'checklist'"
-        :servico="servicoLocal"
-        :os-finalizada="osFinalizada"
-        @observacaoSalva="(val) => (servicoLocal.obs_checklist = val)"
-      />
+      <KeepAlive>
+        <AbaChecklist
+          v-if="abaAtual === 'checklist'"
+          :servico="servicoLocal"
+          :os-finalizada="osFinalizada"
+          @observacaoSalva="(val) => (servicoLocal.obs_checklist = val)"
+        />
 
-      <AbaDiario
-        v-if="abaAtual === 'diario'"
-        :servico="servicoLocal"
-        :os-finalizada="osFinalizada"
-        @faseAtualizada="(val) => (servicoLocal.fase_projeto = val)"
-      />
+        <AbaDiario
+          v-else-if="abaAtual === 'diario'"
+          :servico="servicoLocal"
+          :os-finalizada="osFinalizada"
+          @faseAtualizada="(val) => (servicoLocal.fase_projeto = val)"
+        />
 
-      <AbaOrcamento
-        v-if="abaAtual === 'orcamento'"
-        :servico="servicoLocal"
-        :os-finalizada="osFinalizada"
-        :itens-orcamento="itensOrcamento"
-        :dados-cliente="dadosCliente"
-        :total-orcamento="totalOrcamento"
-        @update:itensOrcamento="(val) => (itensOrcamento = val)"
-        @imprimir="imprimirOrcamento"
-      />
+        <AbaOrcamento
+          v-else-if="abaAtual === 'orcamento'"
+          :servico="servicoLocal"
+          :os-finalizada="osFinalizada"
+          :itens-orcamento="itensOrcamento"
+          :dados-cliente="dadosCliente"
+          :total-orcamento="totalOrcamento"
+          @update:itensOrcamento="(val) => (itensOrcamento = val)"
+          @imprimir="imprimirOrcamento"
+        />
 
-      <AbaReceber
-        v-if="abaAtual === 'checkout'"
-        :servico="servicoLocal"
-        :os-finalizada="osFinalizada"
-        :config-luthieria="configLuthieria"
-        :pagamentos-o-s="pagamentosOS"
-        :total-orcamento="totalOrcamento"
-        :total-pago="totalPago"
-        :saldo-devedor="saldoDevedor"
-        @recarregarPagamentos="carregarPagamentos"
-        @recarregarOrcamento="carregarOrcamento"
-        @osFinalizadaSucesso="marcarComoFinalizada"
-        @imprimirRecibo="gerarRecibo"
-        @observacaoSalva="(val) => (servicoLocal.obs_fechamento = val)"
-      />
+        <AbaReceber
+          v-else-if="abaAtual === 'checkout'"
+          :servico="servicoLocal"
+          :os-finalizada="osFinalizada"
+          :config-luthieria="configLuthieria"
+          :pagamentos-o-s="pagamentosOS"
+          :total-orcamento="totalOrcamento"
+          :total-pago="totalPago"
+          :saldo-devedor="saldoDevedor"
+          @recarregarPagamentos="carregarPagamentos"
+          @recarregarOrcamento="carregarOrcamento"
+          @osFinalizadaSucesso="marcarComoFinalizada"
+          @imprimirRecibo="gerarRecibo"
+          @observacaoSalva="(val) => (servicoLocal.obs_fechamento = val)"
+        />
+      </KeepAlive>
 
       <div
         id="print-area"

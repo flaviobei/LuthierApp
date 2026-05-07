@@ -176,7 +176,7 @@ onMounted(() => carregarDiario());
           <input type="file" accept="image/*" @change="setFotoDiario" hidden />
         </label>
 
-        <button
+        <button type="button"
           class="btn-primary"
           @click="adicionarEntradaDiario"
           :disabled="carregandoFotoDiario"

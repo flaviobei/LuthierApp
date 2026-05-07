@@ -122,11 +122,11 @@ onMounted(carregarServicos);
 
         <div style="display: flex; gap: 15px; align-items: center">
           <div class="btn-group" style="display: flex; gap: 5px">
-            <button class="btn-outline" @click="mudarMes(-1)">◀</button>
-            <button class="btn-outline" @click="dataAtual = new Date()">
+            <button type="button" class="btn-outline" @click="mudarMes(-1)">◀</button>
+            <button type="button" class="btn-outline" @click="dataAtual = new Date()">
               Mês Atual
             </button>
-            <button class="btn-outline" @click="mudarMes(1)">▶</button>
+            <button type="button" class="btn-outline" @click="mudarMes(1)">▶</button>
           </div>
         </div>
       </div>
@@ -161,7 +161,7 @@ onMounted(carregarServicos);
           ser legível. Por favor, aceda a esta funcionalidade através de um
           Tablet ou Computador.
         </p>
-        <button
+        <button type="button"
           class="btn-primary"
           @click="$emit('voltar')"
           style="

@@ -81,7 +81,7 @@ function fecharModal() {
         <h3 style="margin: 0; display: flex; align-items: center; gap: 8px">
           <span class="icon-dinamico">qr_code_scanner</span> Escanear Etiqueta
         </h3>
-        <button class="btn-icon text-danger" @click="fecharModal">
+        <button type="button" class="btn-icon text-danger" @click="fecharModal">
           <span class="icon-dinamico">close</span>
         </button>
       </div>

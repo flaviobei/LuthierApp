@@ -127,7 +127,7 @@ async function apagarDados(tipo) {
           margin-top: 20px;
         "
       >
-        <button
+        <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('os')"
@@ -135,7 +135,7 @@ async function apagarDados(tipo) {
           <span class="icon-dinamico">cleaning_services</span> 1. Limpar Apenas
           Ordens de Serviço
         </button>
-        <button
+        <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('instrumentos')"
@@ -143,7 +143,7 @@ async function apagarDados(tipo) {
           <span class="icon-dinamico">music_note</span> 2. Limpar Todos
           Instrumentos
         </button>
-        <button
+        <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('financeiro')"
@@ -151,7 +151,7 @@ async function apagarDados(tipo) {
           <span class="icon-dinamico">money_off</span> 3. Limpar Movimentações
           Financeiras
         </button>
-        <button
+        <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('clientes')"
@@ -159,7 +159,7 @@ async function apagarDados(tipo) {
           <span class="icon-dinamico">group_remove</span> 4. Limpar Base de
           Clientes
         </button>
-        <button
+        <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('catalogo')"
@@ -168,7 +168,7 @@ async function apagarDados(tipo) {
           <span class="icon-dinamico">inventory_2</span> 5. Limpar Catálogo
           (Peças, Insumos e Serviços)
         </button>
-        <button
+        <button type="button"
           class="btn-clean btn-nuke"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('tudo')"
