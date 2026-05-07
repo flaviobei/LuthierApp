@@ -493,6 +493,56 @@ async function gerarDadosDeExemplo() {
     progresso.value = "";
   }
 }
+
+// --- FUNÇÃO PARA LIMPAR A CONTA ---
+async function limparDadosConta() {
+  const confirmacao = confirm(
+    "ATENÇÃO: Esta ação apagará TODOS os clientes, instrumentos, serviços, financeiro e catálogo da sua oficina! Esta ação é IRREVERSÍVEL. Continuar?"
+  );
+  if (!confirmacao) return;
+
+  const texto = prompt("Para confirmar a exclusão, digite APAGAR TUDO em maiúsculas:");
+  if (texto !== "APAGAR TUDO") {
+    triggerToast("Limpeza cancelada. Confirmação incorreta.", "info");
+    return;
+  }
+
+  loading.value = true;
+  progresso.value = "A apagar transações e orçamentos...";
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado.");
+
+    // Delete in order to respect potential foreign key constraints
+    await supabase.from("transacoes").delete().not("id", "is", null);
+    await supabase.from("orcamento_itens").delete().not("id", "is", null);
+    
+    progresso.value = "A apagar serviços...";
+    await supabase.from("servicos").delete().not("id", "is", null);
+    
+    progresso.value = "A apagar instrumentos...";
+    await supabase.from("instrumentos").delete().not("id", "is", null);
+    
+    progresso.value = "A apagar clientes...";
+    await supabase.from("clientes").delete().not("id", "is", null);
+    
+    progresso.value = "A apagar catálogo...";
+    await supabase.from("catalogo").delete().not("id", "is", null);
+
+    triggerToast("Sua conta foi completamente zerada com sucesso!", "success");
+
+    setTimeout(() => {
+      window.location.reload(true);
+    }, 2000);
+  } catch (error) {
+    triggerToast("Erro ao limpar: " + error.message, "error");
+    console.error(error);
+  } finally {
+    loading.value = false;
+    progresso.value = "";
+  }
+}
 </script>
 
 <template>
@@ -522,7 +572,7 @@ async function gerarDadosDeExemplo() {
           Identidade Visual, 10 clientes, 20 instrumentos, catálogo com
           consumos, custos fixos e 8 meses de histórico. Use para testes de
           funcionalidade e exibição de gráficos. <br /><br />Após os testes,
-          você pode limpar a conta com o botão "APAGAR TUDO" na aba Limpeza.
+          você pode limpar a conta com o botão de limpeza abaixo para começar do zero.
         </p>
         <p
           v-if="progresso"
@@ -552,10 +602,49 @@ async function gerarDadosDeExemplo() {
         :disabled="loading"
       >
         <span class="icon-dinamico" style="font-size: 1.5rem">{{
-          loading ? "hourglass_empty" : "rocket_launch"
+          loading && progresso.includes('injetar') ? "hourglass_empty" : "rocket_launch"
         }}</span>
         <span style="font-size: 1.1rem; font-weight: bold">{{
-          loading ? "A injetar..." : "Iniciar Simulação"
+          loading && progresso.includes('injetar') ? "A injetar..." : "Iniciar Simulação"
+        }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div
+    class="card"
+    style="border: 2px solid #ef4444; background: #fef2f2; margin-top: 20px"
+  >
+    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap">
+      <div style="flex: 1; min-width: 250px">
+        <h3
+          style="
+            margin: 0;
+            color: #b91c1c;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span class="icon-dinamico">delete_sweep</span> Resetar Conta (Começar do Zero)
+        </h3>
+        <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #7f8c8d">
+          Utilize esta opção para <strong>apagar todos os dados</strong> (clientes, ordens de serviço, financeiro e catálogo). 
+          As suas configurações de visual e logo serão mantidas. 
+          Isso é ideal para limpar a oficina após testar o sistema.
+        </p>
+      </div>
+      <button
+        class="btn-primary"
+        style="background: #b91c1c; border: none; min-height: 50px"
+        @click="limparDadosConta"
+        :disabled="loading"
+      >
+        <span class="icon-dinamico" style="font-size: 1.5rem">{{
+          loading && progresso.includes('apagar') ? "hourglass_empty" : "warning"
+        }}</span>
+        <span style="font-size: 1.1rem; font-weight: bold">{{
+          loading && progresso.includes('apagar') ? "A apagar..." : "Apagar Dados"
         }}</span>
       </button>
     </div>

@@ -17,6 +17,7 @@ import TermosDeUso from "./TermosDeUso.vue";
 import GerenciarSaaS from "./GerenciarSaaS.vue";
 import ConfigChecklist from "./ConfigChecklist.vue";
 import LimpezaBanco from "./LimpezaBanco.vue";
+import PopularContaDemo from "./PopularContaDemo.vue";
 import { useOnboarding } from "../composables/useOnboarding";
 import GestaoBackups from "./GestaoBackups.vue";
 
@@ -148,6 +149,17 @@ onMounted(async () => {
         </button>
 
         <button
+          class="btn-tab text-primary"
+          :class="{ active: abaAtual === 'demo' }"
+          @click="abaAtual = 'demo'"
+        >
+          <span class="icon-dinamico" style="font-size: 1.1rem"
+            >science</span
+          >
+          Conta Demo
+        </button>
+
+        <button
           v-if="isSuperAdmin"
           class="btn-tab"
           :class="{ active: abaAtual === 'saas' }"
@@ -213,6 +225,7 @@ onMounted(async () => {
         <MinhaConta v-if="abaAtual === 'conta'" />
         <Ajuda v-if="abaAtual === 'ajuda'" />
         <TermosDeUso v-if="abaAtual === 'termos'" />
+        <PopularContaDemo v-if="abaAtual === 'demo'" />
 
         <LimpezaBanco v-if="abaAtual === 'limpeza' && isSuperAdmin" />
         <GerenciarSaaS v-if="abaAtual === 'saas' && isSuperAdmin" />

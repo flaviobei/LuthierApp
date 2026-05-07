@@ -9,7 +9,6 @@
 
 import { ref, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
-import PopularContaDemo from "./PopularContaDemo.vue";
 
 const textoConfirmacao = ref("");
 const statusMensagem = ref("");
@@ -61,11 +60,9 @@ async function apagarDados(tipo) {
 
 <template>
   <div class="admin-limpeza-container">
-    <PopularContaDemo />
-
     <div
       class="card"
-      style="text-align: left; border: 2px solid #ef4444; margin-top: 20px"
+      style="text-align: left; border: 2px solid #ef4444;"
     >
       <div
         style="
