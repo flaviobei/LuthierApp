@@ -24,8 +24,10 @@
  */
 
 import { supabase } from "../lib/supabaseClient";
+import { useToast } from "../composables/useToast";
 
 const emit = defineEmits(["sair"]);
+const { triggerToast } = useToast();
 
 async function simularPagamento() {
   triggerToast("Integração em breve!", "info");
