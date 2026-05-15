@@ -773,7 +773,7 @@
     "entrar": "Accedi",
     "criar_conta": "Crea Account Liutaio",
     "email": "E-mail",
-    "email_placeholder": "tua@email.com",
+    "email_placeholder": "tua{'@'}email.com",
     "senha": "Password",
     "aguarde": "⏳ Attendi...",
     "registrar": "Registrati",

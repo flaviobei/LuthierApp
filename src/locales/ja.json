@@ -773,7 +773,7 @@
     "entrar": "ログイン",
     "criar_conta": "ルシアーアカウントを作成",
     "email": "メールアドレス",
-    "email_placeholder": "your@email.com",
+    "email_placeholder": "your{'@'}email.com",
     "senha": "パスワード",
     "aguarde": "⏳ お待ちください...",
     "registrar": "登録",

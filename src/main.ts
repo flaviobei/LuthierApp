@@ -10,7 +10,7 @@ if (import.meta.env.PROD) {
   console.error = (...args) => {
     // Integração futura: Sentry.captureException(args[0])
     // Silencia os detalhes técnicos (stack trace) no console do browser
-    originalError("[Aplicação Segura] Ocorreu um erro interno. Registrado no monitoramento.");
+    originalError("[Aplicação Segura] Ocorreu um erro interno. Registrado no monitoramento.", ...args);
   };
   
   // Opcional: Silenciar logs e warnings comuns também

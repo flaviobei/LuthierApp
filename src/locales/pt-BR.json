@@ -773,7 +773,7 @@
     "entrar": "Entrar",
     "criar_conta": "Criar Conta de Luthier",
     "email": "E-mail",
-    "email_placeholder": "seu@email.com",
+    "email_placeholder": "seu{'@'}email.com",
     "senha": "Senha",
     "aguarde": "⏳ Aguarde...",
     "registrar": "Registar",
