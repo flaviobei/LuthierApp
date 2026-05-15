@@ -149,7 +149,7 @@ async function salvarInstrumento() {
 
   if (!erroLocal) {
     triggerToast(
-      isEditing.value ? "Instrumento atualizado!" : "Instrumento registado!",
+      isEditing.value ? "Instrumento atualizado!" : "Instrumento registrado!",
       "success",
     );
     cancelarEdicao();

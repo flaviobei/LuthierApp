@@ -38,7 +38,7 @@ async function buscarMetadadosDoLink(url) {
   try {
     triggerToast("A tentar ler dados do link...", "info");
     
-    // Usamos um proxy CORS público para aceder ao HTML da página
+    // Usamos um proxy CORS público para acessar ao HTML da página
     const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
     if (!response.ok) return;
     
@@ -339,7 +339,7 @@ onMounted(() => buscarItens());
         </div>
 
         <div v-if="needs.length === 0" class="empty-state">
-          Nenhuma urgência registada.
+          Nenhuma urgência registrada.
         </div>
 
         <div v-for="item in needs" :key="item.id" class="item-card">
@@ -399,7 +399,7 @@ onMounted(() => buscarItens());
         </div>
 
         <div v-if="wishes.length === 0" class="empty-state">
-          Nenhum desejo registado.
+          Nenhum desejo registrado.
         </div>
 
         <div v-for="item in wishes" :key="item.id" class="item-card">

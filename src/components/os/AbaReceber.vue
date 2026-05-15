@@ -3,7 +3,7 @@
  * ============================================================================
  * @file        AbaReceber.vue
  * @description Sub-componente responsável pelo financeiro da O.S.,
- * registo de pagamentos, estornos, descontos e conclusão da Ordem.
+ * registro de pagamentos, estornos, descontos e conclusão da Ordem.
  * ============================================================================
  */
 import { ref, watch } from "vue";

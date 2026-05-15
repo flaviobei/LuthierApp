@@ -83,7 +83,7 @@ onMounted(() => carregarUsuario());
 
     <div class="box" style="margin-bottom: 20px; background: var(--bg-body)">
       <p style="margin-top: 0; color: var(--text-muted)">
-        A sua conta atual está registada com o e-mail:
+        A sua conta atual está registrada com o e-mail:
         <strong style="color: var(--primary)">{{ userEmail }}</strong>
       </p>
     </div>

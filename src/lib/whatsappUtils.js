@@ -1,6 +1,6 @@
 export function abrirWhatsapp(cliente, texto) {
   if (!cliente.telefone) {
-    alert("Este cliente não tem telefone registado.");
+    alert("Este cliente não tem telefone registrado.");
     return;
   }
 

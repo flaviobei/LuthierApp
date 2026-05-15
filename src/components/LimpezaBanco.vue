@@ -85,7 +85,7 @@ async function apagarDados(tipo) {
           Banco de Dados
         </h3>
         <p class="text-danger">
-          Esta área permite-lhe apagar os <strong>seus registos</strong> em
+          Esta área permite a você apagar os <strong>seus registros</strong> em
           massa para limpar testes ou começar a oficina do zero.
           <strong>Esta ação é irreversível.</strong> <br />As configurações
           visuais e taxas da oficina não serão afetadas.

@@ -148,7 +148,7 @@ async function gerarDadosDeExemplo() {
           estoque_minimo: 10,
         },
         {
-          nome: "Potenciómetro CTS 500k",
+          nome: "Potenciômetro CTS 500k",
           tipo: "Peca",
           preco_padrao: 65,
           custo_padrao: 30,

@@ -52,7 +52,7 @@ async function carregarDadosIniciais() {
 function chamarClientePosVenda(os) {
   const cli = os.instrumentos?.cliente;
   if (!cli || !cli.telefone)
-    return triggerToast("Este cliente não tem telefone registado.", "error");
+    return triggerToast("Este cliente não tem telefone registrado.", "error");
 
   const msg = `Olá *${cli.nome}*! Tudo bem?\n\nAqui é da Luthieria. Notei que já faz um tempo que entregámos o seu *${os.instrumentos.marca} ${os.instrumentos.modelo}* (O.S. #${os.numero_os}).\n\nComo ele se tem comportado? Se precisar de dar uma revisão ou um ajuste para manter a tocabilidade 100%, é só dizer!`;
   abrirWhatsapp(cli, msg);
@@ -85,7 +85,7 @@ async function adiarPosVenda(osId, dias) {
 function chamarClienteCobranca(os) {
   const cli = os.instrumentos?.cliente;
   if (!cli || !cli.telefone)
-    return triggerToast("Este cliente não tem telefone registado.", "error");
+    return triggerToast("Este cliente não tem telefone registrado.", "error");
 
   const msg = `Olá *${cli.nome}*! Tudo bem?\n\nO seu instrumento *${os.instrumentos.marca} ${os.instrumentos.modelo}* já está pronto para ser retirado (O.S. #${os.numero_os})!\n\nQualquer dúvida, estamos à disposição. Aguardamos a sua visita!`;
   abrirWhatsapp(cli, msg);
@@ -361,7 +361,7 @@ onMounted(() => carregarDadosIniciais());
               <template v-else>
                 <small style="color: var(--text-muted);">
                   <span class="icon-dinamico" style="font-size: 0.9rem; vertical-align: middle;">event_busy</span>
-                  Pronto (Data de conclusão não registada)
+                  Pronto (Data de conclusão não registrada)
                 </small>
               </template>
             </div>

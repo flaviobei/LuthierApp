@@ -329,7 +329,7 @@ onMounted(() => carregarHistorico());
               class="text-muted"
               style="text-align: center; padding: 30px"
             >
-              Nenhum registo encontrado para os filtros atuais.
+              Nenhum registro encontrado para os filtros atuais.
             </td>
           </tr>
           <tr

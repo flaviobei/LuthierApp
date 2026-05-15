@@ -99,7 +99,9 @@ async function carregarDadosCompletosDaOS() {
       servicoLocal.value.motivo_retorno = data.motivo_retorno;
       servicoLocal.value.descricao_cliente = data.descricao_cliente;
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error("Erro ao carregar O.S:", err);
+  }
 }
 
 async function carregarConfig() {
@@ -109,7 +111,9 @@ async function carregarConfig() {
       .select("*")
       .maybeSingle();
     if (data) configLuthieria.value = { ...configLuthieria.value, ...data };
-  } catch (err) {}
+  } catch (err) {
+    console.error("Erro ao carregar Configuração:", err);
+  }
 }
 
 async function carregarOrcamento() {
@@ -120,7 +124,9 @@ async function carregarOrcamento() {
       .eq("servico_id", servicoLocal.value.id)
       .order("created_at", { ascending: true });
     itensOrcamento.value = data || [];
-  } catch (e) {}
+  } catch (e) {
+    console.error("Erro ao carregar Orçamento:", e);
+  }
 }
 
 async function carregarPagamentos() {
@@ -131,7 +137,9 @@ async function carregarPagamentos() {
       .eq("servico_id", servicoLocal.value.id)
       .order("data_pagamento", { ascending: false });
     pagamentosOS.value = data || [];
-  } catch (e) {}
+  } catch (e) {
+    console.error("Erro ao carregar Pagamentos:", e);
+  }
 }
 
 async function marcarComoFinalizada() {
@@ -477,7 +485,7 @@ onMounted(carregarTudo);
           <div class="print-qr-info">
             <p>
               <strong>Cliente:</strong>
-              {{ dadosCliente?.nome || "Não Registado" }}
+              {{ dadosCliente?.nome || "Não Registrado" }}
             </p>
             <p>
               <strong>Inst:</strong> {{ dadosInstrumento?.marca }}
@@ -501,7 +509,7 @@ onMounted(carregarTudo);
               class="qr-code-img"
             />
             <p class="print-qr-hint text-muted">
-              Aponte o "QR Scan" do sistema para aceder
+              Aponte o "QR Scan" do sistema para acessar
             </p>
           </div>
         </div>

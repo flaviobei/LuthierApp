@@ -194,7 +194,7 @@ onMounted(() => carregarDiario());
         Histórico da Bancada
       </h4>
       <div v-if="diario.length === 0" class="text-muted">
-        Nenhuma anotação registada.
+        Nenhuma anotação registrada.
       </div>
       <div class="timeline">
         <div v-for="nota in diario" :key="nota.id" class="timeline-item">
