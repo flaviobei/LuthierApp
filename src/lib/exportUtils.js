@@ -20,11 +20,13 @@ export async function gerarRelatorioHistoricoCSV(
 
   // Busca transações apenas das O.S. filtradas para o cálculo de liquidez
   const osIds = servicosFiltrados.map((os) => os.id);
-  const { data: transacoes } = await supabase
+  const { data: transacoes, error: errTransacoes } = await supabase
     .from("transacoes")
     .select("servico_id, valor_bruto, descricao, tipo")
     .in("servico_id", osIds)
     .eq("tipo", "Entrada");
+
+  if (errTransacoes) throw errTransacoes;
 
   // Função auxiliar para calcular o ticket do cliente no momento da exportação
   function getMediaTicket(clienteId) {
@@ -133,4 +135,5 @@ export async function gerarRelatorioHistoricoCSV(
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

@@ -2,6 +2,8 @@ import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import { useI18n } from "vue-i18n";
 
+let tourInstance = null;
+
 export function useOnboarding() {
   const { t } = useI18n();
 
@@ -30,7 +32,7 @@ export function useOnboarding() {
           const interval = setInterval(() => {
             if (document.getElementById("tour-demo")) {
               clearInterval(interval);
-              window.currentTourInstance?.moveNext();
+              tourInstance?.moveNext();
             }
           }, 200);
           setTimeout(() => clearInterval(interval), 10000);
@@ -47,7 +49,7 @@ export function useOnboarding() {
           const interval = setInterval(() => {
             if (document.getElementById("btn-iniciar-simulacao")) {
               clearInterval(interval);
-              window.currentTourInstance?.moveNext();
+              tourInstance?.moveNext();
             }
           }, 200);
           setTimeout(() => clearInterval(interval), 10000);
@@ -61,7 +63,7 @@ export function useOnboarding() {
         },
         onNextClick: () => {
           document.getElementById("tour-home")?.click();
-          setTimeout(() => window.currentTourInstance?.moveNext(), 400);
+          setTimeout(() => tourInstance?.moveNext(), 400);
         },
       },
       {
@@ -107,7 +109,7 @@ export function useOnboarding() {
         },
         onNextClick: () => {
           document.getElementById("tour-clientes")?.click();
-          setTimeout(() => window.currentTourInstance?.moveNext(), 400);
+          setTimeout(() => tourInstance?.moveNext(), 400);
         },
       },
       {
@@ -118,7 +120,7 @@ export function useOnboarding() {
         },
         onNextClick: () => {
           document.getElementById("tour-admin")?.click();
-          setTimeout(() => window.currentTourInstance?.moveNext(), 400);
+          setTimeout(() => tourInstance?.moveNext(), 400);
         },
       },
       {
@@ -176,8 +178,8 @@ export function useOnboarding() {
   return { 
     iniciarTour: (stepIndex = 0) => {
       const startAt = typeof stepIndex === 'number' ? stepIndex : 0;
-      window.currentTourInstance = createTour();
-      window.currentTourInstance.drive(startAt);
+      tourInstance = createTour();
+      tourInstance.drive(startAt);
     }
   };
 }

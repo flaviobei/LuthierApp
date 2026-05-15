@@ -26,9 +26,11 @@ export async function comprimirImagem(file) {
 
   try {
     const compressedFile = await imageCompression(file, options);
-    console.log(
-      `Compressão finalizada: de ${(file.size / 1024 / 1024).toFixed(2)}MB para ${(compressedFile.size / 1024).toFixed(0)}KB`,
-    );
+    if (import.meta.env.DEV) {
+      console.log(
+        `Compressão finalizada: de ${(file.size / 1024 / 1024).toFixed(2)}MB para ${(compressedFile.size / 1024).toFixed(0)}KB`,
+      );
+    }
     return compressedFile;
   } catch (error) {
     console.error("Erro ao comprimir imagem:", error);

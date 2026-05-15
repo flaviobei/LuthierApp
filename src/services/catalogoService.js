@@ -100,7 +100,11 @@ export const catalogoService = {
       }
 
       // 3. Puxa as regras do catálogo
-      const { data: catalogo } = await supabase.from("catalogo").select("*");
+      const catalogoIds = itens.map(i => i.catalogo_id).filter(Boolean);
+      const { data: catalogo } = await supabase
+        .from("catalogo")
+        .select("*")
+        .in("id", catalogoIds);
       const deducoes = {}; // Armazena o que precisamos descontar { id_do_item: quantidade }
 
       itens.forEach((itemOS) => {
@@ -125,15 +129,18 @@ export const catalogoService = {
       });
 
       // 4. Executa a baixa real no banco de dados de forma atômica via RPC
-      for (const [catId, qtdAbater] of Object.entries(deducoes)) {
-        const itemRef = catalogo.find((c) => c.id === catId);
-        if (itemRef && itemRef.quantidade_estoque !== null) {
-          await supabase.rpc('abater_estoque', {
-            p_item_id: catId,
-            p_quantidade: qtdAbater
-          });
-        }
-      }
+      await Promise.all(
+        Object.entries(deducoes).map(([catId, qtdAbater]) => {
+          const itemRef = catalogo.find((c) => c.id === catId);
+          if (itemRef && itemRef.quantidade_estoque !== null) {
+            return supabase.rpc('abater_estoque', {
+              p_item_id: catId,
+              p_quantidade: qtdAbater
+            });
+          }
+          return Promise.resolve();
+        })
+      );
 
       // 5. Aciona a trava de segurança da O.S.
       await supabase

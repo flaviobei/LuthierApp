@@ -173,7 +173,8 @@ async function enviarOrcamentoWhatsApp() {
     mensagem += `_Qualquer dúvida sobre os itens, estou à total disposição._`;
 
     // Usa a função padronizada do seu whatsappUtils.js
-    abrirWhatsapp(props.dadosCliente, mensagem);
+    const ok = abrirWhatsapp(props.dadosCliente, mensagem);
+    if (ok === false) triggerToast('Cliente sem telefone registrado.', 'error');
   } catch (err) {
     triggerToast(t('os.orcamento_erro_whatsapp'), "error");
   }

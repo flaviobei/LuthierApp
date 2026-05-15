@@ -1,7 +1,6 @@
 export function abrirWhatsapp(cliente, texto) {
   if (!cliente.telefone) {
-    alert("Este cliente não tem telefone registrado.");
-    return;
+    return false; // Sinaliza falha para o componente chamador exibir o Toast
   }
 
   // 1. Limpar o número (remover ( ) - e espaços)

@@ -8,6 +8,8 @@ const { triggerToast } = useToast();
 const { t } = useI18n();
 const loading = ref(false);
 const progresso = ref("");
+const mostrarConfirmacaoInjetar = ref(false);
+const mostrarConfirmacaoResetar = ref(false);
 
 // --- FUNÇÕES AUXILIARES DE DATA E ALEATORIEDADE ---
 function dataAleatoria(minDiasAtras, maxDiasAtras) {
@@ -31,9 +33,7 @@ function randomItem(arr) {
 
 // --- MOTOR DE GERAÇÃO ---
 async function gerarDadosDeExemplo() {
-  const confirmacao = confirm(t('ferramentas.alert_injetar'));
-  if (!confirmacao) return;
-
+  mostrarConfirmacaoInjetar.value = false;
   loading.value = true;
   triggerToast(t('ferramentas.toast_preparando'), "info");
 
@@ -650,15 +650,7 @@ async function gerarDadosDeExemplo() {
 
 // --- FUNÇÃO PARA LIMPAR A CONTA ---
 async function limparDadosConta() {
-  const confirmacao = confirm(t('ferramentas.alert_resetar'));
-  if (!confirmacao) return;
-
-  const texto = prompt(t('ferramentas.prompt_apagar'));
-  if (texto !== "APAGAR TUDO") {
-    triggerToast(t('ferramentas.toast_cancelado'), "info");
-    return;
-  }
-
+  mostrarConfirmacaoResetar.value = false;
   loading.value = true;
   progresso.value = t('ferramentas.prog_apaga_trans');
 
@@ -741,12 +733,17 @@ async function limparDadosConta() {
           {{ progresso }}
         </p>
       </div>
-      <button
+      <div v-if="mostrarConfirmacaoInjetar" style="display: flex; gap: 8px; align-items: center;">
+        <span style="color: var(--danger); font-weight: bold;">{{ $t('ferramentas.alert_injetar') }}</span>
+        <button type="button" class="btn-primary" style="background: var(--danger); border: none;" @click="gerarDadosDeExemplo">{{ $t('geral.confirmar') || 'Confirmar' }}</button>
+        <button type="button" class="btn-outline" @click="mostrarConfirmacaoInjetar = false">{{ $t('geral.cancelar') || 'Cancelar' }}</button>
+      </div>
+      <button v-else
         type="button"
         id="btn-iniciar-simulacao"
         class="btn-primary"
         style="background: var(--danger); border: none; min-height: 50px"
-        @click="gerarDadosDeExemplo"
+        @click="mostrarConfirmacaoInjetar = true"
         :disabled="loading"
       >
         <span class="icon-dinamico" style="font-size: 1.5rem">{{
@@ -782,11 +779,16 @@ async function limparDadosConta() {
         </h3>
         <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #7f8c8d" v-html="$t('ferramentas.desc_reset')"></p>
       </div>
-      <button
+      <div v-if="mostrarConfirmacaoResetar" style="display: flex; gap: 8px; align-items: center;">
+        <span style="color: #b91c1c; font-weight: bold;">{{ $t('ferramentas.alert_resetar') }} (APAGAR TUDO)</span>
+        <button type="button" class="btn-primary" style="background: #b91c1c; border: none;" @click="limparDadosConta">{{ $t('geral.confirmar') || 'Confirmar' }}</button>
+        <button type="button" class="btn-outline" @click="mostrarConfirmacaoResetar = false">{{ $t('geral.cancelar') || 'Cancelar' }}</button>
+      </div>
+      <button v-else
         type="button"
         class="btn-primary"
         style="background: #b91c1c; border: none; min-height: 50px"
-        @click="limparDadosConta"
+        @click="mostrarConfirmacaoResetar = true"
         :disabled="loading"
       >
         <span class="icon-dinamico" style="font-size: 1.5rem">{{

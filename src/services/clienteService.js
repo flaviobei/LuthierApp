@@ -57,7 +57,7 @@ export const clienteService = {
     }
 
     if (dados.email !== undefined) {
-      if (dados.email && !/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(dados.email)) {
+      if (dados.email && !/^[\w.-]+@([\w-]+\.)+[\w-]{2,}$/.test(dados.email)) {
         throw new Error("Formato de e-mail inválido.");
       }
       payloadSeguro.email = dados.email ? dados.email.trim() : null;

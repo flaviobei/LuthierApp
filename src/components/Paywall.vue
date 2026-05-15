@@ -28,7 +28,7 @@ import { supabase } from "../lib/supabaseClient";
 const emit = defineEmits(["sair"]);
 
 async function simularPagamento() {
-  alert("Integração Futura");
+  triggerToast("Integração em breve!", "info");
 
   const {
     data: { user },

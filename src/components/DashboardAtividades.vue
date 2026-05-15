@@ -62,7 +62,8 @@ function chamarClientePosVenda(os) {
     modelo: os.instrumentos.modelo,
     os: os.numero_os
   });
-  abrirWhatsapp(cli, msg);
+  const ok = abrirWhatsapp(cli, msg);
+  if (ok === false) triggerToast('Cliente sem telefone registrado.', 'error');
 }
 
 async function marcarComoContatado(osId) {
@@ -100,7 +101,8 @@ function chamarClienteCobranca(os) {
     modelo: os.instrumentos.modelo,
     os: os.numero_os
   });
-  abrirWhatsapp(cli, msg);
+  const ok = abrirWhatsapp(cli, msg);
+  if (ok === false) triggerToast('Cliente sem telefone registrado.', 'error');
 }
 
 // --- AUXILIARES DE INTERFACE ---
