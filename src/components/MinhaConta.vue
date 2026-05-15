@@ -17,6 +17,9 @@
 
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 const userEmail = ref("");
 const novoEmail = ref("");
@@ -46,7 +49,7 @@ async function atualizarConta() {
   }
 
   if (Object.keys(atualizacoes).length === 0) {
-    mensagem.value = { texto: "Nenhum dado foi alterado.", tipo: "warning" };
+    mensagem.value = { texto: t('admin_conta.nenhum_dado_alterado'), tipo: "warning" };
     loading.value = false;
     return;
   }
@@ -54,12 +57,12 @@ async function atualizarConta() {
   const { data, error } = await supabase.auth.updateUser(atualizacoes);
 
   if (error) {
-    mensagem.value = { texto: "Erro: " + error.message, tipo: "danger" };
+    mensagem.value = { texto: t('admin_conta.erro') + error.message, tipo: "danger" };
   } else {
     mensagem.value = {
       texto: atualizacoes.email
-        ? "Verifique o seu e-mail para confirmar a alteração de endereço. A senha foi atualizada (se preenchida)."
-        : "Credenciais atualizadas com sucesso!",
+        ? t('admin_conta.verifique_email')
+        : t('admin_conta.sucesso'),
       tipo: "success",
     };
     novoEmail.value = "";
@@ -78,37 +81,37 @@ onMounted(() => carregarUsuario());
       class="title-section"
       style="margin-top: 0; display: flex; align-items: center; gap: 8px"
     >
-      <span class="icon-dinamico">lock</span> Segurança e Acesso
+      <span class="icon-dinamico">lock</span> {{ $t('admin_conta.seguranca_acesso') }}
     </h3>
 
     <div class="box" style="margin-bottom: 20px; background: var(--bg-body)">
       <p style="margin-top: 0; color: var(--text-muted)">
-        A sua conta atual está registrada com o e-mail:
+        {{ $t('admin_conta.conta_atual') }}
         <strong style="color: var(--primary)">{{ userEmail }}</strong>
       </p>
     </div>
 
     <div class="form-group">
-      <label>Alterar E-mail de Acesso (Opcional):</label>
+      <label>{{ $t('admin_conta.alterar_email') }}</label>
       <input
         v-model="novoEmail"
         type="email"
-        placeholder="Novo endereço de e-mail..."
+        :placeholder="$t('admin_conta.placeholder_email')"
       />
       <small class="text-muted" style="display: block; margin-top: 5px"
-        >* Será enviado um link de confirmação para o novo e-mail.</small
+        >{{ $t('admin_conta.dica_email') }}</small
       >
     </div>
 
     <div class="form-group" style="margin-top: 20px">
-      <label>Alterar Senha (Opcional):</label>
+      <label>{{ $t('admin_conta.alterar_senha') }}</label>
       <input
         v-model="novaSenha"
         type="password"
-        placeholder="Digite uma nova senha forte..."
+        :placeholder="$t('admin_conta.placeholder_senha')"
       />
       <small class="text-muted" style="display: block; margin-top: 5px"
-        >* Deixe em branco se não quiser alterar a senha.</small
+        >{{ $t('admin_conta.dica_senha') }}</small
       >
     </div>
 
@@ -159,7 +162,7 @@ onMounted(() => carregarUsuario());
       <span class="icon-dinamico" style="font-size: 1.2rem">
         {{ loading ? "hourglass_empty" : "save" }}
       </span>
-      {{ loading ? "A atualizar..." : "Salvar Alterações" }}
+      {{ loading ? $t('admin_conta.atualizando') : $t('admin_conta.salvar') }}
     </button>
   </div>
 </template>

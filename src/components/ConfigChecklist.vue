@@ -12,8 +12,10 @@
 import { ref, onMounted, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const itens = ref([]);
 const carregando = ref(true);
@@ -34,7 +36,7 @@ async function carregarItens() {
     .order("id");
 
   if (error) {
-    triggerToast("Erro ao carregar checklist: " + error.message, "error");
+    triggerToast(t('admin_checklist.erro_carregar') + error.message, "error");
   } else if (data) {
     itens.value = data;
   }
@@ -44,7 +46,7 @@ async function carregarItens() {
 async function adicionarItem() {
   if (!novoItem.value.item_nome) {
     return triggerToast(
-      "Por favor, digite o nome do item a inspecionar.",
+      t('admin_checklist.erro_nome'),
       "error",
     );
   }
@@ -67,9 +69,9 @@ async function adicionarItem() {
   if (!error && data) {
     itens.value.push(data[0]);
     novoItem.value.item_nome = "";
-    triggerToast("Regra de inspeção adicionada!", "success");
+    triggerToast(t('admin_checklist.regra_adicionada'), "success");
   } else {
-    triggerToast("Erro ao gravar item: " + error.message, "error");
+    triggerToast(t('admin_checklist.erro_gravar') + error.message, "error");
   }
 }
 
@@ -86,9 +88,9 @@ async function confirmarRemocao(id) {
 
     if (!error) {
       itens.value = itens.value.filter((i) => i.id !== id);
-      triggerToast("Item removido do padrão.", "info");
+      triggerToast(t('admin_checklist.item_removido'), "info");
     } else {
-      triggerToast("Erro ao remover: " + error.message, "error");
+      triggerToast(t('admin_checklist.erro_remover') + error.message, "error");
     }
     idParaRemover.value = null;
   } else {
@@ -122,39 +124,39 @@ onMounted(carregarItens);
         gap: 8px;
       "
     >
-      <span class="icon-dinamico">fact_check</span> Configurar Checklist Padrão
+      <span class="icon-dinamico">fact_check</span> {{ $t('admin_checklist.titulo') }}
     </h3>
     <p class="text-muted">
-      Estes itens serão adicionados a todas as novas Ordens de Serviço.
+      {{ $t('admin_checklist.desc') }}
     </p>
 
     <div class="box-config-checklist">
       <div class="grid-inputs">
         <div class="field">
-          <label>Fase de Inspeção</label>
+          <label>{{ $t('admin_checklist.fase') }}</label>
           <select v-model="novoItem.tipo">
-            <option value="Chegada">Inspeção de Chegada</option>
-            <option value="Saída">Qualidade de Saída</option>
+            <option value="Chegada">{{ $t('admin_checklist.chegada') }}</option>
+            <option value="Saída">{{ $t('admin_checklist.saida') }}</option>
           </select>
         </div>
 
         <div class="field-grow">
-          <label>O que vai inspecionar? *</label>
+          <label>{{ $t('admin_checklist.o_que') }}</label>
           <input
             v-model="novoItem.item_nome"
-            placeholder="Ex: Altura das Cordas, Trastes..."
+            :placeholder="$t('admin_checklist.placeholder_oque')"
           />
         </div>
       </div>
 
       <div class="grid-buttons-config">
         <div class="field">
-          <label class="text-success">Botão Positivo</label>
+          <label class="text-success">{{ $t('admin_checklist.botao_positivo') }}</label>
           <input v-model="novoItem.opcao_positiva" />
         </div>
 
         <div class="field">
-          <label class="text-warning">Botão Negativo</label>
+          <label class="text-warning">{{ $t('admin_checklist.botao_negativo') }}</label>
           <input
             v-model="novoItem.opcao_negativa"
             @keyup.enter="adicionarItem"
@@ -165,7 +167,7 @@ onMounted(carregarItens);
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >add_circle</span
           >
-          Adicionar
+          {{ $t('admin_checklist.adicionar') }}
         </button>
       </div>
     </div>
@@ -186,19 +188,19 @@ onMounted(carregarItens);
         style="font-size: 2rem; animation: spin 1s linear infinite"
         >sync</span
       >
-      A carregar regras...
+      {{ $t('admin_checklist.carregando') }}
     </div>
 
     <div v-else class="checklist-columns">
       <div class="col-checklist chegada">
         <h4 style="display: flex; align-items: center; gap: 6px">
-          <span class="icon-dinamico">login</span> Itens de Chegada
+          <span class="icon-dinamico">login</span> {{ $t('admin_checklist.itens_chegada') }}
         </h4>
         <div v-for="item in itensChegada" :key="item.id" class="item-regra">
           <div class="regra-info">
             <strong>{{ item.item_nome }}</strong>
             <small
-              >Botões: [{{ item.opcao_positiva }}] [{{
+              >{{ $t('admin_checklist.botoes') }} [{{ item.opcao_positiva }}] [{{
                 item.opcao_negativa
               }}]</small
             >
@@ -211,23 +213,23 @@ onMounted(carregarItens);
             <span class="icon-dinamico" style="font-size: 1.1rem">
               {{ idParaRemover === item.id ? "check" : "delete" }}
             </span>
-            <span v-if="idParaRemover === item.id">Confirmar?</span>
+            <span v-if="idParaRemover === item.id">{{ $t('admin_checklist.confirmar') }}</span>
           </button>
         </div>
         <p v-if="itensChegada.length === 0" class="text-muted small">
-          Nenhuma regra configurada.
+          {{ $t('admin_checklist.nenhuma_regra') }}
         </p>
       </div>
 
       <div class="col-checklist saida">
         <h4 style="display: flex; align-items: center; gap: 6px">
-          <span class="icon-dinamico">logout</span> Itens de Saída
+          <span class="icon-dinamico">logout</span> {{ $t('admin_checklist.itens_saida') }}
         </h4>
         <div v-for="item in itensSaida" :key="item.id" class="item-regra">
           <div class="regra-info">
             <strong>{{ item.item_nome }}</strong>
             <small
-              >Botões: [{{ item.opcao_positiva }}] [{{
+              >{{ $t('admin_checklist.botoes') }} [{{ item.opcao_positiva }}] [{{
                 item.opcao_negativa
               }}]</small
             >
@@ -240,11 +242,11 @@ onMounted(carregarItens);
             <span class="icon-dinamico" style="font-size: 1.1rem">
               {{ idParaRemover === item.id ? "check" : "delete" }}
             </span>
-            <span v-if="idParaRemover === item.id">Confirmar?</span>
+            <span v-if="idParaRemover === item.id">{{ $t('admin_checklist.confirmar') }}</span>
           </button>
         </div>
         <p v-if="itensSaida.length === 0" class="text-muted small">
-          Nenhuma regra configurada.
+          {{ $t('admin_checklist.nenhuma_regra') }}
         </p>
       </div>
     </div>

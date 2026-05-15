@@ -57,7 +57,7 @@ onMounted(async () => {
   <div class="admin-wrapper">
     <div class="admin-menu card">
       <div class="admin-header">
-        <h2 style="margin: 0; color: var(--primary)">Painel de Gestão</h2>
+        <h2 style="margin: 0; color: var(--primary)">{{ $t('admin.titulo') }}</h2>
 
         <div class="admin-actions">
           <button type="button"
@@ -68,12 +68,12 @@ onMounted(async () => {
             <span class="icon-dinamico" style="font-size: 1rem"
               >help_center</span
             >
-            Ajuda
+            {{ $t('admin.ajuda') }}
           </button>
 
           <button type="button" @click="iniciarTour" class="btn-outline btn-action">
             <span class="icon-dinamico" style="font-size: 1rem">lightbulb</span>
-            Tutorial
+            {{ $t('admin.tutorial') }}
           </button>
 
           <button type="button"
@@ -82,7 +82,7 @@ onMounted(async () => {
             @click="abaAtual = 'termos'"
           >
             <span class="icon-dinamico" style="font-size: 1rem">gavel</span>
-            Termos
+            {{ $t('admin.termos') }}
           </button>
         </div>
       </div>
@@ -95,7 +95,7 @@ onMounted(async () => {
           @click="abaAtual = 'relatorios'"
         >
           <span class="icon-dinamico" style="font-size: 1.1rem">analytics</span>
-          Relatórios
+          {{ $t('admin.relatorios') }}
         </button>
 
         <button type="button"
@@ -105,7 +105,7 @@ onMounted(async () => {
           @click="abaAtual = 'catalogo'"
         >
           <span class="icon-dinamico" style="font-size: 1.1rem">sell</span>
-          Serviços
+          {{ $t('admin.servicos') }}
         </button>
 
         <button type="button"
@@ -117,7 +117,7 @@ onMounted(async () => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >point_of_sale</span
           >
-          Caixa
+          {{ $t('admin.caixa') }}
         </button>
 
         <button type="button"
@@ -127,7 +127,7 @@ onMounted(async () => {
           @click="abaAtual = 'config'"
         >
           <span class="icon-dinamico" style="font-size: 1.1rem">settings</span>
-          Oficina
+          {{ $t('admin.oficina') }}
         </button>
 
         <button type="button"
@@ -139,7 +139,7 @@ onMounted(async () => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >fact_check</span
           >
-          Checklist
+          {{ $t('admin.checklist') }}
         </button>
 
         <button type="button"
@@ -151,7 +151,7 @@ onMounted(async () => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >shopping_cart</span
           >
-          Compras
+          {{ $t('admin.compras') }}
         </button>
 
         <button type="button"
@@ -163,7 +163,7 @@ onMounted(async () => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >manage_accounts</span
           >
-          Minha Conta
+          {{ $t('admin.conta') }}
         </button>
 
         <button type="button"
@@ -173,7 +173,7 @@ onMounted(async () => {
           @click="abaAtual = 'demo'"
         >
           <span class="icon-dinamico" style="font-size: 1.1rem">science</span>
-          Conta Demo
+          {{ $t('admin.demo') }}
         </button>
 
         <button type="button"
@@ -191,7 +191,7 @@ onMounted(async () => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >admin_panel_settings</span
           >
-          Gestão SaaS
+          {{ $t('admin.saas') }}
         </button>
 
         <button type="button"
@@ -205,7 +205,7 @@ onMounted(async () => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >cloud_download</span
           >
-          Backups
+          {{ $t('admin.backups') }}
         </button>
 
         <button type="button"
@@ -218,14 +218,14 @@ onMounted(async () => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >delete_sweep</span
           >
-          Limpeza
+          {{ $t('admin.limpeza') }}
         </button>
       </div>
     </div>
 
     <div class="admin-content">
       <div v-if="carregandoSeguranca" style="text-align: center; padding: 20px">
-        A validar credenciais...
+        {{ $t('admin.validando') }}
       </div>
 
       <KeepAlive v-else>

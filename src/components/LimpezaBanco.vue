@@ -9,7 +9,9 @@
 
 import { ref, computed } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const textoConfirmacao = ref("");
 const statusMensagem = ref("");
 const processando = ref(false);
@@ -20,7 +22,7 @@ async function apagarDados(tipo) {
   if (!podeLimpar.value) return;
 
   processando.value = true;
-  statusMensagem.value = "A processar limpeza de segurança no servidor...";
+  statusMensagem.value = t('ferramentas.processando_limpeza');
 
   try {
     // A mágica da segurança atómica! Um único pedido fechado envia a ordem para o Supabase
@@ -33,24 +35,21 @@ async function apagarDados(tipo) {
 
     // MENSAGENS DE SUCESSO
     if (tipo === "financeiro")
-      statusMensagem.value = "As suas Movimentações Financeiras foram zeradas.";
+      statusMensagem.value = t('ferramentas.mov_zeradas');
     else if (tipo === "os")
-      statusMensagem.value =
-        "As suas Ordens de Serviço e históricos foram apagados.";
+      statusMensagem.value = t('ferramentas.os_apagadas');
     else if (tipo === "instrumentos")
-      statusMensagem.value = "Os seus Instrumentos foram apagados.";
+      statusMensagem.value = t('ferramentas.inst_apagados');
     else if (tipo === "clientes")
-      statusMensagem.value = "Os seus Clientes foram apagados.";
+      statusMensagem.value = t('ferramentas.cli_apagados');
     else if (tipo === "catalogo")
-      statusMensagem.value =
-        "O seu Catálogo (Peças, Insumos e Serviços) foi apagado.";
+      statusMensagem.value = t('ferramentas.cat_apagado');
     else if (tipo === "tudo")
-      statusMensagem.value =
-        "BASE ZERADA COM SUCESSO. A sua conta está limpa e pronta para começar!";
+      statusMensagem.value = t('ferramentas.tudo_apagado');
 
     textoConfirmacao.value = "";
   } catch (err) {
-    statusMensagem.value = "Erro de Segurança: " + err.message;
+    statusMensagem.value = t('ferramentas.erro_seguranca') + err.message;
     console.error(err);
   } finally {
     processando.value = false;
@@ -81,15 +80,9 @@ async function apagarDados(tipo) {
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">warning</span> Zona de Perigo - Limpeza de
-          Banco de Dados
+          <span class="icon-dinamico">warning</span> {{ $t('ferramentas.titulo_perigo') }}
         </h3>
-        <p class="text-danger">
-          Esta área permite a você apagar os <strong>seus registros</strong> em
-          massa para limpar testes ou começar a oficina do zero.
-          <strong>Esta ação é irreversível.</strong> <br />As configurações
-          visuais e taxas da oficina não serão afetadas.
-        </p>
+        <p class="text-danger" v-html="$t('ferramentas.desc_perigo')"></p>
 
         <div
           style="
@@ -102,11 +95,11 @@ async function apagarDados(tipo) {
           "
         >
           <label class="text-danger" style="font-weight: bold">
-            Digite a palavra LIMPAR em maiúsculas para desbloquear os botões: </label
+            {{ $t('ferramentas.label_limpar') }}</label
           ><br />
           <input
             v-model="textoConfirmacao"
-            placeholder="Digite LIMPAR"
+            :placeholder="$t('ferramentas.placeholder_limpar')"
             style="
               margin-top: 8px;
               padding: 10px;
@@ -132,32 +125,28 @@ async function apagarDados(tipo) {
           :disabled="!podeLimpar || processando"
           @click="apagarDados('os')"
         >
-          <span class="icon-dinamico">cleaning_services</span> 1. Limpar Apenas
-          Ordens de Serviço
+          <span class="icon-dinamico">cleaning_services</span> {{ $t('ferramentas.btn_limpar_os') }}
         </button>
         <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('instrumentos')"
         >
-          <span class="icon-dinamico">music_note</span> 2. Limpar Todos
-          Instrumentos
+          <span class="icon-dinamico">music_note</span> {{ $t('ferramentas.btn_limpar_inst') }}
         </button>
         <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('financeiro')"
         >
-          <span class="icon-dinamico">money_off</span> 3. Limpar Movimentações
-          Financeiras
+          <span class="icon-dinamico">money_off</span> {{ $t('ferramentas.btn_limpar_fin') }}
         </button>
         <button type="button"
           class="btn-clean"
           :disabled="!podeLimpar || processando"
           @click="apagarDados('clientes')"
         >
-          <span class="icon-dinamico">group_remove</span> 4. Limpar Base de
-          Clientes
+          <span class="icon-dinamico">group_remove</span> {{ $t('ferramentas.btn_limpar_cli') }}
         </button>
         <button type="button"
           class="btn-clean"
@@ -165,8 +154,7 @@ async function apagarDados(tipo) {
           @click="apagarDados('catalogo')"
           style="grid-column: 1 / -1"
         >
-          <span class="icon-dinamico">inventory_2</span> 5. Limpar Catálogo
-          (Peças, Insumos e Serviços)
+          <span class="icon-dinamico">inventory_2</span> {{ $t('ferramentas.btn_limpar_cat') }}
         </button>
         <button type="button"
           class="btn-clean btn-nuke"
@@ -174,8 +162,7 @@ async function apagarDados(tipo) {
           @click="apagarDados('tudo')"
           style="grid-column: 1 / -1; margin-top: 10px"
         >
-          <span class="icon-dinamico">delete_forever</span> APAGAR TUDO (O.S,
-          Instrumentos, Financeiro, Clientes e Catálogo)
+          <span class="icon-dinamico">delete_forever</span> {{ $t('ferramentas.btn_apagar_tudo') }}
         </button>
       </div>
 

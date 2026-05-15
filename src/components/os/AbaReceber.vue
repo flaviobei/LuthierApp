@@ -10,6 +10,7 @@ import { ref, watch } from "vue";
 import { supabase } from "../../lib/supabaseClient";
 import { useToast } from "../../composables/useToast";
 import { calcularTaxaPagamento } from "../../lib/financeiroUtils";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps({
   servico: Object,
@@ -30,6 +31,7 @@ const emit = defineEmits([
 ]);
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 function getLocalDatetime() {
   return new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -60,7 +62,7 @@ watch(
 async function aplicarDesconto() {
   if (!novoDesconto.value.motivo || novoDesconto.value.valor <= 0) {
     return triggerToast(
-      "Preencha o motivo e um valor válido para o desconto.",
+      t('os.orcamento_erro_desconto'),
       "warning",
     );
   }
@@ -78,10 +80,10 @@ async function aplicarDesconto() {
     if (error) throw error;
 
     novoDesconto.value = { motivo: "", valor: null };
-    triggerToast("Desconto aplicado com sucesso!", "success");
+    triggerToast(t('os.orcamento_desconto_sucesso'), "success");
     emit("recarregarOrcamento"); // Pede ao pai para atualizar o orçamento global
   } catch (err) {
-    triggerToast("Erro ao aplicar desconto.", "error");
+    triggerToast(t('os.orcamento_erro_aplicar_desc'), "error");
   }
 }
 
@@ -94,7 +96,7 @@ async function registrarPagamento() {
   ) {
     pgtoExcedenteConfirmado.value = true;
     return triggerToast(
-      "Valor excede o saldo. Clique para confirmar.",
+      t('os.receber_aviso_excede'),
       "warning",
     );
   }
@@ -132,10 +134,10 @@ async function registrarPagamento() {
 
     pgtoExcedenteConfirmado.value = false;
     novoPagamento.value.data_pagamento = getLocalDatetime();
-    triggerToast("Pagamento registrado!", "success");
+    triggerToast(t('os.receber_sucesso'), "success");
     emit("recarregarPagamentos"); // Pede ao pai para carregar os pagamentos atualizados
   } catch (err) {
-    triggerToast("Erro Pagamento: " + err.message, "error");
+    triggerToast(t('os.receber_erro') + err.message, "error");
   }
 }
 
@@ -175,10 +177,10 @@ async function salvarObservacoes() {
       .update({ obs_fechamento: obsFechamentoLocal.value })
       .eq("id", props.servico.id);
     if (error) throw error;
-    triggerToast("Notas salvas com sucesso!", "success");
+    triggerToast(t('os.receber_notas_salvas'), "success");
     emit("observacaoSalva", obsFechamentoLocal.value);
   } catch (err) {
-    triggerToast("Erro ao salvar notas: " + err.message, "error");
+    triggerToast(t('os.receber_erro_notas') + err.message, "error");
   }
 }
 </script>
@@ -187,15 +189,15 @@ async function salvarObservacoes() {
   <div class="card">
     <div class="resumo-financeiro mb-2">
       <div class="caixa-valor total">
-        <small>Total do Serviço</small>
+        <small>{{ $t('os.receber_total_servico') }}</small>
         <strong>R$ {{ totalOrcamento.toFixed(2) }}</strong>
       </div>
       <div class="caixa-valor pago">
-        <small>Valor Pago</small>
+        <small>{{ $t('os.receber_valor_pago') }}</small>
         <strong>R$ {{ totalPago.toFixed(2) }}</strong>
       </div>
       <div class="caixa-valor restante" :class="{ zerado: saldoDevedor <= 0 }">
-        <small>Falta Receber</small>
+        <small>{{ $t('os.receber_falta_receber') }}</small>
         <strong>R$ {{ saldoDevedor.toFixed(2) }}</strong>
       </div>
     </div>
@@ -216,10 +218,10 @@ async function salvarObservacoes() {
       <p style="margin-top: 0; display: flex; align-items: center; gap: 8px">
         <span class="icon-dinamico" style="font-size: 1.2rem">celebration</span>
         <span v-if="totalOrcamento === 0"
-          >O.S. sem custo pendente. Deseja finalizar a O.S. agora?</span
+          >{{ $t('os.receber_zerado_pergunta') }}</span
         >
         <span v-else
-          >Saldo liquidado! Deseja finalizar e bloquear a O.S. agora?</span
+          >{{ $t('os.receber_liquidado_pergunta') }}</span
         >
       </p>
       <div class="flex-gap-10">
@@ -228,7 +230,7 @@ async function salvarObservacoes() {
           @click="finalizarOSManual"
           style="background: var(--success)"
         >
-          Sim, Finalizar O.S.
+          {{ $t('os.receber_sim_finalizar') }}
         </button>
         <button type="button"
           class="btn-outline"
@@ -237,7 +239,7 @@ async function salvarObservacoes() {
             bannerOcultadoManual = true;
           "
         >
-          Agora não
+          {{ $t('os.receber_agora_nao') }}
         </button>
       </div>
     </div>
@@ -256,12 +258,12 @@ async function salvarObservacoes() {
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">sell</span> Conceder Desconto
+        <span class="icon-dinamico">sell</span> {{ $t('os.receber_conceder_desconto') }}
       </h4>
       <div class="flex-gap-10" style="flex-wrap: wrap">
         <input
           v-model="novoDesconto.motivo"
-          placeholder="Motivo (Ex: Parceria, Atraso...)"
+          :placeholder="$t('os.receber_motivo_desc')"
           style="flex: 2; min-width: 150px; border-color: #fbcfe8"
         />
         <input
@@ -281,30 +283,30 @@ async function salvarObservacoes() {
             gap: 6px;
           "
         >
-          <span class="icon-dinamico">remove_circle</span> Aplicar Desconto
+          <span class="icon-dinamico">remove_circle</span> {{ $t('os.receber_aplicar_desconto') }}
         </button>
       </div>
     </div>
 
     <div v-if="saldoDevedor > 0 && !osFinalizada" class="form-pagamento mb-2">
       <h4 style="margin: 0; display: flex; align-items: center; gap: 8px">
-        <span class="icon-dinamico">payments</span> Registrar Pagamento
+        <span class="icon-dinamico">payments</span> {{ $t('os.receber_registrar_pgto') }}
       </h4>
       <div class="flex-gap-10 mt-1" style="flex-wrap: wrap">
         <input
           type="datetime-local"
           v-model="novoPagamento.data_pagamento"
           style="flex: 1; min-width: 120px"
-          title="Data do Pagamento"
+          :title="$t('os.receber_data_pgto')"
         />
         <select
           v-model="novoPagamento.metodo"
           style="flex: 1; min-width: 120px"
         >
           <option value="PIX">PIX</option>
-          <option value="Dinheiro">Dinheiro</option>
-          <option value="Cartão de Crédito">Cartão de Crédito</option>
-          <option value="Cartão de Débito">Cartão de Débito</option>
+          <option value="Dinheiro">{{ $t('os.receber_dinheiro') }}</option>
+          <option value="Cartão de Crédito">{{ $t('os.receber_credito') }}</option>
+          <option value="Cartão de Débito">{{ $t('os.receber_debito') }}</option>
         </select>
         <input
           v-model.number="novoPagamento.valor"
@@ -324,7 +326,7 @@ async function salvarObservacoes() {
             style="font-size: 1.1rem; vertical-align: middle; margin-right: 4px"
             >warning</span
           >
-          {{ pgtoExcedenteConfirmado ? "Confirmar?" : "Receber" }}
+          {{ pgtoExcedenteConfirmado ? $t('os.receber_confirmar') : $t('os.receber_receber_btn') }}
         </button>
       </div>
     </div>
@@ -333,7 +335,7 @@ async function salvarObservacoes() {
       class="flex-between mb-1"
       style="border-top: 1px solid var(--border); padding-top: 20px"
     >
-      <h4 style="margin: 0">Histórico de Transações</h4>
+      <h4 style="margin: 0">{{ $t('os.receber_historico_transacoes') }}</h4>
       <div style="display: flex; gap: 10px">
         <button type="button"
           v-if="!osFinalizada && bannerOcultadoManual && saldoDevedor <= 0"
@@ -348,14 +350,14 @@ async function salvarObservacoes() {
             color: white;
           "
         >
-          <span class="icon-dinamico">check_circle</span> Finalizar O.S.
+          <span class="icon-dinamico">check_circle</span> {{ $t('os.receber_finalizar_os') }}
         </button>
         <button type="button"
           class="btn-outline"
           @click="$emit('imprimirRecibo')"
-          title="Imprimir Recibo"
+          :title="$t('os.receber_imprimir_recibo_title')"
         >
-          <span class="icon-dinamico">print</span> Recibo
+          <span class="icon-dinamico">print</span> {{ $t('os.receber_recibo_btn') }}
         </button>
       </div>
     </div>
@@ -379,13 +381,13 @@ async function salvarObservacoes() {
             @click="estornarPagamento(p.id)"
             :class="{ confirming: idPgtoConfirmar === p.id }"
           >
-            {{ idPgtoConfirmar === p.id ? "Confirmar?" : "Estornar" }}
+            {{ idPgtoConfirmar === p.id ? $t('os.receber_confirmar') : $t('os.receber_estornar') }}
           </button>
         </td>
       </tr>
       <tr v-if="pagamentosOS.length === 0">
         <td colspan="3" class="text-center text-muted">
-          Nenhum pagamento efetuado.
+          {{ $t('os.nenhum_pagamento') }}
         </td>
       </tr>
     </table>
@@ -407,19 +409,18 @@ async function salvarObservacoes() {
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">speaker_notes</span> Notas de Fechamento /
-        Garantia
+        <span class="icon-dinamico">speaker_notes</span> {{ $t('os.receber_notas_fechamento') }}
       </h4>
       <p
         class="text-muted"
         style="font-size: 0.8rem; margin-top: -5px; margin-bottom: 10px"
       >
-        Este texto sairá impresso no recibo/orçamento final do cliente.
+        {{ $t('os.receber_notas_dica') }}
       </p>
       <textarea
         v-model="obsFechamentoLocal"
         rows="3"
-        placeholder="Dicas de conservação, termos de garantia, alertas..."
+        :placeholder="$t('os.receber_notas_placeholder')"
         :disabled="osFinalizada"
         style="width: 100%"
       ></textarea>
@@ -436,8 +437,7 @@ async function salvarObservacoes() {
           font-size: 0.85rem;
         "
       >
-        <span class="icon-dinamico" style="font-size: 1.1rem">save</span> Salvar
-        Notas
+        <span class="icon-dinamico" style="font-size: 1.1rem">save</span> {{ $t('os.receber_salvar_notas') }}
       </button>
     </div>
   </div>

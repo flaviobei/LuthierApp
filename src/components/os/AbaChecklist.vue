@@ -9,6 +9,7 @@ import { ref, computed, onMounted } from "vue";
 import { supabase } from "../../lib/supabaseClient";
 import { comprimirImagem } from "../../lib/imageUtils";
 import { useToast } from "../../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps({
   servico: Object,
@@ -17,6 +18,7 @@ const props = defineProps({
 
 const emit = defineEmits(["observacaoSalva"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const checklistItens = ref([]);
 const fotosChecklist = ref([]);
@@ -61,14 +63,14 @@ async function carregarChecklist() {
       checklistItens.value = [];
     }
   } catch (error) {
-    triggerToast("Erro ao carregar checklist: " + error.message, "error");
+    triggerToast(t('os.checklist_erro_carregar') + error.message, "error");
   }
 }
 
 // NOVA FUNÇÃO: Sincroniza regras novas sem apagar as antigas
 async function sincronizarChecklist() {
   try {
-    triggerToast("A verificar novas regras...", "info");
+    triggerToast(t('os.checklist_verificar_regras'), "info");
 
     // 1. Puxa o padrão atual do painel Admin
     const { data: padrao, error: errPadrao } = await supabase
@@ -78,7 +80,7 @@ async function sincronizarChecklist() {
 
     if (!padrao || padrao.length === 0) {
       return triggerToast(
-        "Não há regras no padrão para sincronizar.",
+        t('os.checklist_sem_regras_padrao'),
         "warning",
       );
     }
@@ -98,7 +100,7 @@ async function sincronizarChecklist() {
     // 3. Se não houver nada novo, avisa e para
     if (novosItens.length === 0) {
       return triggerToast(
-        "O checklist já está 100% atualizado com o padrão!",
+        t('os.checklist_atualizado'),
         "success",
       );
     }
@@ -113,11 +115,11 @@ async function sincronizarChecklist() {
     // 5. Atualiza a tela instantaneamente
     checklistItens.value = [...checklistItens.value, ...inseridos];
     triggerToast(
-      `${novosItens.length} novas regras adicionadas à O.S.!`,
+      t('os.checklist_novas_regras', { qtd: novosItens.length }),
       "success",
     );
   } catch (error) {
-    triggerToast("Erro ao sincronizar regras: " + error.message, "error");
+    triggerToast(t('os.checklist_erro_sincronizar') + error.message, "error");
   }
 }
 
@@ -130,7 +132,7 @@ async function atualizarStatusChecklist(item, statusOpcao) {
     if (error) throw error;
     item.condicao = statusOpcao;
   } catch (err) {
-    triggerToast("Falha ao atualizar item: " + err.message, "error");
+    triggerToast(t('os.checklist_erro_atualizar') + err.message, "error");
   }
 }
 
@@ -190,9 +192,9 @@ async function uploadFotoChecklist(event) {
     if (dbError) throw dbError;
 
     if (insertData) fotosChecklist.value.unshift(insertData[0]);
-    triggerToast("Foto anexada!", "success");
+    triggerToast(t('os.checklist_foto_anexada'), "success");
   } catch (err) {
-    triggerToast("Erro ao gravar foto: " + err.message, "error");
+    triggerToast(t('os.checklist_erro_gravar_foto') + err.message, "error");
   } finally {
     carregandoFoto.value = false;
   }
@@ -209,7 +211,7 @@ async function deletarFoto(id) {
       fotosChecklist.value = fotosChecklist.value.filter((f) => f.id !== id);
       idFotoConfirmar.value = null;
     } catch (err) {
-      triggerToast("Erro ao excluir: " + err.message, "error");
+      triggerToast(t('os.checklist_erro_excluir') + err.message, "error");
     }
   } else {
     idFotoConfirmar.value = id;
@@ -226,10 +228,10 @@ async function salvarObservacoes() {
       .update({ obs_checklist: obsChecklistLocal.value })
       .eq("id", props.servico.id);
     if (error) throw error;
-    triggerToast("Observações do checklist salvas!", "success");
+    triggerToast(t('os.checklist_obs_salvas'), "success");
     emit("observacaoSalva", obsChecklistLocal.value);
   } catch (err) {
-    triggerToast("Erro ao salvar observação: " + err.message, "error");
+    triggerToast(t('os.checklist_erro_salvar_obs') + err.message, "error");
   }
 }
 
@@ -246,7 +248,7 @@ onMounted(() => {
       v-if="!osFinalizada && checklistsAgrupados.length > 0"
     >
       <span class="text-muted" style="font-size: 0.85rem">
-        Inspeção baseada no momento da abertura.
+        {{ $t('os.checklist_inspecao_abertura') }}
       </span>
       <button type="button"
         class="btn-outline"
@@ -259,7 +261,7 @@ onMounted(() => {
           style="font-size: 1.1rem; vertical-align: middle"
           >sync</span
         >
-        Sincronizar Regras
+        {{ $t('os.checklist_sincronizar_regras') }}
       </button>
     </div>
 
@@ -272,14 +274,14 @@ onMounted(() => {
         style="font-size: 3rem; color: var(--text-muted)"
         >sentiment_dissatisfied</span
       ><br />
-      Nenhuma regra de checklist encontrada.<br />
-      <small>Configure regras em "Admin > Checklist".</small><br /><br />
+      {{ $t('os.checklist_nenhuma_regra') }}<br />
+      <small>{{ $t('os.checklist_configure_regras') }}</small><br /><br />
       <button type="button"
         v-if="!osFinalizada"
         class="btn-outline"
         @click="sincronizarChecklist"
       >
-        <span class="icon-dinamico">sync</span> Tentar Sincronizar Agora
+        <span class="icon-dinamico">sync</span> {{ $t('os.checklist_tentar_sincronizar') }}
       </button>
     </div>
 
@@ -308,7 +310,7 @@ onMounted(() => {
               :class="{ active: item.condicao === '✅ Sim' }"
               @click="!osFinalizada && atualizarStatusChecklist(item, '✅ Sim')"
               :disabled="osFinalizada"
-              title="Sim / Ok"
+              :title="$t('os.checklist_sim_ok')"
             >
               <span class="icon-dinamico" style="font-size: 1.1rem">check</span>
             </button>
@@ -317,7 +319,7 @@ onMounted(() => {
               :class="{ active: item.condicao === '❌ Não' }"
               @click="!osFinalizada && atualizarStatusChecklist(item, '❌ Não')"
               :disabled="osFinalizada"
-              title="Não / Defeito"
+              :title="$t('os.checklist_nao_defeito')"
             >
               <span class="icon-dinamico" style="font-size: 1.1rem">close</span>
             </button>
@@ -340,12 +342,12 @@ onMounted(() => {
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">notes</span> Observações do Checklist
+        <span class="icon-dinamico">notes</span> {{ $t('os.checklist_observacoes') }}
       </h4>
       <textarea
         v-model="obsChecklistLocal"
         rows="3"
-        placeholder="Anotações gerais do estado de entrada do instrumento..."
+        :placeholder="$t('os.checklist_placeholder')"
         :disabled="osFinalizada"
         style="width: 100%"
       ></textarea>
@@ -362,8 +364,7 @@ onMounted(() => {
           font-size: 0.85rem;
         "
       >
-        <span class="icon-dinamico" style="font-size: 1.1rem">save</span> Salvar
-        Observações
+        <span class="icon-dinamico" style="font-size: 1.1rem">save</span> {{ $t('os.checklist_salvar_obs') }}
       </button>
     </div>
 
@@ -373,7 +374,7 @@ onMounted(() => {
           <span class="icon-dinamico" style="vertical-align: middle"
             >photo_library</span
           >
-          Evidências
+          {{ $t('os.checklist_evidencias') }}
         </h4>
         <label
           v-if="!osFinalizada"
@@ -385,7 +386,7 @@ onMounted(() => {
             style="font-size: 1rem; vertical-align: bottom"
             >add_a_photo</span
           >
-          {{ carregandoFoto ? "Aguarde..." : "Anexar" }}
+          {{ carregandoFoto ? $t('os.checklist_aguarde') : $t('os.checklist_anexar') }}
           <input
             type="file"
             accept="image/*"
@@ -401,7 +402,7 @@ onMounted(() => {
           class="text-muted text-center w-full"
           style="font-size: 0.85rem"
         >
-          Nenhuma foto anexada.
+          {{ $t('os.checklist_nenhuma_foto') }}
         </div>
         <div v-for="foto in fotosChecklist" :key="foto.id" class="foto-card">
           <a :href="foto.foto_url" target="_blank"
@@ -413,7 +414,7 @@ onMounted(() => {
             @click="deletarFoto(foto.id)"
             :class="{ confirming: idFotoConfirmar === foto.id }"
           >
-            {{ idFotoConfirmar === foto.id ? "Confirma?" : "Excluir" }}
+            {{ idFotoConfirmar === foto.id ? $t('os.checklist_confirma') : $t('geral.excluir') }}
           </button>
         </div>
       </div>

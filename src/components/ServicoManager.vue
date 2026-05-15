@@ -15,11 +15,13 @@ import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import ExecucaoServico from "./ExecucaoServico.vue";
 import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
+import { useI18n } from "vue-i18n";
 
 const props = defineProps(["instrumento"]);
 const emit = defineEmits(["voltar"]);
 
 const { triggerToast } = useToast(); // <-- 2. Inicializa o Toast
+const { t } = useI18n();
 
 const servicos = ref([]);
 const loading = ref(false);
@@ -49,7 +51,7 @@ async function buscarServicos() {
 async function abrirOS() {
   if (!novaOS.value.descricao_cliente) {
     // SUBSTITUÍDO: alert() por triggerToast()
-    return triggerToast("Descreva o pedido ou problema do cliente.", "error");
+    return triggerToast(t('servicos.erro_descricao_vazia'), "error");
   }
 
   loading.value = true;
@@ -81,11 +83,11 @@ async function abrirOS() {
       tolerancia_dias: 0,
       data_previsao_pecas: "",
     };
-    triggerToast("Ordem de Serviço aberta com sucesso!", "success"); // <-- MENSAGEM DE SUCESSO
+    triggerToast(t('servicos.os_aberta_sucesso'), "success"); // <-- MENSAGEM DE SUCESSO
     buscarServicos();
   } else {
     // SUBSTITUÍDO: alert() por triggerToast()
-    triggerToast("Erro ao abrir O.S: " + error.message, "error");
+    triggerToast(t('servicos.erro_abrir_os') + error.message, "error");
   }
 }
 
@@ -140,7 +142,7 @@ onMounted(() => buscarServicos());
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">assignment</span> O.S. -
+          <span class="icon-dinamico">assignment</span> {{ $t('servicos.titulo_os_instrumento') }}
           {{ instrumento.modelo }}
         </h3>
         <button type="button"
@@ -151,7 +153,7 @@ onMounted(() => buscarServicos());
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >arrow_back</span
           >
-          Voltar
+          {{ $t('geral.voltar') }}
         </button>
       </div>
 
@@ -169,21 +171,20 @@ onMounted(() => buscarServicos());
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">note_add</span> Abrir Nova Ordem de
-          Serviço
+          <span class="icon-dinamico">note_add</span> {{ $t('servicos.abrir_nova_os') }}
         </h4>
 
         <div class="form-group">
-          <label>Defeito / Serviço Solicitado: *</label>
+          <label>{{ $t('servicos.label_defeito_servico') }}</label>
           <textarea
             v-model="novaOS.descricao_cliente"
             rows="2"
-            placeholder="Descreva o que será feito..."
+            :placeholder="$t('servicos.placeholder_defeito')"
           ></textarea>
         </div>
 
         <div class="form-group">
-          <label>Data de Entrada (Retroativa para trabalhos antigos):</label>
+          <label>{{ $t('servicos.label_data_entrada') }}</label>
           <input type="datetime-local" v-model="novaOS.data_entrada" />
         </div>
 
@@ -191,15 +192,15 @@ onMounted(() => buscarServicos());
           style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap"
         >
           <div style="flex: 1; min-width: 140px">
-            <label>Previsão de Entrega:</label>
+            <label>{{ $t('servicos.label_previsao_entrega') }}</label>
             <input type="date" v-model="novaOS.data_previsao_entrega" />
           </div>
           <div style="flex: 0.5; min-width: 100px">
-            <label>Tolerância (Dias):</label>
+            <label>{{ $t('servicos.label_tolerancia_dias') }}</label>
             <input type="number" v-model="novaOS.tolerancia_dias" min="0" />
           </div>
           <div style="flex: 1; min-width: 140px">
-            <label>Peças Chegam em:</label>
+            <label>{{ $t('servicos.label_previsao_pecas') }}</label>
             <input type="date" v-model="novaOS.data_previsao_pecas" />
           </div>
         </div>
@@ -220,7 +221,7 @@ onMounted(() => buscarServicos());
           <span class="icon-dinamico" style="font-size: 1.2rem">
             {{ loading ? "hourglass_empty" : "add_circle" }}
           </span>
-          {{ loading ? "A processar..." : "Abrir O.S. neste Instrumento" }}
+          {{ loading ? $t('servicos.processando') : $t('servicos.btn_abrir_os') }}
         </button>
       </div>
 
@@ -228,10 +229,10 @@ onMounted(() => buscarServicos());
         <table class="tabela-padrao">
           <thead>
             <tr>
-              <th>O.S. / Entrada</th>
-              <th>Status / Prazos</th>
-              <th>Reclamação</th>
-              <th style="text-align: center">Ação</th>
+              <th>{{ $t('servicos.coluna_os_entrada') }}</th>
+              <th>{{ $t('servicos.coluna_status_prazos') }}</th>
+              <th>{{ $t('servicos.coluna_reclamacao') }}</th>
+              <th style="text-align: center">{{ $t('servicos.coluna_acao') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -241,7 +242,7 @@ onMounted(() => buscarServicos());
                 class="text-muted"
                 style="text-align: left; padding: 20px"
               >
-                Nenhum histórico para este instrumento.
+                {{ $t('servicos.nenhum_historico') }}
               </td>
             </tr>
             <tr v-for="os in servicos" :key="os.id">
@@ -277,7 +278,7 @@ onMounted(() => buscarServicos());
                   <span class="icon-dinamico" style="font-size: 1rem"
                     >event</span
                   >
-                  Entrega:
+                  {{ $t('servicos.entrega_label') }}
                   <strong>{{ formatarData(os.data_previsao_entrega) }}</strong>
                 </small>
               </td>
@@ -285,7 +286,7 @@ onMounted(() => buscarServicos());
                 <small>{{
                   os.descricao_cliente
                     ? os.descricao_cliente.slice(0, 50) + "..."
-                    : "Sem descrição"
+                    : $t('os.sem_descricao')
                 }}</small>
               </td>
               <td align="center">
@@ -303,7 +304,7 @@ onMounted(() => buscarServicos());
                   <span class="icon-dinamico" style="font-size: 1.1rem"
                     >build</span
                   >
-                  Gerenciar
+                  {{ $t('servicos.gerenciar') }}
                 </button>
               </td>
             </tr>

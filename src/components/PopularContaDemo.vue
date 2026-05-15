@@ -2,8 +2,10 @@
 import { ref } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 const loading = ref(false);
 const progresso = ref("");
 
@@ -29,19 +31,17 @@ function randomItem(arr) {
 
 // --- MOTOR DE GERAÇÃO ---
 async function gerarDadosDeExemplo() {
-  const confirmacao = confirm(
-    "ATENÇÃO: Isto vai injetar Configurações, Clientes, Instrumentos, Serviços e Faturamento. Continuar?",
-  );
+  const confirmacao = confirm(t('ferramentas.alert_injetar'));
   if (!confirmacao) return;
 
   loading.value = true;
-  triggerToast("A preparar o ecossistema. Por favor aguarde...", "info");
+  triggerToast(t('ferramentas.toast_preparando'), "info");
 
   try {
     // ==========================================
     // 0. CONFIGURAÇÕES DA OFICINA
     // ==========================================
-    progresso.value = "A configurar perfil da oficina e identidade visual...";
+    progresso.value = t('ferramentas.prog_config');
 
     const configPayload = {
       nome_luthieria: "Oficina Demo Luthieria",
@@ -90,7 +90,7 @@ async function gerarDadosDeExemplo() {
     // ==========================================
     // 1. CATÁLOGO
     // ==========================================
-    progresso.value = "A criar catálogo de peças e serviços...";
+    progresso.value = t('ferramentas.prog_cat');
 
     const { data: insumos, error: errInsumos } = await supabase
       .from("catalogo")
@@ -218,7 +218,7 @@ async function gerarDadosDeExemplo() {
     // ==========================================
     // 2. CLIENTES
     // ==========================================
-    progresso.value = "A cadastrar 10 clientes e 20 instrumentos...";
+    progresso.value = t('ferramentas.prog_cli');
     const nomesClientes = [
       "João Marcos",
       "Mariana Silva",
@@ -291,7 +291,7 @@ async function gerarDadosDeExemplo() {
     // ==========================================
     // 4. DESPESAS FIXAS
     // ==========================================
-    progresso.value = "A gerar fluxo de caixa e custos operacionais...";
+    progresso.value = t('ferramentas.prog_fin');
     let despesasPayload = [];
     for (let mes = 0; mes <= 7; mes++) {
       const dataPagamento = dataAleatoria(mes * 30, mes * 30 + 5);
@@ -331,7 +331,7 @@ async function gerarDadosDeExemplo() {
     // ==========================================
     // 5. ORDENS DE SERVIÇO & FATURAMENTO
     // ==========================================
-    progresso.value = "A simular Ordens de Serviço (Passado e Presente)...";
+    progresso.value = t('ferramentas.prog_os');
     let numeroOS = Math.floor(Math.random() * 50000) + 10000;
 
     for (const inst of insts) {
@@ -480,7 +480,7 @@ async function gerarDadosDeExemplo() {
     // ==========================================
     // 6. FATURAMENTO PARADO E LISTA DE COMPRAS
     // ==========================================
-    progresso.value = "A gerar faturamento parado e lista de compras...";
+    progresso.value = t('ferramentas.prog_faturamento');
 
     // O.S. Atrasada 30 dias
     const data30 = dataAleatoria(30, 31);
@@ -590,7 +590,7 @@ async function gerarDadosDeExemplo() {
     // ==========================================
     // 8. CHECKLIST PADRÃO
     // ==========================================
-    progresso.value = "A criar regras de inspeção de qualidade...";
+    progresso.value = t('ferramentas.prog_checklist');
     await supabase.from("checklist_padrao").insert([
       {
         tipo: "Chegada",
@@ -631,7 +631,7 @@ async function gerarDadosDeExemplo() {
     ]);
 
     triggerToast(
-      "Conta DEMO populada com SUCESSO! O ecossistema está vivo.",
+      t('ferramentas.toast_sucesso_demo'),
       "success",
     );
 
@@ -650,21 +650,17 @@ async function gerarDadosDeExemplo() {
 
 // --- FUNÇÃO PARA LIMPAR A CONTA ---
 async function limparDadosConta() {
-  const confirmacao = confirm(
-    "ATENÇÃO: Esta ação apagará TODOS os clientes, instrumentos, serviços, financeiro e catálogo da sua oficina! Esta ação é IRREVERSÍVEL. Continuar?",
-  );
+  const confirmacao = confirm(t('ferramentas.alert_resetar'));
   if (!confirmacao) return;
 
-  const texto = prompt(
-    "Para confirmar a exclusão, digite APAGAR TUDO em maiúsculas:",
-  );
+  const texto = prompt(t('ferramentas.prompt_apagar'));
   if (texto !== "APAGAR TUDO") {
-    triggerToast("Limpeza cancelada. Confirmação incorreta.", "info");
+    triggerToast(t('ferramentas.toast_cancelado'), "info");
     return;
   }
 
   loading.value = true;
-  progresso.value = "A apagar transações e orçamentos...";
+  progresso.value = t('ferramentas.prog_apaga_trans');
 
   try {
     const {
@@ -676,27 +672,27 @@ async function limparDadosConta() {
     await supabase.from("transacoes").delete().not("id", "is", null);
     await supabase.from("orcamento_itens").delete().not("id", "is", null);
 
-    progresso.value = "A apagar serviços...";
+    progresso.value = t('ferramentas.prog_apaga_os');
     await supabase.from("servicos").delete().not("id", "is", null);
 
-    progresso.value = "A apagar instrumentos...";
+    progresso.value = t('ferramentas.prog_apaga_inst');
     await supabase.from("instrumentos").delete().not("id", "is", null);
 
-    progresso.value = "A apagar clientes...";
+    progresso.value = t('ferramentas.prog_apaga_cli');
     await supabase.from("clientes").delete().not("id", "is", null);
 
-    progresso.value = "A apagar configurações extras...";
+    progresso.value = t('ferramentas.prog_apaga_extra');
     await supabase.from("catalogo").delete().not("id", "is", null);
     await supabase.from("lista_compras").delete().not("id", "is", null);
     await supabase.from("checklist_padrao").delete().not("id", "is", null);
 
-    triggerToast("Sua conta foi completamente zerada com sucesso!", "success");
+    triggerToast(t('ferramentas.toast_sucesso_reset'), "success");
 
     setTimeout(() => {
       window.location.reload(true);
     }, 2000);
   } catch (error) {
-    triggerToast("Erro ao limpar: " + error.message, "error");
+    triggerToast(t('ferramentas.erro_limpar') + error.message, "error");
     console.error(error);
   } finally {
     loading.value = false;
@@ -721,20 +717,9 @@ async function limparDadosConta() {
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">science</span> Gerador de Conta Demo
-          (Avançado)
+          <span class="icon-dinamico">science</span> {{ $t('ferramentas.titulo_demo') }}
         </h3>
-        <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #7f8c8d">
-          Uma conta vazia não mostra como o sistema funciona no uso diário. Use
-          esse recurso para popular a conta com dados de teste, clientes,
-          instrumentos, serviços, transações, etc. <br /><br />
-          Atenção: Use isto apenas em contas de teste para demonstração. Injeta
-          Identidade Visual, 10 clientes, 20 instrumentos, catálogo com
-          consumos, custos fixos e 8 meses de histórico. Use para testes de
-          funcionalidade e exibição de gráficos. <br /><br />Após os testes,
-          você pode limpar a conta com o botão de limpeza abaixo para começar do
-          zero.
-        </p>
+        <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #7f8c8d" v-html="$t('ferramentas.desc_demo')"></p>
         <p
           v-if="progresso"
           style="
@@ -771,8 +756,8 @@ async function limparDadosConta() {
         }}</span>
         <span style="font-size: 1.1rem; font-weight: bold">{{
           loading && progresso.includes("injetar")
-            ? "A injetar..."
-            : "Iniciar Simulação"
+            ? $t('ferramentas.btn_injetando')
+            : $t('ferramentas.btn_iniciar')
         }}</span>
       </button>
     </div>
@@ -793,15 +778,9 @@ async function limparDadosConta() {
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">delete_sweep</span> Resetar Conta (Começar
-          do Zero)
+          <span class="icon-dinamico">delete_sweep</span> {{ $t('ferramentas.titulo_reset') }}
         </h3>
-        <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #7f8c8d">
-          Utilize esta opção para
-          <strong>apagar todos os dados</strong> (clientes, ordens de serviço,
-          financeiro e catálogo). As suas configurações de visual e logo serão
-          mantidas. Isso é ideal para limpar a oficina após testar o sistema.
-        </p>
+        <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #7f8c8d" v-html="$t('ferramentas.desc_reset')"></p>
       </div>
       <button
         type="button"
@@ -817,8 +796,8 @@ async function limparDadosConta() {
         }}</span>
         <span style="font-size: 1.1rem; font-weight: bold">{{
           loading && progresso.includes("apagar")
-            ? "A apagar..."
-            : "Apagar Dados"
+            ? $t('ferramentas.btn_limpando')
+            : $t('ferramentas.btn_resetar')
         }}</span>
       </button>
     </div>

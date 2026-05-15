@@ -9,6 +9,7 @@ import { ref, onMounted } from "vue";
 import { supabase } from "../../lib/supabaseClient";
 import { comprimirImagem } from "../../lib/imageUtils";
 import { useToast } from "../../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps({
   servico: Object,
@@ -18,6 +19,7 @@ const props = defineProps({
 // O emit serve para avisar o Pai que a "Fase do Projeto" mudou e precisa ser atualizada no título
 const emit = defineEmits(["faseAtualizada"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const diario = ref([]);
 function getLocalDatetime() {
@@ -60,7 +62,7 @@ function setFotoDiario(event) {
 
 async function adicionarEntradaDiario() {
   if (!novaEntradaDiario.value.descricao) {
-    return triggerToast("Anotação não pode estar vazia.", "error");
+    return triggerToast(t('os.diario_erro_vazio'), "error");
   }
   carregandoFotoDiario.value = true;
   let urlFotoDiario = null;
@@ -116,10 +118,10 @@ async function adicionarEntradaDiario() {
       novaEntradaDiario.value.descricao = "";
       novaEntradaDiario.value.data_registro = getLocalDatetime();
       fotoDiarioUpload.value = null;
-      triggerToast("Anotação salva!", "success");
+      triggerToast(t('os.diario_sucesso'), "success");
     }
   } catch (err) {
-    triggerToast("Erro no diário: " + err.message, "error");
+    triggerToast(t('os.diario_erro_geral') + err.message, "error");
   } finally {
     carregandoFotoDiario.value = false;
   }
@@ -135,12 +137,12 @@ onMounted(() => carregarDiario());
         <span class="icon-dinamico" style="vertical-align: middle"
           >edit_note</span
         >
-        Nova Anotação
+        {{ $t('os.diario_nova_anotacao') }}
       </h4>
       <textarea
         v-model="novaEntradaDiario.descricao"
         rows="2"
-        placeholder="O que foi feito?"
+        :placeholder="$t('os.diario_placeholder')"
       ></textarea>
 
       <div class="flex-gap-10 mt-1" style="flex-wrap: wrap">
@@ -149,7 +151,7 @@ onMounted(() => carregarDiario());
           v-model="novaEntradaDiario.data_registro"
           class="flex-1"
           style="min-width: 120px"
-          title="Data e Hora da Execução (Retroativa)"
+          :title="$t('os.diario_data_hora_tooltip')"
         />
 
         <select
@@ -164,7 +166,7 @@ onMounted(() => carregarDiario());
         <label
           class="btn-outline"
           style="cursor: pointer; padding: 0 15px; font-size: 0.85rem"
-          :title="fotoDiarioUpload ? 'Foto Pronta para Envio' : 'Anexar Foto'"
+          :title="fotoDiarioUpload ? $t('os.diario_foto_pronta_tooltip') : $t('os.diario_anexar_foto_tooltip')"
         >
           <span
             class="icon-dinamico"
@@ -172,7 +174,7 @@ onMounted(() => carregarDiario());
           >
             {{ fotoDiarioUpload ? "check_circle" : "add_a_photo" }}
           </span>
-          {{ fotoDiarioUpload ? "Foto Pronta" : "Juntar Foto" }}
+          {{ fotoDiarioUpload ? $t('os.diario_foto_pronta') : $t('os.diario_juntar_foto') }}
           <input type="file" accept="image/*" @change="setFotoDiario" hidden />
         </label>
 
@@ -181,7 +183,7 @@ onMounted(() => carregarDiario());
           @click="adicionarEntradaDiario"
           :disabled="carregandoFotoDiario"
         >
-          {{ carregandoFotoDiario ? "A enviar..." : "Salvar Anotação" }}
+          {{ carregandoFotoDiario ? $t('os.diario_enviando') : $t('os.diario_salvar') }}
         </button>
       </div>
     </div>
@@ -191,10 +193,10 @@ onMounted(() => carregarDiario());
         <span class="icon-dinamico" style="vertical-align: middle"
           >history</span
         >
-        Histórico da Bancada
+        {{ $t('os.diario_historico') }}
       </h4>
       <div v-if="diario.length === 0" class="text-muted">
-        Nenhuma anotação registrada.
+        {{ $t('os.diario_nenhuma') }}
       </div>
       <div class="timeline">
         <div v-for="nota in diario" :key="nota.id" class="timeline-item">

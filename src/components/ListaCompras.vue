@@ -2,8 +2,10 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const itens = ref([]);
 const loading = ref(false);
@@ -36,7 +38,7 @@ watch(() => form.value.link, async (newLink) => {
 
 async function buscarMetadadosDoLink(url) {
   try {
-    triggerToast("A tentar ler dados do link...", "info");
+    triggerToast(t('compras.ler_link'), "info");
     
     // Usamos um proxy CORS público para acessar ao HTML da página
     const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
@@ -100,7 +102,7 @@ async function buscarMetadadosDoLink(url) {
     if (price && form.value.valor === 0) { form.value.valor = price; atualizouAlgo = true; }
 
     if (atualizouAlgo) {
-      triggerToast("Dados do produto preenchidos!", "success");
+      triggerToast(t('compras.dados_preenchidos'), "success");
     }
 
   } catch (err) {
@@ -174,7 +176,7 @@ function iniciarEdicao(item) {
 }
 
 async function salvarItem() {
-  if (!form.value.nome) return triggerToast("O nome é obrigatório.", "warning");
+  if (!form.value.nome) return triggerToast(t('compras.erro_nome'), "warning");
 
   loading.value = true;
   const payload = { ...form.value };
@@ -194,10 +196,10 @@ async function salvarItem() {
   loading.value = false;
 
   if (errorObj) {
-    triggerToast("Erro ao salvar: " + errorObj.message, "error");
+    triggerToast(t('compras.erro_salvar') + errorObj.message, "error");
   } else {
     triggerToast(
-      isEditing.value ? "Item atualizado!" : "Item adicionado!",
+      isEditing.value ? t('compras.atualizado') : t('compras.adicionado'),
       "success",
     );
     showForm.value = false;
@@ -206,10 +208,10 @@ async function salvarItem() {
 }
 
 async function excluirItem(id) {
-  if (!confirm("Tem a certeza que deseja excluir este item?")) return;
+  if (!confirm(t('compras.confirmar_exclusao'))) return;
   const { error } = await supabase.from("lista_compras").delete().eq("id", id);
   if (!error) {
-    triggerToast("Item excluído.", "success");
+    triggerToast(t('compras.excluido'), "success");
     buscarItens();
   }
 }
@@ -234,10 +236,10 @@ onMounted(() => buscarItens());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">shopping_cart</span> Compras & Desejos
+        <span class="icon-dinamico">shopping_cart</span> {{ $t('compras.titulo') }}
       </h2>
       <button type="button" class="btn-primary" @click="iniciarNovo">
-        <span class="icon-dinamico">add</span> Novo Item
+        <span class="icon-dinamico">add</span> {{ $t('compras.novo_item') }}
       </button>
     </div>
 
@@ -248,7 +250,7 @@ onMounted(() => buscarItens());
     >
       <div class="flex-between mb-1">
         <h3 style="margin: 0; color: var(--accent)">
-          {{ isEditing ? "Editar Item" : "Novo Item" }}
+          {{ isEditing ? $t('compras.editar_item') : $t('compras.novo_item') }}
         </h3>
         <button type="button" class="btn-icon text-danger" @click="showForm = false">
           <span class="icon-dinamico">close</span>
@@ -257,25 +259,25 @@ onMounted(() => buscarItens());
 
       <div class="form-grid">
         <div class="form-group" style="flex: 2">
-          <label>Nome do Item</label>
-          <input v-model="form.nome" placeholder="Ex: Tripé para gravações" />
+          <label>{{ $t('compras.label_nome') }}</label>
+          <input v-model="form.nome" :placeholder="$t('compras.placeholder_nome')" />
         </div>
         <div class="form-group" style="flex: 1">
-          <label>Valor Estimado (R$)</label>
+          <label>{{ $t('compras.label_valor') }}</label>
           <input v-model="form.valor" type="number" step="0.01" />
         </div>
       </div>
 
       <div class="form-grid">
         <div class="form-group" style="flex: 1">
-          <label>Categoria</label>
+          <label>{{ $t('compras.label_categoria') }}</label>
           <select v-model="form.tipo">
-            <option value="need">Necessidade (Need List)</option>
-            <option value="wish">Desejo (Wish List)</option>
+            <option value="need">{{ $t('compras.cat_necessidade') }}</option>
+            <option value="wish">{{ $t('compras.cat_desejo') }}</option>
           </select>
         </div>
         <div class="form-group" style="flex: 1">
-          <label>Nível de Necessidade: {{ form.nivel_necessidade }} / 10</label>
+          <label>{{ $t('compras.label_nivel') }} {{ form.nivel_necessidade }} / 10</label>
           <input
             v-model="form.nivel_necessidade"
             type="range"
@@ -288,14 +290,14 @@ onMounted(() => buscarItens());
 
       <div class="form-grid">
         <div class="form-group" style="flex: 1">
-          <label>Link de Compra (URL)</label>
+          <label>{{ $t('compras.label_link') }}</label>
           <input
             v-model="form.link"
             placeholder="https://mercadolivre.com.br/..."
           />
         </div>
         <div class="form-group" style="flex: 1">
-          <label>Link da Imagem (URL Opcional)</label>
+          <label>{{ $t('compras.label_foto') }}</label>
           <input
             v-model="form.foto_url"
             placeholder="https://site.com/foto.jpg"
@@ -304,11 +306,11 @@ onMounted(() => buscarItens());
       </div>
 
       <div class="form-group mb-2">
-        <label>Justificativa / Observações</label>
+        <label>{{ $t('compras.label_justificativa') }}</label>
         <textarea
           v-model="form.justificativa"
           rows="2"
-          placeholder="Por que preciso disto?"
+          :placeholder="$t('compras.placeholder_justificativa')"
         ></textarea>
       </div>
 
@@ -318,7 +320,7 @@ onMounted(() => buscarItens());
         :disabled="loading"
       >
         <span class="icon-dinamico">{{ loading ? "sync" : "save" }}</span>
-        Salvar Item
+        {{ $t('compras.salvar') }}
       </button>
     </div>
 
@@ -329,17 +331,17 @@ onMounted(() => buscarItens());
             <span class="icon-dinamico" style="color: #ef4444"
               >priority_high</span
             >
-            Need List
+            {{ $t('compras.need_list') }}
           </h3>
           <select v-model="ordenacaoNeeds" class="select-sort">
-            <option value="urgencia_desc">+ Urgentes</option>
-            <option value="preco_asc">+ Baratos</option>
-            <option value="preco_desc">+ Caros</option>
+            <option value="urgencia_desc">{{ $t('compras.sort_urgentes') }}</option>
+            <option value="preco_asc">{{ $t('compras.sort_baratos') }}</option>
+            <option value="preco_desc">{{ $t('compras.sort_caros') }}</option>
           </select>
         </div>
 
         <div v-if="needs.length === 0" class="empty-state">
-          Nenhuma urgência registrada.
+          {{ $t('compras.vazio_needs') }}
         </div>
 
         <div v-for="item in needs" :key="item.id" class="item-card">
@@ -352,7 +354,7 @@ onMounted(() => buscarItens());
             {{ item.nivel_necessidade }}/10
           </div>
           <div v-if="item.foto_url" class="item-foto">
-            <img :src="item.foto_url" alt="Foto do item" />
+            <img :src="item.foto_url" :alt="$t('compras.alt_foto')" />
           </div>
           <div class="item-content">
             <h4>{{ item.nome }}</h4>
@@ -367,7 +369,7 @@ onMounted(() => buscarItens());
                 class="btn-outline btn-sm"
                 @click="abrirLink(item.link)"
               >
-                <span class="icon-dinamico">shopping_bag</span> Ver na Loja
+                <span class="icon-dinamico">shopping_bag</span> {{ $t('compras.ver_loja') }}
               </button>
               <div style="display: flex; gap: 5px">
                 <button type="button" class="btn-icon" @click="iniciarEdicao(item)">
@@ -389,17 +391,17 @@ onMounted(() => buscarItens());
         <div class="coluna-header">
           <h3 style="margin: 0; display: flex; align-items: center; gap: 8px">
             <span class="icon-dinamico" style="color: #3b82f6">favorite</span>
-            Wish List
+            {{ $t('compras.wish_list') }}
           </h3>
           <select v-model="ordenacaoWishes" class="select-sort">
-            <option value="urgencia_desc">+ Desejados</option>
-            <option value="preco_asc">+ Baratos</option>
-            <option value="preco_desc">+ Caros</option>
+            <option value="urgencia_desc">{{ $t('compras.sort_desejados') }}</option>
+            <option value="preco_asc">{{ $t('compras.sort_baratos') }}</option>
+            <option value="preco_desc">{{ $t('compras.sort_caros') }}</option>
           </select>
         </div>
 
         <div v-if="wishes.length === 0" class="empty-state">
-          Nenhum desejo registrado.
+          {{ $t('compras.vazio_wishes') }}
         </div>
 
         <div v-for="item in wishes" :key="item.id" class="item-card">
@@ -412,7 +414,7 @@ onMounted(() => buscarItens());
             {{ item.nivel_necessidade }}/10
           </div>
           <div v-if="item.foto_url" class="item-foto">
-            <img :src="item.foto_url" alt="Foto do item" />
+            <img :src="item.foto_url" :alt="$t('compras.alt_foto')" />
           </div>
           <div class="item-content">
             <h4>{{ item.nome }}</h4>
@@ -427,7 +429,7 @@ onMounted(() => buscarItens());
                 class="btn-outline btn-sm"
                 @click="abrirLink(item.link)"
               >
-                <span class="icon-dinamico">shopping_bag</span> Ver na Loja
+                <span class="icon-dinamico">shopping_bag</span> {{ $t('compras.ver_loja') }}
               </button>
               <div style="display: flex; gap: 5px">
                 <button type="button" class="btn-icon" @click="iniciarEdicao(item)">

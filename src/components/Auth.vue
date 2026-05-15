@@ -8,12 +8,14 @@
  */
 import { ref } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useI18n } from "vue-i18n";
 
 const loading = ref(false);
 const email = ref("");
 const password = ref("");
 const isLogin = ref(true);
 const message = ref(""); // Centralizado para exibir sucessos e erros
+const { t } = useI18n();
 
 async function handleAuth() {
   loading.value = true;
@@ -22,7 +24,7 @@ async function handleAuth() {
   try {
     if (!isLogin.value) {
       if (password.value.length < 6) {
-        throw new Error("A senha deve ter pelo menos 6 caracteres.");
+        throw new Error(t('auth.erro_senha_curta'));
       }
       const { error } = await supabase.auth.signUp({
         email: email.value,
@@ -33,7 +35,7 @@ async function handleAuth() {
         },
       });
       if (error) throw error;
-      message.value = "Conta criada! Verifique o seu e-mail para confirmar.";
+      message.value = t('auth.conta_criada');
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email: email.value,
@@ -42,7 +44,7 @@ async function handleAuth() {
       if (error) throw error;
     }
   } catch (error) {
-    message.value = "Erro: " + error.message;
+    message.value = t('auth.erro_prefixo') + error.message;
   } finally {
     loading.value = false;
   }
@@ -63,7 +65,7 @@ async function handleAuth() {
         "
       >
         <span class="icon-dinamico" style="font-size: 2.5rem">music_note</span>
-        Gestão Luthieria
+        {{ $t('auth.titulo') }}
       </h1>
       <h3
         style="
@@ -72,16 +74,16 @@ async function handleAuth() {
           color: var(--text-muted);
         "
       >
-        {{ isLogin ? "Entrar" : "Criar Conta de Luthier" }}
+        {{ isLogin ? $t('auth.entrar') : $t('auth.criar_conta') }}
       </h3>
 
       <div class="form-group">
-        <label>E-mail</label>
-        <input v-model="email" type="email" placeholder="seu@email.com" />
+        <label>{{ $t('auth.email') }}</label>
+        <input v-model="email" type="email" :placeholder="$t('auth.email_placeholder')" />
       </div>
 
       <div class="form-group">
-        <label>Senha</label>
+        <label>{{ $t('auth.senha') }}</label>
         <input v-model="password" type="password" placeholder="********" />
       </div>
 
@@ -91,13 +93,13 @@ async function handleAuth() {
         :disabled="loading"
         style="width: 100%; padding: 12px; margin-top: 10px; font-size: 1.1rem"
       >
-        {{ loading ? "⏳ Aguarde..." : isLogin ? "Entrar" : "Registar" }}
+        {{ loading ? $t('auth.aguarde') : isLogin ? $t('auth.entrar') : $t('auth.registrar') }}
       </button>
 
       <p
         v-if="message"
         class="auth-message"
-        :class="{ 'text-danger': message.includes('Erro') }"
+        :class="{ 'text-danger': message.includes($t('auth.erro_prefixo').trim()) }"
       >
         {{ message }}
       </p>
@@ -112,10 +114,10 @@ async function handleAuth() {
           "
         >
           {{
-            isLogin ? "Não tem conta? Registe-se" : "Já tem conta? Fazer Login"
+            isLogin ? $t('auth.nao_tem_conta') : $t('auth.ja_tem_conta')
           }}
         </button>
-        <h6 style="margin-top: 10px; opacity: 0.5">versão beta</h6>
+        <h6 style="margin-top: 10px; opacity: 0.5">{{ $t('auth.versao_beta') }}</h6>
       </div>
     </div>
   </div>

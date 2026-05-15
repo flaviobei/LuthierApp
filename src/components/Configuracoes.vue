@@ -13,8 +13,10 @@ import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
 import { comprimirImagem } from "../lib/imageUtils";
 import { adminService } from "../services/adminService";
+import { useI18n } from "vue-i18n";
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const form = ref({
   nome_luthieria: "",
@@ -101,9 +103,9 @@ async function salvarConfiguracoes() {
     if (data && data.length > 0) {
       configId.value = data[0].id;
     }
-    triggerToast("Configurações da oficina guardadas!", "success");
+    triggerToast(t('config.sucesso_salvar'), "success");
   } catch (error) {
-    triggerToast("Falha ao salvar: " + error.message, "error");
+    triggerToast(t('config.erro_salvar') + error.message, "error");
   } finally {
     loading.value = false;
   }
@@ -112,7 +114,7 @@ async function salvarConfiguracoes() {
 // LISTA DE TEMAS PRÉ-DEFINIDOS (Substituindo emojis por ícones do Material)
 const temasPresets = [
   {
-    nome: "Padrão Corporativo",
+    nome: t('config.tema_corp'),
     icone: "business",
     cor_primaria: "#1E3A8A",
     cor_secundaria: "#10B981",
@@ -127,7 +129,7 @@ const temasPresets = [
     estilo_icones: "Material Symbols Outlined",
   },
   {
-    nome: "Oficina Clássica",
+    nome: t('config.tema_classic'),
     icone: "music_note",
     cor_primaria: "#5C3A21",
     cor_secundaria: "#D27D2D",
@@ -142,7 +144,7 @@ const temasPresets = [
     estilo_icones: "Material Symbols Sharp",
   },
   {
-    nome: "Rock de Garagem",
+    nome: t('config.tema_rock'),
     icone: "bolt",
     cor_primaria: "#18181B",
     cor_secundaria: "#E11D48",
@@ -157,7 +159,7 @@ const temasPresets = [
     estilo_icones: "Material Symbols Sharp",
   },
   {
-    nome: "Luthier Acústico",
+    nome: t('config.tema_acustic'),
     icone: "eco",
     cor_primaria: "#4F7942",
     cor_secundaria: "#D97750",
@@ -172,7 +174,7 @@ const temasPresets = [
     estilo_icones: "Material Symbols Rounded",
   },
   {
-    nome: "Estúdio Tech",
+    nome: t('config.tema_tech'),
     icone: "tune",
     cor_primaria: "#0F172A",
     cor_secundaria: "#3B82F6",
@@ -193,7 +195,7 @@ function aplicarPreset(tema) {
     if (key !== "nome" && key !== "icone") form.value[key] = tema[key];
   });
   aplicarTemaPreview();
-  triggerToast(`Tema "${tema.nome}" aplicado! Lembre-se de guardar.`, "info");
+  triggerToast(t('config.tema_aplicado', { tema: tema.nome }), "info");
 }
 
 async function uploadLogo(event) {
@@ -223,9 +225,9 @@ async function uploadLogo(event) {
       .from("fotos-luthieria")
       .getPublicUrl(fileName);
     form.value.logo_url = data.publicUrl;
-    triggerToast("Logomarca carregada!", "success");
+    triggerToast(t('config.logo_sucesso'), "success");
   } catch (err) {
-    triggerToast("Erro ao processar imagem: " + err.message, "error");
+    triggerToast(t('config.logo_erro') + err.message, "error");
   } finally {
     carregandoFoto.value = false;
   }
@@ -233,7 +235,7 @@ async function uploadLogo(event) {
 
 function removerLogo() {
   form.value.logo_url = null;
-  triggerToast("Logomarca removida.", "info");
+  triggerToast(t('config.logo_removida'), "info");
 }
 
 onMounted(() => carregarConfiguracoes());
@@ -245,7 +247,7 @@ onMounted(() => carregarConfiguracoes());
       class="title-section"
       style="margin-top: 0; display: flex; align-items: center; gap: 8px"
     >
-      <span class="icon-dinamico">settings</span> Configurações Gerais
+      <span class="icon-dinamico">settings</span> {{ $t('config.titulo') }}
     </h3>
 
     <div
@@ -261,34 +263,34 @@ onMounted(() => carregarConfiguracoes());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">store</span> Dados da Oficina
+        <span class="icon-dinamico">store</span> {{ $t('config.dados_oficina') }}
       </h4>
       <div class="form-group">
-        <label>Nome da Luthieria:</label>
+        <label>{{ $t('config.label_nome') }}</label>
         <input
           v-model="form.nome_luthieria"
-          placeholder="Ex: Flávio Bei - Luthier"
+          :placeholder="$t('config.placeholder_nome')"
         />
       </div>
       <div class="grid-2-cols mb-1">
         <div>
-          <label>Documento (CNPJ/CPF):</label>
+          <label>{{ $t('config.label_doc') }}</label>
           <input v-model="form.documento" placeholder="00.000.000/0001-00" />
         </div>
         <div>
-          <label>WhatsApp:</label>
+          <label>{{ $t('config.label_whatsapp') }}</label>
           <input v-model="form.telefone" placeholder="(11) 99999-9999" />
         </div>
       </div>
       <div class="form-group">
-        <label>Endereço Completo:</label>
+        <label>{{ $t('config.label_endereco') }}</label>
         <input
           v-model="form.endereco"
-          placeholder="Rua das Cordas, 123 - São Paulo, SP"
+          :placeholder="$t('config.placeholder_endereco')"
         />
       </div>
       <div class="form-group">
-        <label>Termos de Garantia Padrão:</label>
+        <label>{{ $t('config.label_garantia') }}</label>
         <textarea v-model="form.termos_garantia" rows="3"></textarea>
       </div>
     </div>
@@ -306,30 +308,29 @@ onMounted(() => carregarConfiguracoes());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">payments</span> Taxas de Recebimento (%)
+        <span class="icon-dinamico">payments</span> {{ $t('config.titulo_taxas') }}
       </h4>
       <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
-        O sistema utilizará estes percentuais para calcular o valor líquido
-        ganho após as taxas das maquininhas.
+        {{ $t('config.desc_taxas') }}
       </p>
       <div
         class="grid-2-cols"
         style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr))"
       >
         <div>
-          <label>PIX</label>
+          <label>{{ $t('config.taxa_pix') }}</label>
           <input type="number" step="0.01" v-model="form.taxa_pix" />
         </div>
         <div>
-          <label>Dinheiro</label>
+          <label>{{ $t('config.taxa_dinheiro') }}</label>
           <input type="number" step="0.01" v-model="form.taxa_dinheiro" />
         </div>
         <div>
-          <label>Crédito</label>
+          <label>{{ $t('config.taxa_credito') }}</label>
           <input type="number" step="0.01" v-model="form.taxa_credito" />
         </div>
         <div>
-          <label>Débito</label>
+          <label>{{ $t('config.taxa_debito') }}</label>
           <input type="number" step="0.01" v-model="form.taxa_debito" />
         </div>
       </div>
@@ -348,24 +349,21 @@ onMounted(() => carregarConfiguracoes());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">print</span> Impressão de Recibos /
-        Orçamentos
+        <span class="icon-dinamico">print</span> {{ $t('config.titulo_impressao') }}
       </h4>
       <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
-        Esta configuração altera o formato visual do recibo gerado direto do
-        sistema. Outros relatórios continuarão gerando PDFs e planilhas
-        normalmente.
+        {{ $t('config.desc_impressao') }}
       </p>
 
       <div class="form-group">
-        <label>Formato do Recibo Direto:</label>
+        <label>{{ $t('config.label_formato') }}</label>
         <select v-model="form.tipo_impressora" style="max-width: 400px">
-          <option value="padrao">Folha A4 (Impressora Convencional)</option>
+          <option value="padrao">{{ $t('config.formato_a4') }}</option>
           <option value="termica_80mm">
-            Bobina 80mm (Impressora Térmica Larga)
+            {{ $t('config.formato_80mm') }}
           </option>
           <option value="termica_58mm">
-            Bobina 58mm (Impressora Térmica Estreita)
+            {{ $t('config.formato_58mm') }}
           </option>
         </select>
       </div>
@@ -384,11 +382,11 @@ onMounted(() => carregarConfiguracoes());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">brush</span> Identidade Visual
+        <span class="icon-dinamico">brush</span> {{ $t('config.titulo_visual') }}
       </h4>
       <div class="flex-gap-15" style="align-items: flex-start; flex-wrap: wrap">
         <div style="flex: 1; min-width: 250px">
-          <label>Logotipo da Oficina</label>
+          <label>{{ $t('config.label_logo') }}</label>
           <div style="display: flex; gap: 15px; align-items: center">
             <div
               style="
@@ -411,8 +409,8 @@ onMounted(() => carregarConfiguracoes());
                 v-else
                 class="text-muted"
                 style="font-size: 0.8rem; text-align: center"
-                >Sem<br />Logo</span
-              >
+                v-html="$t('config.sem_logo')"
+              ></span>
             </div>
             <div>
               <label
@@ -433,7 +431,7 @@ onMounted(() => carregarConfiguracoes());
                     carregandoFoto ? "hourglass_empty" : "add_photo_alternate"
                   }}
                 </span>
-                {{ carregandoFoto ? "A enviar..." : "Alterar Logo" }}
+                {{ carregandoFoto ? $t('config.enviando') : $t('config.alterar_logo') }}
                 <input
                   type="file"
                   accept="image/*"
@@ -460,7 +458,7 @@ onMounted(() => carregarConfiguracoes());
                 <span class="icon-dinamico" style="font-size: 1rem"
                   >delete</span
                 >
-                Remover
+                {{ $t('config.btn_remover') }}
               </button>
             </div>
           </div>
@@ -469,7 +467,7 @@ onMounted(() => carregarConfiguracoes());
         <div style="flex: 2; min-width: 300px">
           <div class="grid-2-cols mb-1">
             <div>
-              <label>Cor Primária (Topo e Abas)</label>
+              <label>{{ $t('config.cor_primaria') }}</label>
               <div class="color-picker-group">
                 <input
                   type="color"
@@ -484,7 +482,7 @@ onMounted(() => carregarConfiguracoes());
               </div>
             </div>
             <div>
-              <label>Cor Secundária (Destaques)</label>
+              <label>{{ $t('config.cor_secundaria') }}</label>
               <div class="color-picker-group">
                 <input
                   type="color"
@@ -502,7 +500,7 @@ onMounted(() => carregarConfiguracoes());
 
           <div class="grid-2-cols">
             <div>
-              <label>Cor de Fundo da Tela</label>
+              <label>{{ $t('config.cor_fundo') }}</label>
               <div class="color-picker-group">
                 <input
                   type="color"
@@ -517,7 +515,7 @@ onMounted(() => carregarConfiguracoes());
               </div>
             </div>
             <div>
-              <label>Cor do Texto Principal</label>
+              <label>{{ $t('config.cor_texto') }}</label>
               <div class="color-picker-group">
                 <input
                   type="color"
@@ -549,11 +547,10 @@ onMounted(() => carregarConfiguracoes());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">palette</span> Temas Prontos
+        <span class="icon-dinamico">palette</span> {{ $t('config.titulo_temas') }}
       </h4>
       <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 15px">
-        Ao clicar em um tema, as cores da sua oficina serão alteradas
-        automaticamente para visualização. Lembre-se de salvar no final.
+        {{ $t('config.desc_temas') }}
       </p>
 
       <div
@@ -651,15 +648,15 @@ onMounted(() => carregarConfiguracoes());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">touch_app</span> Botões & Interface
+        <span class="icon-dinamico">touch_app</span> {{ $t('config.titulo_botoes') }}
       </h4>
 
       <div class="grid-2-cols mb-2">
         <div class="config-card">
-          <label>Botão Principal (Ex: Salvar)</label>
+          <label>{{ $t('config.btn_principal') }}</label>
           <div class="grid-2-cols">
             <div>
-              <small>Fundo:</small>
+              <small>{{ $t('config.fundo') }}</small>
               <input
                 type="color"
                 v-model="form.btn_primary_bg"
@@ -668,7 +665,7 @@ onMounted(() => carregarConfiguracoes());
               />
             </div>
             <div>
-              <small>Texto:</small>
+              <small>{{ $t('config.texto') }}</small>
               <input
                 type="color"
                 v-model="form.btn_primary_text"
@@ -679,10 +676,10 @@ onMounted(() => carregarConfiguracoes());
           </div>
         </div>
         <div class="config-card">
-          <label>Botão Destaque (Ex: Ações Rápidas)</label>
+          <label>{{ $t('config.btn_destaque') }}</label>
           <div class="grid-2-cols">
             <div>
-              <small>Fundo:</small>
+              <small>{{ $t('config.fundo') }}</small>
               <input
                 type="color"
                 v-model="form.btn_accent_bg"
@@ -691,7 +688,7 @@ onMounted(() => carregarConfiguracoes());
               />
             </div>
             <div>
-              <small>Texto:</small>
+              <small>{{ $t('config.texto') }}</small>
               <input
                 type="color"
                 v-model="form.btn_accent_text"
@@ -705,7 +702,7 @@ onMounted(() => carregarConfiguracoes());
 
       <div class="grid-2-cols">
         <div>
-          <label>Arredondamento da Interface: {{ form.radius_perc }}px</label>
+          <label>{{ $t('config.arredondamento') }} {{ form.radius_perc }}px</label>
           <input
             type="range"
             min="0"
@@ -715,36 +712,36 @@ onMounted(() => carregarConfiguracoes());
             class="w-full"
           />
           <div class="flex-between text-muted" style="font-size: 0.75rem">
-            <span>Quadrado (0px)</span><span>Redondo (24px)</span>
+            <span>{{ $t('config.quadrado') }}</span><span>{{ $t('config.redondo') }}</span>
           </div>
         </div>
 
         <div class="grid-2-cols">
           <div>
-            <label>Fonte do Sistema</label>
+            <label>{{ $t('config.fonte_sistema') }}</label>
             <select v-model="form.fonte_principal" @change="aplicarTemaPreview">
-              <option value="'Inter', sans-serif">Inter (Moderna)</option>
-              <option value="'Roboto', sans-serif">Roboto (Clássica)</option>
+              <option value="'Inter', sans-serif">{{ $t('config.fonte_inter') }}</option>
+              <option value="'Roboto', sans-serif">{{ $t('config.fonte_roboto') }}</option>
               <option value="'Montserrat', sans-serif">
-                Montserrat (Redonda)
+                {{ $t('config.fonte_montserrat') }}
               </option>
               <option value="'Courier New', monospace">
-                Courier (Máquina)
+                {{ $t('config.fonte_courier') }}
               </option>
-              <option value="Georgia, serif">Georgia (Elegante)</option>
+              <option value="Georgia, serif">{{ $t('config.fonte_georgia') }}</option>
             </select>
           </div>
           <div>
-            <label>Estilo dos Ícones</label>
+            <label>{{ $t('config.estilo_icones') }}</label>
             <select v-model="form.estilo_icones" @change="aplicarTemaPreview">
               <option value="Material Symbols Outlined">
-                Outlined (Linhas Finas)
+                {{ $t('config.icones_outlined') }}
               </option>
               <option value="Material Symbols Rounded">
-                Rounded (Redondos)
+                {{ $t('config.icones_rounded') }}
               </option>
               <option value="Material Symbols Sharp">
-                Sharp (Retos/Duros)
+                {{ $t('config.icones_sharp') }}
               </option>
             </select>
           </div>
@@ -769,7 +766,7 @@ onMounted(() => carregarConfiguracoes());
       <span class="icon-dinamico" style="font-size: 1.2rem">
         {{ loading ? "hourglass_empty" : "save" }}
       </span>
-      {{ loading ? "A guardar..." : "Salvar Configurações Gerais" }}
+      {{ loading ? $t('config.btn_guardando') : $t('config.btn_salvar') }}
     </button>
   </div>
 </template>

@@ -11,11 +11,13 @@ import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
 import { comprimirImagem } from "../lib/imageUtils"; // Importamos o compressor de imagens
+import { useI18n } from "vue-i18n";
 
 const props = defineProps(["clienteId", "clienteNome"]);
 const emit = defineEmits(["fechar", "selecionarInstrumento"]);
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const instrumentos = ref([]);
 const loading = ref(false);
@@ -69,9 +71,9 @@ async function uploadFotoInstrumento(event) {
       .getPublicUrl(fileName);
 
     form.value.foto_url = urlData.publicUrl;
-    triggerToast("Foto anexada com sucesso!", "success");
+    triggerToast(t('instrumentos.foto_sucesso'), "success");
   } catch (err) {
-    triggerToast("Erro ao subir foto: " + err.message, "error");
+    triggerToast(t('instrumentos.erro_subir_foto') + err.message, "error");
   } finally {
     uploadingFoto.value = false;
   }
@@ -113,7 +115,7 @@ function cancelarEdicao() {
 // --- SALVAR (CRIAÇÃO OU EDIÇÃO) ---
 async function salvarInstrumento() {
   if (!form.value.marca || !form.value.modelo) {
-    triggerToast("Preencha a marca e o modelo do instrumento.", "error");
+    triggerToast(t('instrumentos.erro_marca_modelo'), "error");
     return;
   }
 
@@ -149,13 +151,13 @@ async function salvarInstrumento() {
 
   if (!erroLocal) {
     triggerToast(
-      isEditing.value ? "Instrumento atualizado!" : "Instrumento registrado!",
+      isEditing.value ? t('instrumentos.atualizado') : t('instrumentos.registrado'),
       "success",
     );
     cancelarEdicao();
     buscarInstrumentos();
   } else {
-    triggerToast("Erro ao guardar instrumento: " + erroLocal.message, "error");
+    triggerToast(t('instrumentos.erro_salvar') + erroLocal.message, "error");
   }
 }
 
@@ -175,7 +177,7 @@ onMounted(() => buscarInstrumentos());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">music_note</span> Instrumentos de:
+        <span class="icon-dinamico">music_note</span> {{ $t('instrumentos.titulo') }}
         {{ clienteNome }}
       </h3>
     </div>
@@ -191,7 +193,7 @@ onMounted(() => buscarInstrumentos());
           style="display: flex; gap: 15px; flex-wrap: wrap"
         >
           <div v-if="inst.foto_url" class="inst-foto-mini">
-            <img :src="inst.foto_url" alt="Foto do instrumento" />
+            <img :src="inst.foto_url" :alt="$t('instrumentos.alt_foto')" />
           </div>
           <div v-else class="inst-foto-placeholder">
             <span class="icon-dinamico">guitar</span>
@@ -205,12 +207,12 @@ onMounted(() => buscarInstrumentos());
               style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 4px"
             >
               <small class="text-muted"
-                ><strong style="color: var(--text-main)">Série:</strong>
-                {{ inst.numero_serie || "N/A" }}</small
+                ><strong style="color: var(--text-main)">{{ $t('instrumentos.label_serie') }}</strong>
+                {{ inst.numero_serie || $t('instrumentos.nao_aplicavel') }}</small
               >
               <small class="text-muted"
-                ><strong style="color: var(--text-main)">Afinação:</strong>
-                {{ inst.afinacao_padrao || "Padrão" }}</small
+                ><strong style="color: var(--text-main)">{{ $t('instrumentos.label_afinacao') }}</strong>
+                {{ inst.afinacao_padrao || $t('instrumentos.afinacao_padrao') }}</small
               >
             </div>
 
@@ -238,7 +240,7 @@ onMounted(() => buscarInstrumentos());
           <button type="button"
             class="btn-icon bg-light"
             @click="iniciarEdicao(inst)"
-            title="Editar Instrumento"
+            :title="$t('instrumentos.editar')"
             style="border: 1px solid var(--border)"
           >
             <span class="icon-dinamico">edit</span>
@@ -249,7 +251,7 @@ onMounted(() => buscarInstrumentos());
             style="flex: 1"
           >
             <span class="icon-dinamico" style="font-size: 1.1rem">build</span>
-            Abrir Serviço (O.S.)
+            {{ $t('instrumentos.abrir_os') }}
           </button>
         </div>
       </div>
@@ -264,7 +266,7 @@ onMounted(() => buscarInstrumentos());
         border-radius: 8px;
       "
     >
-      Nenhum instrumento cadastrado para este cliente.
+      {{ $t('instrumentos.nenhum_cadastrado') }}
     </p>
 
     <div class="box form-instrumento" :class="{ editando: isEditing }">
@@ -281,13 +283,13 @@ onMounted(() => buscarInstrumentos());
           <span class="icon-dinamico">{{
             isEditing ? "edit_square" : "add_circle"
           }}</span>
-          {{ isEditing ? "Editar Instrumento" : "Novo Instrumento" }}
+          {{ isEditing ? $t('instrumentos.editar') : $t('instrumentos.novo') }}
         </h4>
         <button type="button"
           v-if="isEditing"
           class="btn-icon text-danger"
           @click="cancelarEdicao"
-          title="Cancelar Edição"
+          :title="$t('instrumentos.cancelar_edicao')"
         >
           <span class="icon-dinamico">close</span>
         </button>
@@ -295,45 +297,45 @@ onMounted(() => buscarInstrumentos());
 
       <div class="form-grid mb-1">
         <div class="form-group">
-          <label>Tipo</label>
+          <label>{{ $t('instrumentos.label_tipo') }}</label>
           <select v-model="form.tipo">
-            <option>Guitarra</option>
-            <option>Baixo</option>
-            <option>Violão</option>
-            <option>Cavaco</option>
-            <option>Viola</option>
+            <option value="Guitarra">{{ $t('instrumentos.tipos.guitarra') }}</option>
+            <option value="Baixo">{{ $t('instrumentos.tipos.baixo') }}</option>
+            <option value="Violão">{{ $t('instrumentos.tipos.violao') }}</option>
+            <option value="Cavaco">{{ $t('instrumentos.tipos.cavaco') }}</option>
+            <option value="Viola">{{ $t('instrumentos.tipos.viola') }}</option>
           </select>
         </div>
         <div class="form-group" style="flex: 2">
-          <label>Marca *</label>
-          <input v-model="form.marca" placeholder="Ex: Fender, Tagima..." />
+          <label>{{ $t('instrumentos.label_marca') }}</label>
+          <input v-model="form.marca" :placeholder="$t('instrumentos.placeholder_marca')" />
         </div>
         <div class="form-group" style="flex: 2">
-          <label>Modelo *</label>
-          <input v-model="form.modelo" placeholder="Ex: Stratocaster, JB..." />
+          <label>{{ $t('instrumentos.label_modelo') }}</label>
+          <input v-model="form.modelo" :placeholder="$t('instrumentos.placeholder_modelo')" />
         </div>
       </div>
 
       <div class="form-grid mb-1">
         <div class="form-group" style="flex: 1">
-          <label>Nº de Série</label>
-          <input v-model="form.numero_serie" placeholder="Opcional" />
+          <label>{{ $t('instrumentos.label_n_serie') }}</label>
+          <input v-model="form.numero_serie" :placeholder="$t('instrumentos.placeholder_opcional')" />
         </div>
         <div class="form-group" style="flex: 1">
-          <label>Afinação Padrão</label>
+          <label>{{ $t('instrumentos.label_afinacao_padrao') }}</label>
           <input
             v-model="form.afinacao"
-            placeholder="Ex: E Standard, Drop D..."
+            :placeholder="$t('instrumentos.placeholder_afinacao')"
           />
         </div>
       </div>
 
       <div class="form-group mb-1">
-        <label>Observações / Especificidades do Instrumento</label>
+        <label>{{ $t('instrumentos.label_observacoes') }}</label>
         <textarea
           v-model="form.observacoes"
           rows="2"
-          placeholder="Histórico de pancadas, calibre de corda favorito, elétrica específica..."
+          :placeholder="$t('instrumentos.placeholder_observacoes')"
         ></textarea>
       </div>
 
@@ -346,7 +348,7 @@ onMounted(() => buscarInstrumentos());
             color: var(--text-muted);
             font-size: 0.85rem;
           "
-          >Foto de Identificação</label
+          >{{ $t('instrumentos.label_foto') }}</label
         >
 
         <div v-if="form.foto_url" class="foto-preview">
@@ -354,7 +356,7 @@ onMounted(() => buscarInstrumentos());
           <button type="button"
             class="btn-icon text-danger btn-remove-foto"
             @click="removerFoto"
-            title="Remover Foto"
+            :title="$t('instrumentos.remover_foto')"
           >
             <span class="icon-dinamico">delete</span>
           </button>
@@ -364,7 +366,7 @@ onMounted(() => buscarInstrumentos());
           <span class="icon-dinamico">{{
             uploadingFoto ? "hourglass_empty" : "add_a_photo"
           }}</span>
-          {{ uploadingFoto ? "A processar..." : "Anexar Foto do Instrumento" }}
+          {{ uploadingFoto ? $t('instrumentos.processando') : $t('instrumentos.anexar_foto') }}
           <input
             type="file"
             accept="image/*"
@@ -385,10 +387,10 @@ onMounted(() => buscarInstrumentos());
         }}</span>
         {{
           loading
-            ? "A guardar..."
+            ? $t('instrumentos.guardando')
             : isEditing
-              ? "Salvar Alterações"
-              : "Cadastrar Instrumento"
+              ? $t('instrumentos.salvar_alteracoes')
+              : $t('instrumentos.cadastrar')
         }}
       </button>
     </div>

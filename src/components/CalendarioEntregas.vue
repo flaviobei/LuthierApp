@@ -10,9 +10,11 @@
 import { ref, computed, onMounted } from "vue";
 import { osService } from "../services/osService";
 import { useToast } from "../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const emit = defineEmits(["abrirOS", "voltar"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const dataAtual = ref(new Date());
 const servicos = ref([]);
@@ -72,7 +74,7 @@ async function carregarServicos() {
   try {
     servicos.value = await osService.buscarParaCalendario();
   } catch (error) {
-    triggerToast("Erro ao carregar a agenda: " + error.message, "error");
+    triggerToast(t('calendario.erro_carregar') + error.message, "error");
   } finally {
     carregando.value = false;
   }
@@ -115,7 +117,7 @@ onMounted(carregarServicos);
           <span class="icon-dinamico" style="font-size: 1.8rem"
             >calendar_month</span
           >
-          Agenda de
+          {{ $t('calendario.titulo') }}
           <span style="color: var(--primary)">{{ mesAtualNome }}</span>
           {{ anoAtual }}
         </h2>
@@ -124,7 +126,7 @@ onMounted(carregarServicos);
           <div class="btn-group" style="display: flex; gap: 5px">
             <button type="button" class="btn-outline" @click="mudarMes(-1)">◀</button>
             <button type="button" class="btn-outline" @click="dataAtual = new Date()">
-              Mês Atual
+              {{ $t('calendario.mes_atual') }}
             </button>
             <button type="button" class="btn-outline" @click="mudarMes(1)">▶</button>
           </div>
@@ -137,7 +139,7 @@ onMounted(carregarServicos);
       class="card"
       style="text-align: center; padding: 40px"
     >
-      A carregar compromissos...
+      {{ $t('calendario.carregando') }}
     </div>
 
     <div v-else>
@@ -154,12 +156,10 @@ onMounted(carregarServicos);
           <span class="icon-dinamico" style="font-size: 1.5rem"
             >event_busy</span
           >
-          Vista Indisponível
+          {{ $t('calendario.vista_indisponivel') }}
         </h3>
         <p class="text-muted">
-          A agenda em formato de calendário necessita de um ecrã mais largo para
-          ser legível. Por favor, aceda a esta funcionalidade através de um
-          Tablet ou Computador.
+          {{ $t('calendario.aviso_mobile') }}
         </p>
         <button type="button"
           class="btn-primary"
@@ -171,7 +171,7 @@ onMounted(carregarServicos);
             font-size: 1.1rem;
           "
         >
-          &larr; Voltar à Bancada
+          &larr; {{ $t('calendario.voltar') }}
         </button>
       </div>
 
@@ -204,7 +204,7 @@ onMounted(carregarServicos);
               class="badge-os"
               :class="getStatusCor(os)"
               @click="$emit('abrirOS', os)"
-              title="Clique para abrir esta O.S."
+              :title="$t('calendario.clique_abrir')"
             >
               <strong>#{{ os.numero_os }}</strong> -
               {{ os.instrumentos?.modelo }}

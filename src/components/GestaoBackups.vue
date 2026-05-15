@@ -2,8 +2,10 @@
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 const backups = ref([]);
 const loading = ref(true);
 
@@ -31,7 +33,7 @@ async function carregarELimparBackups() {
 
       if (!errDelete) {
         triggerToast(
-          "Limpeza automática: backups antigos foram removidos.",
+          t('admin_backups.toast_limpeza'),
           "info",
         );
         lista = lista.slice(0, 15); // Atualiza a lista da tela para mostrar só os 15
@@ -40,14 +42,14 @@ async function carregarELimparBackups() {
 
     backups.value = lista;
   } catch (err) {
-    triggerToast("Erro ao gerir backups: " + err.message, "error");
+    triggerToast(t('admin_backups.erro_gerir') + err.message, "error");
   } finally {
     loading.value = false;
   }
 }
 
 async function baixarBackup(nomeArquivo) {
-  triggerToast("A preparar o download...", "info");
+  triggerToast(t('admin_backups.toast_download'), "info");
   try {
     const { data, error } = await supabase.storage
       .from("backups")
@@ -64,7 +66,7 @@ async function baixarBackup(nomeArquivo) {
     link.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
-    triggerToast("Erro ao descarregar: " + err.message, "error");
+    triggerToast(t('admin_backups.erro_download') + err.message, "error");
   }
 }
 
@@ -85,41 +87,36 @@ onMounted(carregarELimparBackups);
         <span class="icon-dinamico" style="vertical-align: middle"
           >cloud_done</span
         >
-        Cofre de Backups
+        {{ $t('admin_backups.titulo') }}
       </h3>
       <button type="button"
         class="btn-outline"
         @click="carregarELimparBackups"
-        title="Atualizar lista"
+        :title="$t('admin_backups.btn_atualizar')"
       >
         <span class="icon-dinamico">refresh</span>
       </button>
     </div>
 
-    <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 20px">
-      O sistema guarda automaticamente as
-      <strong>15 últimas cópias</strong> completas do seu banco de dados (.sql).
-      Backups mais antigos são destruídos para poupar espaço.
-    </p>
+    <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 20px" v-html="$t('admin_backups.desc')"></p>
 
     <div v-if="loading" class="text-center py-5">
       <div class="loader-simple" style="margin: 0 auto"></div>
-      <p class="mt-2 text-muted">A ler o cofre de segurança...</p>
+      <p class="mt-2 text-muted">{{ $t('admin_backups.lendo_cofre') }}</p>
     </div>
 
     <div v-else-if="backups.length === 0" class="text-center text-muted py-5">
-      Nenhum backup encontrado. O próximo cron job deve gerar um ficheiro em
-      breve.
+      {{ $t('admin_backups.nenhum_backup') }}
     </div>
 
     <div v-else class="tabela-container">
       <table class="tabela-dados">
         <thead>
           <tr>
-            <th>Nome do Ficheiro</th>
-            <th>Data de Criação</th>
-            <th>Tamanho</th>
-            <th class="text-center">Ação</th>
+            <th>{{ $t('admin_backups.col_nome') }}</th>
+            <th>{{ $t('admin_backups.col_data') }}</th>
+            <th>{{ $t('admin_backups.col_tamanho') }}</th>
+            <th class="text-center">{{ $t('admin_backups.col_acao') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -146,7 +143,7 @@ onMounted(carregarELimparBackups);
                   style="font-size: 1.1rem; vertical-align: middle"
                   >download</span
                 >
-                Baixar
+                {{ $t('admin_backups.btn_baixar') }}
               </button>
             </td>
           </tr>

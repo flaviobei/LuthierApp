@@ -11,6 +11,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import Chart from "chart.js/auto";
 import { osService } from "../services/osService";
+import { useI18n } from "vue-i18n";
 
 const transacoes = ref([]);
 const servicos = ref([]);
@@ -23,6 +24,8 @@ const periodoTemporal = ref(90);
 const graficoDashRef = ref(null);
 const graficoMarcasRef = ref(null);
 const graficoTiposRef = ref(null);
+
+const { t } = useI18n();
 
 let instanceGraficoDash = null;
 let instanceGraficoMarcas = null;
@@ -55,7 +58,7 @@ async function carregarDados() {
     faturamentoParado.value = faturamentoP;
     recebiveisBancada.value = recebiveisB;
   } catch (err) {
-    console.error("Erro ao buscar dados adicionais:", err);
+    console.error(t('dashboard.erro_buscar_dados'), err);
   }
 
   loading.value = false;
@@ -185,7 +188,7 @@ const dadosMarcas = computed(() => {
       const svc = servicos.value.find((s) => s.id === t.servico_id);
       let marca = svc?.instrumentos?.marca;
       if (!marca || typeof marca !== "string" || marca.trim() === "") {
-        marca = "Outras";
+        marca = t('dashboard.outras_marcas');
       } else {
         marca = marca.trim();
         marca = marca.charAt(0).toUpperCase() + marca.slice(1).toLowerCase();
@@ -326,13 +329,13 @@ function construirGraficoDash() {
         labels: dados.map((d) => d.label),
         datasets: [
           {
-            label: "Receitas (R$)",
+            label: t('dashboard.receitas_rs'),
             data: dados.map((d) => d.entrada),
             backgroundColor: "#27ae60",
             borderRadius: 4,
           },
           {
-            label: "Despesas (R$)",
+            label: t('dashboard.despesas_rs'),
             data: dados.map((d) => d.saida),
             backgroundColor: "#c0392b",
             borderRadius: 4,
@@ -354,7 +357,7 @@ function construirGraficoDash() {
         labels: dados.labels,
         datasets: [
           {
-            label: isAgrupadoPorMes ? "Ganhos Mensais" : "Ganhos Diários",
+            label: isAgrupadoPorMes ? t('dashboard.ganhos_mensais') : t('dashboard.ganhos_diarios'),
             data: dados.ganhos,
             borderColor: "#27ae60",
             backgroundColor: "rgba(39, 174, 96, 0.1)",
@@ -362,7 +365,7 @@ function construirGraficoDash() {
             fill: true,
           },
           {
-            label: isAgrupadoPorMes ? "Gastos Mensais" : "Gastos Diários",
+            label: isAgrupadoPorMes ? t('dashboard.gastos_mensais') : t('dashboard.gastos_diarios'),
             data: dados.gastos,
             borderColor: "#c0392b",
             backgroundColor: "transparent",
@@ -393,7 +396,7 @@ function construirGraficosAvancados() {
         labels: dadosMarcas.value.labels,
         datasets: [
           {
-            label: "Faturamento",
+            label: t('dashboard.faturamento_label'),
             data: dadosMarcas.value.valores,
             backgroundColor: "#3498db",
             borderRadius: 4,
@@ -408,11 +411,11 @@ function construirGraficosAvancados() {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx) => `R$ ${ctx.parsed.x.toFixed(2)}`,
+              label: (ctx) => `${t('dashboard.moeda')} ${ctx.parsed.x.toFixed(2)}`,
             },
           },
         },
-        scales: { x: { ticks: { callback: (val) => `R$ ${val}` } } },
+        scales: { x: { ticks: { callback: (val) => `${t('dashboard.moeda')} ${val}` } } },
       },
     });
   }
@@ -422,7 +425,7 @@ function construirGraficosAvancados() {
     instanceGraficoTipos = new Chart(graficoTiposRef.value.getContext("2d"), {
       type: "doughnut",
       data: {
-        labels: ["O.S. Padrão", "Retrabalho/Garantia"],
+        labels: [t('dashboard.os_padrao'), t('dashboard.retrabalho_garantia')],
         datasets: [
           {
             data: dadosTiposOS.value,
@@ -443,7 +446,7 @@ function construirGraficosAvancados() {
                 const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
                 const perc =
                   total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
-                return ` ${ctx.parsed} O.S. (${perc}%)`;
+                return t('dashboard.os_qtd_perc', { qtd: ctx.parsed, perc });
               },
             },
           },
@@ -486,7 +489,7 @@ onUnmounted(() => {
       style="font-size: 2rem; animation: spin 1s linear infinite"
       >sync</span
     >
-    A calcular métricas e montar gráficos...
+    {{ $t('dashboard.calcular_metricas') }}
   </div>
 
   <div v-else class="relatorios-container">
@@ -501,7 +504,7 @@ onUnmounted(() => {
             style="font-size: 1.1rem; color: var(--primary)"
             >account_balance_wallet</span
           >
-          Faturamento (Mês)
+          {{ $t('dashboard.faturamento_mes') }}
         </span>
         <strong class="kpi-value text-primary"
           >R$ {{ faturamentoMes.toFixed(2) }}</strong
@@ -517,7 +520,7 @@ onUnmounted(() => {
             style="font-size: 1.1rem; color: var(--danger)"
             >money_off</span
           >
-          Custos / Despesas (Mês)
+          {{ $t('dashboard.custos_mes') }}
         </span>
         <strong class="kpi-value text-danger"
           >R$ {{ despesasMes.toFixed(2) }}</strong
@@ -531,7 +534,7 @@ onUnmounted(() => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >trending_up</span
           >
-          Lucro Líquido (Mês)
+          {{ $t('dashboard.lucro_liquido_mes') }}
         </span>
         <strong class="kpi-value">R$ {{ lucroMes.toFixed(2) }}</strong>
       </div>
@@ -543,17 +546,17 @@ onUnmounted(() => {
           <span class="icon-dinamico" style="font-size: 1.1rem; color: var(--info, #3b82f6)"
             >account_balance</span
           >
-          Total a Receber (O.S.)
+          {{ $t('dashboard.total_receber_os') }}
         </span>
         <strong class="kpi-value" style="color: var(--text-main); margin-bottom: 8px;">R$ {{ totalReceberGlobal.toFixed(2) }}</strong>
         
         <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 0.85rem;">
           <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
-            <span>Na Bancada ({{ recebiveisBancada.quantidade }}):</span>
+            <span>{{ $t('dashboard.na_bancada_qtd', { qtd: recebiveisBancada.quantidade }) }}</span>
             <strong style="color: var(--text-main)">R$ {{ (recebiveisBancada?.totalRecebivel || 0).toFixed(2) }}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
-            <span>Pronto / Retirada ({{ faturamentoParado.length }}):</span>
+            <span>{{ $t('dashboard.pronto_retirada_qtd', { qtd: faturamentoParado.length }) }}</span>
             <strong style="color: var(--warning)">R$ {{ totalFaturamentoParado.toFixed(2) }}</strong>
           </div>
         </div>
@@ -566,7 +569,7 @@ onUnmounted(() => {
           class="title-section"
           style="margin: 0; display: flex; align-items: center; gap: 8px"
         >
-          <span class="icon-dinamico">insights</span> Evolução Financeira
+          <span class="icon-dinamico">insights</span> {{ $t('dashboard.evolucao_financeira') }}
         </h3>
         <div style="display: flex; gap: 5px; align-items: center">
           <button type="button"
@@ -585,7 +588,7 @@ onUnmounted(() => {
             <span class="icon-dinamico" style="font-size: 0.75rem"
               >bar_chart</span
             >
-            Balanço
+            {{ $t('dashboard.balanco') }}
           </button>
           <button type="button"
             class="btn-tab"
@@ -603,7 +606,7 @@ onUnmounted(() => {
             <span class="icon-dinamico" style="font-size: 0.75rem"
               >show_chart</span
             >
-            Curva
+            {{ $t('dashboard.curva') }}
           </button>
           <select
             v-if="tipoGraficoDash === 'temporal'"
@@ -615,10 +618,10 @@ onUnmounted(() => {
               border: 1px solid var(--border);
             "
           >
-            <option :value="90">90 Dias</option>
-            <option :value="180">6 Meses</option>
-            <option :value="365">1 Ano</option>
-            <option :value="9999">Tudo</option>
+            <option :value="90">{{ $t('dashboard.noventa_dias') }}</option>
+            <option :value="180">{{ $t('dashboard.seis_meses') }}</option>
+            <option :value="365">{{ $t('dashboard.um_ano') }}</option>
+            <option :value="9999">{{ $t('dashboard.tudo') }}</option>
           </select>
         </div>
       </div>
@@ -642,7 +645,7 @@ onUnmounted(() => {
           <span class="icon-dinamico" style="color: #3498db"
             >workspace_premium</span
           >
-          Top Marcas (Receita)
+          {{ $t('dashboard.top_marcas') }}
         </h3>
         <div class="chart-wrapper" style="height: 200px">
           <canvas
@@ -654,7 +657,7 @@ onUnmounted(() => {
             class="text-muted text-center w-full"
             style="padding-top: 50px; font-size: 0.85rem"
           >
-            Sem dados comerciais ainda.
+            {{ $t('dashboard.sem_dados_comerciais') }}
           </div>
         </div>
       </div>
@@ -667,8 +670,8 @@ onUnmounted(() => {
             >
           </div>
           <div class="info">
-            <span class="kpi-title">Tempo Médio (Geral)</span><br />
-            <strong class="kpi-value">{{ tempoMedioServico }} dias</strong>
+            <span class="kpi-title">{{ $t('dashboard.tempo_medio_geral') }}</span><br />
+            <strong class="kpi-value">{{ $t('dashboard.dias_qtd', { dias: tempoMedioServico }) }}</strong>
           </div>
         </div>
         <div class="card kpi-prod">
@@ -678,8 +681,8 @@ onUnmounted(() => {
             >
           </div>
           <div class="info">
-            <span class="kpi-title">Tempo (Retrabalho)</span><br />
-            <strong class="kpi-value">{{ tempoMedioRetrabalho }} dias</strong>
+            <span class="kpi-title">{{ $t('dashboard.tempo_retrabalho') }}</span><br />
+            <strong class="kpi-value">{{ $t('dashboard.dias_qtd', { dias: tempoMedioRetrabalho }) }}</strong>
           </div>
         </div>
         <div class="card kpi-prod">
@@ -689,8 +692,8 @@ onUnmounted(() => {
             >
           </div>
           <div class="info">
-            <span class="kpi-title">Na Bancada (Ativas)</span><br />
-            <strong class="kpi-value">{{ osEmAndamento }} O.S.</strong>
+            <span class="kpi-title">{{ $t('dashboard.na_bancada_ativas') }}</span><br />
+            <strong class="kpi-value">{{ $t('dashboard.os_qtd', { qtd: osEmAndamento }) }}</strong>
           </div>
         </div>
       </div>
@@ -707,7 +710,7 @@ onUnmounted(() => {
           "
         >
           <span class="icon-dinamico" style="color: #e74c3c">pie_chart</span>
-          Taxa de Retrabalho
+          {{ $t('dashboard.taxa_retrabalho') }}
         </h3>
         <div class="chart-wrapper" style="height: 200px">
           <canvas ref="graficoTiposRef"></canvas>

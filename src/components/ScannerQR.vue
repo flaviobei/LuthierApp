@@ -9,9 +9,11 @@ import { onMounted, onUnmounted, ref } from "vue";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { osService } from "../services/osService"; // Importação do Serviço
 import { useToast } from "../composables/useToast";
+import { useI18n } from "vue-i18n";
 
 const emit = defineEmits(["fechar", "osLida"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const buscando = ref(false);
 let scanner = null;
@@ -49,15 +51,15 @@ async function sucessoAoLer(textoDecodificado) {
     const data = await osService.buscarPorId(textoDecodificado);
 
     if (!data) {
-      triggerToast("O.S. não encontrada na base de dados.", "error");
+      triggerToast(t('scanner.nao_encontrada'), "error");
       scanner.resume();
     } else {
-      triggerToast("O.S. localizada!", "success");
+      triggerToast(t('scanner.localizada'), "success");
       scanner.clear();
       emit("osLida", data);
     }
   } catch (err) {
-    triggerToast("Erro de leitura: " + err.message, "error");
+    triggerToast(t('scanner.erro') + err.message, "error");
     scanner.resume();
   } finally {
     buscando.value = false;
@@ -79,7 +81,7 @@ function fecharModal() {
     <div class="modal-card">
       <div class="flex-between mb-2">
         <h3 style="margin: 0; display: flex; align-items: center; gap: 8px">
-          <span class="icon-dinamico">qr_code_scanner</span> Escanear Etiqueta
+          <span class="icon-dinamico">qr_code_scanner</span> {{ $t('scanner.titulo') }}
         </h3>
         <button type="button" class="btn-icon text-danger" @click="fecharModal">
           <span class="icon-dinamico">close</span>
@@ -90,7 +92,7 @@ function fecharModal() {
         class="text-muted text-center"
         style="font-size: 0.85rem; margin-bottom: 15px"
       >
-        Aponte a câmera para a etiqueta colada no instrumento.
+        {{ $t('scanner.desc') }}
       </p>
 
       <div id="leitor-qr"></div>
@@ -106,7 +108,7 @@ function fecharModal() {
           >sync</span
         >
         <p style="color: white; font-weight: bold; margin-top: 10px">
-          Procurando O.S...
+          {{ $t('scanner.procurando') }}
         </p>
       </div>
     </div>

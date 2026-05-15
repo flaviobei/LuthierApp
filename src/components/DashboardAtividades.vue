@@ -11,9 +11,11 @@ import { abrirWhatsapp } from "../lib/whatsappUtils";
 import { useToast } from "../composables/useToast";
 import { osService } from "../services/osService";
 import { catalogoService } from "../services/catalogoService"; // Novo Serviço
+import { useI18n } from "vue-i18n";
 
 const emit = defineEmits(["abrirOS", "mudarAba"]); // Adicionado mudarAba para o botão do estoque
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const servicosAbertos = ref([]);
 const oportunidadesPosVenda = ref([]);
@@ -42,7 +44,7 @@ async function carregarDadosIniciais() {
       (c) => c.controla_estoque && c.quantidade_estoque <= c.estoque_minimo,
     );
   } catch (error) {
-    triggerToast("Erro ao carregar dashboard: " + error.message, "error");
+    triggerToast(t('dashboard.erro_carregar') + error.message, "error");
   } finally {
     loading.value = false;
   }
@@ -52,9 +54,14 @@ async function carregarDadosIniciais() {
 function chamarClientePosVenda(os) {
   const cli = os.instrumentos?.cliente;
   if (!cli || !cli.telefone)
-    return triggerToast("Este cliente não tem telefone registrado.", "error");
+    return triggerToast(t('dashboard.erro_telefone'), "error");
 
-  const msg = `Olá *${cli.nome}*! Tudo bem?\n\nAqui é da Luthieria. Notei que já faz um tempo que entregámos o seu *${os.instrumentos.marca} ${os.instrumentos.modelo}* (O.S. #${os.numero_os}).\n\nComo ele se tem comportado? Se precisar de dar uma revisão ou um ajuste para manter a tocabilidade 100%, é só dizer!`;
+  const msg = t('dashboard.msg_pos_venda', {
+    nome: cli.nome,
+    marca: os.instrumentos.marca,
+    modelo: os.instrumentos.modelo,
+    os: os.numero_os
+  });
   abrirWhatsapp(cli, msg);
 }
 
@@ -64,9 +71,9 @@ async function marcarComoContatado(osId) {
     oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
       (o) => o.id !== osId,
     );
-    triggerToast("O.S. removida da lista do CRM.", "success");
+    triggerToast(t('dashboard.crm_removida'), "success");
   } catch (err) {
-    triggerToast("Erro ao atualizar status: " + err.message, "error");
+    triggerToast(t('dashboard.crm_erro_atualizar') + err.message, "error");
   }
 }
 
@@ -76,18 +83,23 @@ async function adiarPosVenda(osId, dias) {
     oportunidadesPosVenda.value = oportunidadesPosVenda.value.filter(
       (o) => o.id !== osId,
     );
-    triggerToast(`Lembrete adiado para daqui a ${dias} dias.`, "info");
+    triggerToast(t('dashboard.crm_adiado', { dias }), "info");
   } catch (err) {
-    triggerToast("Erro ao adiar lembrete: " + err.message, "error");
+    triggerToast(t('dashboard.crm_erro_adiar') + err.message, "error");
   }
 }
 
 function chamarClienteCobranca(os) {
   const cli = os.instrumentos?.cliente;
   if (!cli || !cli.telefone)
-    return triggerToast("Este cliente não tem telefone registrado.", "error");
+    return triggerToast(t('dashboard.erro_telefone'), "error");
 
-  const msg = `Olá *${cli.nome}*! Tudo bem?\n\nO seu instrumento *${os.instrumentos.marca} ${os.instrumentos.modelo}* já está pronto para ser retirado (O.S. #${os.numero_os})!\n\nQualquer dúvida, estamos à disposição. Aguardamos a sua visita!`;
+  const msg = t('dashboard.msg_cobranca', {
+    nome: cli.nome,
+    marca: os.instrumentos.marca,
+    modelo: os.instrumentos.modelo,
+    os: os.numero_os
+  });
   abrirWhatsapp(cli, msg);
 }
 
@@ -177,11 +189,10 @@ onMounted(() => carregarDadosIniciais());
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">running_with_errors</span> Alertas de
-          Estoque Baixo
+          <span class="icon-dinamico">running_with_errors</span> {{ $t('dashboard.alertas_estoque') }}
         </h3>
         <span class="badge-crm" style="color: var(--danger)"
-          >{{ alertasEstoque.length }} Itens</span
+          >{{ $t('dashboard.itens_qtd', { qtd: alertasEstoque.length }) }}</span
         >
       </div>
       <div class="crm-list" style="padding-top: 15px">
@@ -196,12 +207,12 @@ onMounted(() => carregarDadosIniciais());
               item.nome
             }}</strong>
             <span style="color: var(--text-main); font-size: 0.9rem">
-              Estoque Atual:
+              {{ $t('dashboard.estoque_atual') }}
               <strong style="font-size: 1.1rem">{{
                 item.quantidade_estoque
               }}</strong>
               <span class="text-muted">
-                (Mínimo recomendado: {{ item.estoque_minimo }})</span
+                {{ $t('dashboard.estoque_minimo_rec', { min: item.estoque_minimo }) }}</span
               >
             </span>
           </div>
@@ -220,16 +231,14 @@ onMounted(() => carregarDadosIniciais());
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">lightbulb</span> Retenção de Clientes
-          (Pós-Venda)
+          <span class="icon-dinamico">lightbulb</span> {{ $t('dashboard.retencao_clientes') }}
         </h3>
         <span class="badge-crm"
-          >{{ oportunidadesPosVenda.length }} Pendentes</span
+          >{{ $t('dashboard.pendentes_qtd', { qtd: oportunidadesPosVenda.length }) }}</span
         >
       </div>
       <p style="margin: 10px 0 15px 0; font-size: 0.9rem; color: #555">
-        Estes instrumentos foram entregues há mais de 6 meses. Mande uma
-        mensagem para gerar um novo serviço!
+        {{ $t('dashboard.retencao_desc') }}
       </p>
 
       <div class="crm-list">
@@ -247,7 +256,7 @@ onMounted(() => carregarDadosIniciais());
               {{ opp.instrumentos?.modelo }}</span
             >
             <small style="color: var(--danger)"
-              >Entregue em: {{ formatarData(opp.data_conclusao) }}</small
+              >{{ $t('dashboard.entregue_em') }} {{ formatarData(opp.data_conclusao) }}</small
             >
           </div>
 
@@ -257,7 +266,7 @@ onMounted(() => carregarDadosIniciais());
               @click="chamarClientePosVenda(opp)"
               style="width: 100%; margin-bottom: 8px;"
             >
-              <span class="icon-dinamico">chat</span> Chamar no Zap
+              <span class="icon-dinamico">chat</span> {{ $t('dashboard.chamar_zap') }}
             </button>
             <div
               class="crm-actions-secundary"
@@ -266,7 +275,7 @@ onMounted(() => carregarDadosIniciais());
               <button type="button"
                 class="btn-icon bg-light"
                 @click="adiarPosVenda(opp.id, 15)"
-                title="Lembrar daqui a 15 dias"
+                :title="$t('dashboard.lembrar_15_dias_title')"
                 style="
                   flex: 1;
                   font-size: 0.85rem;
@@ -281,12 +290,12 @@ onMounted(() => carregarDadosIniciais());
                 <span class="icon-dinamico" style="font-size: 1rem"
                   >schedule</span
                 >
-                Adiar 15d
+                {{ $t('dashboard.adiar_15d') }}
               </button>
               <button type="button"
                 class="btn-icon bg-light text-success"
                 @click="marcarComoContatado(opp.id)"
-                title="Marcar como Concluído"
+                :title="$t('dashboard.marcar_concluido_title')"
                 style="
                   flex: 1;
                   font-size: 0.85rem;
@@ -301,7 +310,7 @@ onMounted(() => carregarDadosIniciais());
                 <span class="icon-dinamico" style="font-size: 1rem"
                   >check_circle</span
                 >
-                Já Falei
+                {{ $t('dashboard.ja_falei') }}
               </button>
             </div>
           </div>
@@ -320,14 +329,14 @@ onMounted(() => carregarDadosIniciais());
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">savings</span> Faturamento Parado
+          <span class="icon-dinamico">savings</span> {{ $t('dashboard.faturamento_parado') }}
         </h3>
         <span class="badge-crm"
           >R$ {{ totalFaturamentoParado.toFixed(2) }}</span
         >
       </div>
       <p style="margin: 10px 0 15px 0; font-size: 0.9rem; color: #555; padding: 0 20px;">
-        Este é o valor de serviços concluídos (Prontos para Entrega) que aguardam retirada e pagamento pelo cliente.
+        {{ $t('dashboard.faturamento_desc') }}
       </p>
 
       <div class="crm-list">
@@ -347,21 +356,21 @@ onMounted(() => carregarDadosIniciais());
             >
             <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 2px;">
               <small style="color: var(--warning); font-weight: bold; font-size: 0.95rem"
-                >Saldo Devedor: R$ {{ os.saldoDevedor.toFixed(2) }}</small
+                >{{ $t('dashboard.saldo_devedor_rs', { valor: os.saldoDevedor.toFixed(2) }) }}</small
               >
               <template v-if="os.data_conclusao">
                 <small :style="{ color: getAtrasoConfig(os.data_conclusao).textColor, fontWeight: getAtrasoConfig(os.data_conclusao).fontWeight }">
                   <span class="icon-dinamico" style="font-size: 0.9rem; vertical-align: middle;">{{ getAtrasoConfig(os.data_conclusao).icon }}</span>
-                  Pronto em: {{ formatarData(os.data_conclusao) }} (há {{ diasAguardando(os.data_conclusao) }} dias)
+                  {{ $t('dashboard.pronto_em', { data: formatarData(os.data_conclusao), dias: diasAguardando(os.data_conclusao) }) }}
                 </small>
                 <small v-if="getAtrasoConfig(os.data_conclusao).isCritical" style="color: var(--danger); font-weight: bold; margin-top: 4px;">
-                  ⚠️ AVISO: Ultrapassou o limite de 60 dias!
+                  {{ $t('dashboard.aviso_60_dias') }}
                 </small>
               </template>
               <template v-else>
                 <small style="color: var(--text-muted);">
                   <span class="icon-dinamico" style="font-size: 0.9rem; vertical-align: middle;">event_busy</span>
-                  Pronto (Data de conclusão não registrada)
+                  {{ $t('dashboard.pronto_sem_data') }}
                 </small>
               </template>
             </div>
@@ -373,14 +382,14 @@ onMounted(() => carregarDadosIniciais());
               @click="$emit('abrirOS', os)"
               style="width: 100%; margin-bottom: 8px;"
             >
-              <span class="icon-dinamico">visibility</span> Ver O.S.
+              <span class="icon-dinamico">visibility</span> {{ $t('dashboard.ver_os') }}
             </button>
             <button type="button"
               class="btn-accent"
               @click="chamarClienteCobranca(os)"
               style="width: 100%;"
             >
-              <span class="icon-dinamico">chat</span> Avisar Retirada
+              <span class="icon-dinamico">chat</span> {{ $t('dashboard.avisar_retirada') }}
             </button>
           </div>
         </div>
@@ -403,12 +412,12 @@ onMounted(() => carregarDadosIniciais());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">handyman</span> Bancada de Trabalho
+        <span class="icon-dinamico">handyman</span> {{ $t('dashboard.bancada_trabalho') }}
       </h2>
     </div>
 
     <div v-if="loading" class="text-muted text-center" style="padding: 40px">
-      A preparar a bancada...
+      {{ $t('dashboard.preparar_bancada') }}
     </div>
 
     <div v-else-if="servicosAbertos.length === 0" class="card empty-state">
@@ -427,7 +436,7 @@ onMounted(() => carregarDadosIniciais());
           style="color: var(--success); font-size: 1.5rem"
           >celebration</span
         >
-        Nenhuma pendência! Tudo entregue ou bancada limpa.
+        {{ $t('dashboard.bancada_vazia') }}
       </p>
     </div>
 
@@ -470,9 +479,7 @@ onMounted(() => carregarDadosIniciais());
         <div v-if="os.ultima_atualizacao" class="ultima-atualizacao">
           <div class="atualizacao-header">
             <small
-              >Última anotação ({{
-                formatarDataCurta(os.ultima_atualizacao.data_registro)
-              }}):</small
+              >{{ $t('dashboard.ultima_anotacao', { data: formatarDataCurta(os.ultima_atualizacao.data_registro) }) }}</small
             >
           </div>
           <div class="atualizacao-body">
@@ -493,12 +500,12 @@ onMounted(() => carregarDadosIniciais());
         <div v-else style="flex-grow: 1"></div>
 
         <div class="footer-card">
-          <small>Entrada: {{ formatarData(os.data_entrada) }}</small>
+          <small>{{ $t('dashboard.entrada') }} {{ formatarData(os.data_entrada) }}</small>
           <small
             v-if="os.data_previsao_entrega"
             style="color: var(--danger); font-weight: bold"
           >
-            Prazo: {{ formatarData(os.data_previsao_entrega) }}
+            {{ $t('dashboard.prazo') }} {{ formatarData(os.data_previsao_entrega) }}
           </small>
         </div>
       </div>

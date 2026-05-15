@@ -11,6 +11,9 @@
 
 import { ref, onMounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 const assinantes = ref([]);
 const loading = ref(true);
@@ -38,7 +41,7 @@ async function carregarAssinantes() {
 }
 
 async function atualizarStatus(assinante) {
-  mensagem.value = "A guardar...";
+  mensagem.value = t('admin_saas.guardando');
 
   // 🛠️ CORREÇÃO 2: Envia todos os campos que foram potencialmente editados na linha
   const { error } = await supabase
@@ -51,9 +54,9 @@ async function atualizarStatus(assinante) {
     .eq("user_id", assinante.user_id);
 
   if (error) {
-    mensagem.value = "Erro: " + error.message;
+    mensagem.value = t('admin_saas.erro') + error.message;
   } else {
-    mensagem.value = "Alteração guardada com sucesso!";
+    mensagem.value = t('admin_saas.sucesso');
     setTimeout(() => (mensagem.value = ""), 3000);
   }
 }
@@ -85,8 +88,7 @@ onMounted(() => carregarAssinantes());
           gap: 8px;
         "
       >
-        <span class="icon-dinamico">admin_panel_settings</span> Módulo Master:
-        Gestão do SaaS
+        <span class="icon-dinamico">admin_panel_settings</span> {{ $t('admin_saas.titulo') }}
       </h2>
       <span
         v-if="mensagem"
@@ -104,8 +106,7 @@ onMounted(() => carregarAssinantes());
     </div>
 
     <p class="text-muted" style="margin-bottom: 20px">
-      Este painel é confidencial e só aparece para si (Dono do Software). Aqui
-      controla quem tem acesso ao sistema.
+      {{ $t('admin_saas.desc') }}
     </p>
 
     <div
@@ -124,25 +125,25 @@ onMounted(() => carregarAssinantes());
         style="font-size: 2rem; animation: spin 1s linear infinite"
         >sync</span
       >
-      A carregar base de clientes...
+      {{ $t('admin_saas.carregando') }}
     </div>
 
     <div v-else class="tabela-responsiva">
       <table class="tabela-padrao">
         <thead>
           <tr>
-            <th>E-mail</th>
-            <th>Início / Fim do Teste</th>
-            <th>Plano</th>
-            <th>Status Atual</th>
-            <th style="text-align: center">Ações</th>
+            <th>{{ $t('admin_saas.col_email') }}</th>
+            <th>{{ $t('admin_saas.col_teste') }}</th>
+            <th>{{ $t('admin_saas.col_plano') }}</th>
+            <th>{{ $t('admin_saas.col_status') }}</th>
+            <th style="text-align: center">{{ $t('admin_saas.col_acoes') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="assinante in assinantes" :key="assinante.user_id">
             <td>
               <strong style="color: var(--primary)">{{
-                assinante.email || "S/ E-mail"
+                assinante.email || $t('admin_saas.sem_email')
               }}</strong
               ><br />
               <small class="text-muted" style="font-size: 0.7rem"
@@ -151,7 +152,7 @@ onMounted(() => carregarAssinantes());
             </td>
             <td>
               <small
-                >Entrou:
+                >{{ $t('admin_saas.entrou') }}
                 {{ formatarDataHora(assinante.data_inicio_trial) }}</small
               ><br />
               <div
@@ -162,7 +163,7 @@ onMounted(() => carregarAssinantes());
                   margin-top: 5px;
                 "
               >
-                <small style="font-weight: bold">Fim:</small>
+                <small style="font-weight: bold">{{ $t('admin_saas.fim') }}</small>
                 <input
                   type="date"
                   v-model="assinante.data_fim_trial"
@@ -175,9 +176,9 @@ onMounted(() => carregarAssinantes());
                 v-model="assinante.plano_id"
                 style="padding: 4px; font-size: 0.85rem; width: auto"
               >
-                <option value="free">Free (Trial)</option>
-                <option value="mensal_49">Pro (Mensal - R$49)</option>
-                <option value="anual_490">Pro (Anual - R$490)</option>
+                <option value="free">{{ $t('admin_saas.plan_free') }}</option>
+                <option value="mensal_49">{{ $t('admin_saas.plan_pro_m') }}</option>
+                <option value="anual_490">{{ $t('admin_saas.plan_pro_a') }}</option>
               </select>
             </td>
             <td>
@@ -193,10 +194,10 @@ onMounted(() => carregarAssinantes());
                         : '#fff3cd',
                 }"
               >
-                <option value="trial">Trial (Teste)</option>
-                <option value="ativo">Ativo (Pagante)</option>
-                <option value="expirado">Expirado (Bloqueado)</option>
-                <option value="inadimplente">Inadimplente (Bloq.)</option>
+                <option value="trial">{{ $t('admin_saas.status_trial') }}</option>
+                <option value="ativo">{{ $t('admin_saas.status_ativo') }}</option>
+                <option value="expirado">{{ $t('admin_saas.status_expirado') }}</option>
+                <option value="inadimplente">{{ $t('admin_saas.status_inadimplente') }}</option>
               </select>
             </td>
             <td align="center">
@@ -214,7 +215,7 @@ onMounted(() => carregarAssinantes());
                 <span class="icon-dinamico" style="font-size: 1.1rem"
                   >save</span
                 >
-                Salvar
+                {{ $t('admin_saas.btn_salvar') }}
               </button>
             </td>
           </tr>

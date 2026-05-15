@@ -11,9 +11,11 @@ import { ref, onMounted, computed } from "vue";
 import { useToast } from "../composables/useToast";
 import { osService } from "../services/osService";
 import { gerarRelatorioHistoricoCSV } from "../lib/exportUtils";
+import { useI18n } from "vue-i18n";
 
 const emit = defineEmits(["voltar", "abrirOS"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const servicosEntregues = ref([]);
 const carregando = ref(true);
@@ -33,7 +35,7 @@ async function carregarHistorico() {
   try {
     servicosEntregues.value = await osService.buscarHistorico();
   } catch (error) {
-    triggerToast("Erro ao carregar histórico: " + error.message, "error");
+    triggerToast(t('historico.erro_carregar') + error.message, "error");
   } finally {
     carregando.value = false;
   }
@@ -108,7 +110,7 @@ function cancelarRetrabalho() {
 
 async function confirmarRetrabalho() {
   if (!motivoRetrabalho.value.trim()) {
-    return triggerToast("Por favor, informe o motivo do retorno.", "warning");
+    return triggerToast(t('historico.motivo_obrigatorio'), "warning");
   }
 
   salvandoRetrabalho.value = true;
@@ -120,7 +122,7 @@ async function confirmarRetrabalho() {
     );
 
     triggerToast(
-      `Retrabalho gerado! O.S. #${novaOs.numero_os} está na Fila de Espera.`,
+      t('historico.retrabalho_gerado', { os: novaOs.numero_os }),
       "success",
     );
     cancelarRetrabalho();
@@ -128,7 +130,7 @@ async function confirmarRetrabalho() {
     // Opcional: Já manda o usuário abrir a nova OS para editar.
     emit("abrirOS", novaOs);
   } catch (error) {
-    triggerToast("Erro ao gerar retrabalho: " + error.message, "error");
+    triggerToast(t('historico.erro_retrabalho') + error.message, "error");
   } finally {
     salvandoRetrabalho.value = false;
   }
@@ -138,7 +140,7 @@ async function confirmarRetrabalho() {
 async function exportarHistoricoCSV() {
   if (servicosFiltrados.value.length === 0)
     return triggerToast(
-      "Não há dados para exportar com estes filtros.",
+      t('historico.erro_exportar_vazio'),
       "warning",
     );
   exportando.value = true;
@@ -148,9 +150,9 @@ async function exportarHistoricoCSV() {
       servicosEntregues.value,
       mesFiltro.value,
     );
-    triggerToast("Relatório exportado com sucesso!", "success");
+    triggerToast(t('historico.exportado'), "success");
   } catch (err) {
-    triggerToast("Falha ao exportar: " + err.message, "error");
+    triggerToast(t('historico.erro_exportar') + err.message, "error");
   } finally {
     exportando.value = false;
   }
@@ -204,11 +206,10 @@ onMounted(() => carregarHistorico());
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">inventory_2</span> Arquivo Morto /
-          Histórico
+          <span class="icon-dinamico">inventory_2</span> {{ $t('historico.titulo') }}
         </h2>
         <p class="text-muted" style="margin: 5px 0 0 0; font-size: 0.9rem">
-          Consulte as Ordens de Serviço antigas (Finalizadas / Entregues).
+          {{ $t('historico.descricao') }}
         </p>
       </div>
 
@@ -229,7 +230,7 @@ onMounted(() => carregarHistorico());
           <span class="icon-dinamico" style="font-size: 1.1rem">{{
             exportando ? "hourglass_empty" : "download"
           }}</span>
-          {{ exportando ? "A gerar ficheiro..." : "Relatório Excel Completo" }}
+          {{ exportando ? $t('historico.gerando_arquivo') : $t('historico.relatorio_excel') }}
         </button>
       </div>
     </div>
@@ -246,16 +247,16 @@ onMounted(() => carregarHistorico());
         <div style="flex: 2; min-width: 250px">
           <label style="display: flex; align-items: center; gap: 4px"
             ><span class="icon-dinamico" style="font-size: 1.1rem">search</span>
-            Procurar por Cliente, Instrumento ou Nº O.S:</label
+            {{ $t('historico.label_busca') }}</label
           >
-          <input v-model="termoBusca" placeholder="Ex: Fender, João, 1024..." />
+          <input v-model="termoBusca" :placeholder="$t('historico.placeholder_busca')" />
         </div>
         <div style="flex: 1; min-width: 150px">
           <label style="display: flex; align-items: center; gap: 4px"
             ><span class="icon-dinamico" style="font-size: 1.1rem"
               >calendar_month</span
             >
-            Mês de Fechamento:</label
+            {{ $t('historico.label_mes') }}</label
           >
           <input type="month" v-model="mesFiltro" />
         </div>
@@ -279,7 +280,7 @@ onMounted(() => carregarHistorico());
         style="font-size: 2.5rem; animation: spin 1s linear infinite"
         >sync</span
       >
-      A recuperar histórico...
+      {{ $t('historico.recuperando') }}
     </div>
 
     <div v-else class="tabela-responsiva">
@@ -287,25 +288,25 @@ onMounted(() => carregarHistorico());
         <thead>
           <tr>
             <th class="th-sortable" @click="alterarOrdenacao('data_conclusao')">
-              Entrega
+              {{ $t('historico.coluna_entrega') }}
               <span class="icon-dinamico">{{
                 getIconeOrdenacao("data_conclusao")
               }}</span>
             </th>
             <th class="th-sortable" @click="alterarOrdenacao('numero_os')">
-              O.S.
+              {{ $t('historico.coluna_os') }}
               <span class="icon-dinamico">{{
                 getIconeOrdenacao("numero_os")
               }}</span>
             </th>
             <th class="th-sortable" @click="alterarOrdenacao('cliente')">
-              Cliente
+              {{ $t('historico.coluna_cliente') }}
               <span class="icon-dinamico">{{
                 getIconeOrdenacao("cliente")
               }}</span>
             </th>
             <th class="th-sortable" @click="alterarOrdenacao('instrumento')">
-              Instrumento
+              {{ $t('historico.coluna_instrumento') }}
               <span class="icon-dinamico">{{
                 getIconeOrdenacao("instrumento")
               }}</span>
@@ -314,12 +315,12 @@ onMounted(() => carregarHistorico());
               class="th-sortable text-right"
               @click="alterarOrdenacao('valor_os')"
             >
-              Valor OS
+              {{ $t('historico.coluna_valor') }}
               <span class="icon-dinamico">{{
                 getIconeOrdenacao("valor_os")
               }}</span>
             </th>
-            <th style="text-align: center">Ação</th>
+            <th style="text-align: center">{{ $t('geral.acao') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -329,7 +330,7 @@ onMounted(() => carregarHistorico());
               class="text-muted"
               style="text-align: center; padding: 30px"
             >
-              Nenhum registro encontrado para os filtros atuais.
+              {{ $t('historico.vazio') }}
             </td>
           </tr>
           <tr
@@ -357,7 +358,7 @@ onMounted(() => carregarHistorico());
             <td style="color: var(--primary); font-weight: bold">
               #{{ os.numero_os }}<br />
               <span v-if="os.tipo_os === 'Retrabalho'" class="badge-retrabalho"
-                >Retrabalho</span
+                >{{ $t('historico.badge_retrabalho') }}</span
               >
             </td>
             <td>
@@ -401,7 +402,7 @@ onMounted(() => carregarHistorico());
                   <span class="icon-dinamico" style="font-size: 1.1rem"
                     >visibility</span
                   >
-                  Ver
+                  {{ $t('historico.btn_ver') }}
                 </button>
                 <button type="button"
                   class="btn-outline"
@@ -415,12 +416,12 @@ onMounted(() => carregarHistorico());
                     font-size: 0.85rem;
                     padding: 6px 10px;
                   "
-                  title="Cliente devolveu o instrumento?"
+                  :title="$t('historico.title_garantia')"
                 >
                   <span class="icon-dinamico" style="font-size: 1.1rem"
                     >build_circle</span
                   >
-                  Garantia
+                  {{ $t('historico.btn_garantia') }}
                 </button>
               </div>
             </td>
@@ -440,12 +441,11 @@ onMounted(() => carregarHistorico());
             margin-top: 0;
           "
         >
-          <span class="icon-dinamico">build_circle</span> Acionar Garantia /
-          Retorno
+          <span class="icon-dinamico">build_circle</span> {{ $t('historico.modal_titulo') }}
         </h3>
         <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 15px">
-          Isto criará uma nova O.S. de valor R$ 0,00 ligada à O.S.
-          <strong>#{{ osParaRetrabalho.numero_os }}</strong> para o instrumento
+          {{ $t('historico.modal_aviso_pt1') }}
+          <strong>#{{ osParaRetrabalho.numero_os }}</strong> {{ $t('historico.modal_aviso_pt2') }}
           <strong
             >{{ osParaRetrabalho.instrumentos?.marca }}
             {{ osParaRetrabalho.instrumentos?.modelo }}</strong
@@ -453,11 +453,11 @@ onMounted(() => carregarHistorico());
         </p>
 
         <div class="form-group">
-          <label>Qual o motivo da devolução/retrabalho?</label>
+          <label>{{ $t('historico.label_motivo') }}</label>
           <textarea
             v-model="motivoRetrabalho"
             rows="3"
-            placeholder="Ex: Cliente achou a ação das cordas alta; Rastilho soltou..."
+            :placeholder="$t('historico.placeholder_motivo')"
             style="
               width: 100%;
               border: 1px solid var(--border);
@@ -480,7 +480,7 @@ onMounted(() => carregarHistorico());
             @click="cancelarRetrabalho"
             :disabled="salvandoRetrabalho"
           >
-            Cancelar
+            {{ $t('geral.cancelar') }}
           </button>
           <button type="button"
             class="btn-primary"
@@ -488,7 +488,7 @@ onMounted(() => carregarHistorico());
             @click="confirmarRetrabalho"
             :disabled="salvandoRetrabalho"
           >
-            {{ salvandoRetrabalho ? "A gerar..." : "Confirmar Retrabalho" }}
+            {{ salvandoRetrabalho ? $t('historico.btn_gerando') : $t('historico.btn_confirmar') }}
           </button>
         </div>
       </div>

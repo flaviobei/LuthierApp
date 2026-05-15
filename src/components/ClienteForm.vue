@@ -9,11 +9,13 @@
 import { ref, watch } from "vue";
 import { useToast } from "../composables/useToast";
 import { clienteService } from "../services/clienteService";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps(["clienteEdit"]);
 const emit = defineEmits(["clienteSalvo", "cancelarEdicao"]);
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 // Variável 'endereco' adicionada ao estado do formulário
 const form = ref({
@@ -67,7 +69,7 @@ function cancelar() {
 
 async function salvarCliente() {
   if (!form.value.nome) {
-    return triggerToast("O nome do cliente é obrigatório!", "error");
+    return triggerToast(t('clientes.erro_nome_obrig'), "error");
   }
 
   loading.value = true;
@@ -75,16 +77,16 @@ async function salvarCliente() {
   try {
     if (isEditing.value) {
       await clienteService.atualizar(currentEditId.value, form.value);
-      triggerToast("Cliente atualizado com sucesso!", "success");
+      triggerToast(t('clientes.atualizado'), "success");
     } else {
       await clienteService.criar(form.value);
-      triggerToast("Cliente cadastrado com sucesso!", "success");
+      triggerToast(t('clientes.cadastrado'), "success");
     }
 
     resetarFormulario();
     emit("clienteSalvo");
   } catch (error) {
-    triggerToast("Falha na operação: " + error.message, "error");
+    triggerToast(t('clientes.erro_operacao') + error.message, "error");
   } finally {
     loading.value = false;
   }
@@ -106,26 +108,26 @@ async function salvarCliente() {
         <span class="icon-dinamico" style="vertical-align: middle">
           {{ isEditing ? "manage_accounts" : "person_add" }}
         </span>
-        {{ isEditing ? "Editar Cliente" : "Novo Cliente" }}
+        {{ isEditing ? $t('clientes.editar') : $t('clientes.novo') }}
       </h3>
 
       <button type="button"
         v-if="isEditing"
         @click="cancelar"
         class="btn-icon text-danger"
-        title="Cancelar Edição"
+        :title="$t('clientes.cancelar_edicao')"
       >
         <span class="icon-dinamico">close</span>
       </button>
     </div>
 
     <div class="form-group">
-      <label>Nome Completo:</label>
-      <input v-model="form.nome" type="text" placeholder="Ex: João da Silva" />
+      <label>{{ $t('clientes.label_nome') }}</label>
+      <input v-model="form.nome" type="text" :placeholder="$t('clientes.placeholder_nome')" />
     </div>
 
     <div class="form-group">
-      <label>WhatsApp:</label>
+      <label>{{ $t('clientes.label_whatsapp') }}</label>
       <input
         v-model="form.telefone"
         type="text"
@@ -135,12 +137,12 @@ async function salvarCliente() {
 
     <div class="form-group">
       <label style="display: flex; align-items: center; gap: 5px">
-        Endereço (Recolha/Entrega):
+        {{ $t('clientes.label_endereco') }}
       </label>
       <textarea
         v-model="form.endereco"
         rows="3"
-        placeholder="Rua, Número, Bairro, Cidade. Pontos de referência..."
+        :placeholder="$t('clientes.placeholder_endereco')"
         style="
           width: 100%;
           border: 1px solid var(--border);
@@ -153,12 +155,12 @@ async function salvarCliente() {
     </div>
 
     <div class="form-group">
-      <label>Email (Opcional):</label>
+      <label>{{ $t('clientes.label_email') }}</label>
       <input v-model="form.email" type="email" placeholder="joao@email.com" />
     </div>
 
     <div class="form-group">
-      <label>CPF/CNPJ (Opcional):</label>
+      <label>{{ $t('clientes.label_cpf') }}</label>
       <input v-model="form.cpf_cnpj" type="text" placeholder="000.000.000-00" />
     </div>
 
@@ -180,10 +182,10 @@ async function salvarCliente() {
       </span>
       {{
         loading
-          ? "A guardar..."
+          ? $t('clientes.guardando')
           : isEditing
-            ? "Salvar Alterações"
-            : "Cadastrar Cliente"
+            ? $t('clientes.salvar_alteracoes')
+            : $t('clientes.cadastrar')
       }}
     </button>
   </div>

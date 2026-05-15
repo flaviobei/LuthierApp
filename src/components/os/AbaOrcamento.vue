@@ -12,6 +12,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useToast } from "../../composables/useToast";
 import { calcularCustoEstimado } from "../../lib/financeiroUtils";
 import { abrirWhatsapp } from "../../lib/whatsappUtils"; // Importação do utilitário
+import { useI18n } from "vue-i18n";
 
 const props = defineProps({
   servico: Object,
@@ -23,6 +24,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:itensOrcamento", "imprimir"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const catalogoOriginal = ref([]);
 const idItemCatalogo = ref("");
@@ -82,14 +84,14 @@ async function adicionarItemOrcamento() {
       idItemCatalogo.value = "";
     }
   } catch (err) {
-    triggerToast("Erro Orçamento", "error");
+    triggerToast(t('os.orcamento_erro_add'), "error");
   }
 }
 
 async function aplicarDesconto() {
   if (!novoDesconto.value.motivo || novoDesconto.value.valor <= 0) {
     return triggerToast(
-      "Preencha o motivo e um valor válido para o desconto.",
+      t('os.orcamento_erro_desconto'),
       "warning",
     );
   }
@@ -109,10 +111,10 @@ async function aplicarDesconto() {
     if (data) {
       emit("update:itensOrcamento", [...props.itensOrcamento, data[0]]);
       novoDesconto.value = { motivo: "", valor: null };
-      triggerToast("Desconto aplicado com sucesso!", "success");
+      triggerToast(t('os.orcamento_desconto_sucesso'), "success");
     }
   } catch (err) {
-    triggerToast("Erro ao aplicar desconto.", "error");
+    triggerToast(t('os.orcamento_erro_aplicar_desc'), "error");
   }
 }
 
@@ -124,7 +126,7 @@ async function removerItemOrcamento(id) {
       props.itensOrcamento.filter((i) => i.id !== id),
     );
   } catch (err) {
-    triggerToast("Erro ao remover item", "error");
+    triggerToast(t('os.orcamento_erro_remover'), "error");
   }
 }
 
@@ -133,12 +135,12 @@ async function removerItemOrcamento(id) {
 // ============================================================================
 async function enviarOrcamentoWhatsApp() {
   if (props.itensOrcamento.length === 0) {
-    return triggerToast("Adicione itens ao orçamento primeiro.", "warning");
+    return triggerToast(t('os.orcamento_aviso_vazio'), "warning");
   }
 
   try {
     if (!props.dadosCliente || !props.dadosCliente.telefone) {
-      return triggerToast("Telefone do cliente não encontrado.", "error");
+      return triggerToast(t('os.orcamento_erro_telefone'), "error");
     }
 
     // Busca o nome do instrumento para personalizar a mensagem
@@ -173,7 +175,7 @@ async function enviarOrcamentoWhatsApp() {
     // Usa a função padronizada do seu whatsappUtils.js
     abrirWhatsapp(props.dadosCliente, mensagem);
   } catch (err) {
-    triggerToast("Erro ao gerar link do WhatsApp.", "error");
+    triggerToast(t('os.orcamento_erro_whatsapp'), "error");
   }
 }
 
@@ -187,30 +189,30 @@ onMounted(() => carregarCatalogo());
         <span class="icon-dinamico" style="vertical-align: middle"
           >add_shopping_cart</span
         >
-        Adicionar Item
+        {{ $t('os.orcamento_add_item') }}
       </h4>
       <div class="form-group mb-1">
-        <label>Buscar do Catálogo:</label>
+        <label>{{ $t('os.orcamento_buscar_catalogo') }}</label>
         <select v-model="idItemCatalogo" @change="usarItemCatalogo">
-          <option value="">-- Preencher Manualmente --</option>
+          <option value="">{{ $t('os.orcamento_preencher_manual') }}</option>
           <option v-for="cat in catalogoDropdown" :key="cat.id" :value="cat.id">
             {{ cat.nome }} (R$ {{ cat.preco_padrao }})
           </option>
         </select>
       </div>
       <div class="grid-orcamento mb-1">
-        <input v-model="novoItem.descricao" placeholder="Descrição manual" />
+        <input v-model="novoItem.descricao" :placeholder="$t('os.orcamento_desc_manual')" />
         <select v-model="novoItem.tipo">
-          <option value="Mão de Obra">Mão de Obra</option>
-          <option value="Peça">Peça</option>
+          <option value="Mão de Obra">{{ $t('os.orcamento_mao_de_obra') }}</option>
+          <option value="Peça">{{ $t('os.orcamento_peca') }}</option>
         </select>
         <input
           v-model.number="novoItem.valor"
           type="number"
-          placeholder="Valor R$"
+          :placeholder="$t('os.orcamento_valor_placeholder')"
         />
         <button type="button" class="btn-primary" @click="adicionarItemOrcamento">
-          Adicionar
+          {{ $t('os.orcamento_adicionar_btn') }}
         </button>
       </div>
     </div>
@@ -221,14 +223,14 @@ onMounted(() => carregarCatalogo());
           <span class="icon-dinamico" style="vertical-align: middle"
             >receipt_long</span
           >
-          Itens da O.S.
+          {{ $t('os.itens_os') }}
         </h4>
 
         <div style="display: flex; gap: 8px; align-items: center">
           <button type="button"
             class="btn-outline"
             @click="$emit('imprimir')"
-            title="Imprimir Orçamento"
+            :title="$t('os.orcamento_imprimir_title')"
             style="padding: 6px 10px; font-size: 0.85rem"
           >
             <span
@@ -236,12 +238,12 @@ onMounted(() => carregarCatalogo());
               style="font-size: 1.1rem; vertical-align: middle"
               >print</span
             >
-            Imprimir
+            {{ $t('os.orcamento_imprimir_btn') }}
           </button>
           <button type="button"
             class="btn-outline"
             @click="enviarOrcamentoWhatsApp"
-            title="Enviar por WhatsApp"
+            :title="$t('os.orcamento_whatsapp_title')"
             style="
               padding: 6px 10px;
               font-size: 0.85rem;
@@ -254,7 +256,7 @@ onMounted(() => carregarCatalogo());
               style="font-size: 1.1rem; vertical-align: middle"
               >chat</span
             >
-            WhatsApp
+            {{ $t('os.orcamento_whatsapp_btn') }}
           </button>
         </div>
       </div>
@@ -295,7 +297,7 @@ onMounted(() => carregarCatalogo());
         </tr>
         <tr v-if="itensOrcamento.length === 0">
           <td colspan="3" class="text-center text-muted">
-            Nenhum item adicionado.
+            {{ $t('os.orcamento_nenhum_item') }}
           </td>
         </tr>
       </table>
@@ -309,7 +311,7 @@ onMounted(() => carregarCatalogo());
         "
       >
         <h3 style="margin: 0; color: var(--success)">
-          Total: R$ {{ totalOrcamento.toFixed(2) }}
+          {{ $t('os.total_rs') }} {{ totalOrcamento.toFixed(2) }}
         </h3>
 
         <div
@@ -323,7 +325,7 @@ onMounted(() => carregarCatalogo());
           <small
             style="display: block; color: var(--danger); font-weight: bold"
           >
-            Custo Estimado (Peças + Insumos): - R$
+            {{ $t('os.orcamento_custo_estimado') }}
             {{ custoTotalEstimado.toFixed(2) }}
           </small>
           <small
@@ -335,7 +337,7 @@ onMounted(() => carregarCatalogo());
               margin-top: 4px;
             "
           >
-            Lucro Estimado do Serviço: R$
+            {{ $t('os.orcamento_lucro_estimado') }}
             {{ (totalOrcamento - custoTotalEstimado).toFixed(2) }}
           </small>
         </div>

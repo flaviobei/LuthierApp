@@ -3,8 +3,10 @@ import { ref, onMounted, watch, computed, nextTick, onUnmounted } from "vue";
 import { useToast } from "../composables/useToast";
 import { financeiroService } from "../services/financeiroService";
 import Chart from "chart.js/auto";
+import { useI18n } from "vue-i18n";
 
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const transacoes = ref([]);
 const carregando = ref(true);
@@ -65,10 +67,10 @@ function renderizarGrafico() {
     instanceGrafico = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: ["Faturamento Bruto", "Despesas", "Saldo Real"],
+        labels: [t('financeiro.faturamento_bruto'), t('financeiro.despesas'), t('financeiro.saldo_real')],
         datasets: [
           {
-            label: "Movimentações (R$)",
+            label: t('financeiro.movimentacoes_rs'),
             data: [
               kpis.value.receitaBruta,
               kpis.value.despesas,
@@ -111,7 +113,7 @@ function renderizarGrafico() {
         labels: labelsData,
         datasets: [
           {
-            label: "Ganhos / Entradas (R$)",
+            label: t('financeiro.ganhos_rs'),
             data: ganhosData,
             borderColor: "#27ae60",
             backgroundColor: "rgba(39, 174, 96, 0.1)",
@@ -119,7 +121,7 @@ function renderizarGrafico() {
             fill: true,
           },
           {
-            label: "Gastos / Saídas (R$)",
+            label: t('financeiro.gastos_rs'),
             data: gastosData,
             borderColor: "#c0392b",
             backgroundColor: "transparent",
@@ -159,7 +161,7 @@ async function carregarDadosFinanceiros() {
     transacoes.value = dados || [];
     // Não calculamos os KPIs aqui. O "watcher" abaixo fará isso.
   } catch (error) {
-    triggerToast("Erro ao carregar banco: " + error.message, "error");
+    triggerToast(t('financeiro.erro_carregar') + error.message, "error");
   } finally {
     carregando.value = false;
   }
@@ -173,7 +175,7 @@ async function salvarDespesa() {
     novaDespesa.value.valor <= 0
   ) {
     return triggerToast(
-      "Preencha a descrição e um valor maior que zero.",
+      t('financeiro.erro_validacao'),
       "warning",
     );
   }
@@ -185,12 +187,12 @@ async function salvarDespesa() {
       data_pagamento: novaDespesa.value.data_pagamento ? new Date(novaDespesa.value.data_pagamento).toISOString() : new Date().toISOString(),
       tipo: "Saída",
     });
-    triggerToast("Saída registrada!", "success");
+    triggerToast(t('financeiro.saida_registrada'), "success");
     novaDespesa.value.descricao = "";
     novaDespesa.value.valor = null;
     await carregarDadosFinanceiros();
   } catch (e) {
-    triggerToast("Erro ao salvar.", "error");
+    triggerToast(t('financeiro.erro_salvar'), "error");
   }
 }
 
@@ -274,7 +276,7 @@ onUnmounted(() => {
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">analytics</span> Filtros de Relatório
+          <span class="icon-dinamico">analytics</span> {{ $t('financeiro.titulo_filtros') }}
         </h4>
         <div style="display: flex; gap: 10px">
           <button type="button"
@@ -291,7 +293,7 @@ onUnmounted(() => {
             <span class="icon-dinamico" style="font-size: 1.1rem"
               >file_download</span
             >
-            Exportar Excel
+            {{ $t('financeiro.exportar_excel') }}
           </button>
           <button type="button"
             class="btn-outline"
@@ -299,31 +301,31 @@ onUnmounted(() => {
             @click="acionarImpressao"
           >
             <span class="icon-dinamico" style="font-size: 1.1rem">print</span>
-            Imprimir PDF
+            {{ $t('financeiro.imprimir_pdf') }}
           </button>
         </div>
       </div>
       <div class="filtros-row">
         <div class="f-item">
-          <label>Início:</label><input type="date" v-model="filtroDataInicio" />
+          <label>{{ $t('financeiro.inicio') }}</label><input type="date" v-model="filtroDataInicio" />
         </div>
         <div class="f-item">
-          <label>Fim:</label><input type="date" v-model="filtroDataFim" />
+          <label>{{ $t('financeiro.fim') }}</label><input type="date" v-model="filtroDataFim" />
         </div>
         <div class="f-item">
-          <label>Categoria:</label>
+          <label>{{ $t('financeiro.categoria') }}</label>
           <select v-model="filtroCategoria">
-            <option>Todas</option>
-            <option>Servico</option>
-            <option>Aluguel</option>
-            <option>Luz/Água</option>
-            <option>Ferramentas</option>
-            <option>Materiais</option>
-            <option>Outros</option>
+            <option>{{ $t('geral.todas') }}</option>
+            <option>{{ $t('financeiro.cat_servico') }}</option>
+            <option>{{ $t('financeiro.cat_aluguel') }}</option>
+            <option>{{ $t('financeiro.cat_luz') }}</option>
+            <option>{{ $t('financeiro.cat_ferramentas') }}</option>
+            <option>{{ $t('financeiro.cat_materiais') }}</option>
+            <option>{{ $t('financeiro.cat_outros') }}</option>
           </select>
         </div>
         <div class="f-item">
-          <label>Mês de Referência:</label>
+          <label>{{ $t('financeiro.mes_referencia') }}</label>
           <input type="month" v-model="mesFiltro" />
         </div>
       </div>
@@ -356,7 +358,7 @@ onUnmounted(() => {
           "
         >
           <span class="icon-dinamico" style="font-size: 1rem">bar_chart</span>
-          Resumo
+          {{ $t('financeiro.tab_resumo') }}
         </button>
         <button type="button"
           class="btn-tab"
@@ -372,7 +374,7 @@ onUnmounted(() => {
           "
         >
           <span class="icon-dinamico" style="font-size: 1rem">show_chart</span>
-          Evolução Temporal
+          {{ $t('financeiro.tab_temporal') }}
         </button>
       </div>
       <canvas ref="graficoRef"></canvas>
@@ -380,15 +382,15 @@ onUnmounted(() => {
 
     <div class="resumo-grid mb-2">
       <div class="resumo-card verde">
-        <small>Faturamento (Bruto)</small>
+        <small>{{ $t('financeiro.card_faturamento') }}</small>
         <strong>R$ {{ (totalEntradas || 0).toFixed(2) }}</strong>
       </div>
       <div class="resumo-card vermelho">
-        <small>Despesas</small>
+        <small>{{ $t('financeiro.despesas') }}</small>
         <strong>R$ {{ (totalSaidas || 0).toFixed(2) }}</strong>
       </div>
       <div class="resumo-card azul">
-        <small>Saldo Real (Líquido)</small>
+        <small>{{ $t('financeiro.card_saldo') }}</small>
         <strong>R$ {{ (totalEntradas - totalSaidas).toFixed(2) }}</strong>
       </div>
     </div>
@@ -399,15 +401,15 @@ onUnmounted(() => {
           class="title-section"
           style="display: flex; align-items: center; gap: 8px; margin-top: 0"
         >
-          <span class="icon-dinamico">paid</span> Lançar Despesa
+          <span class="icon-dinamico">paid</span> {{ $t('financeiro.lancar_despesa') }}
         </h4>
         <div class="form-group">
-          <label>Descrição</label>
-          <input v-model="novaDespesa.descricao" placeholder="Ex: Aluguel" />
+          <label>{{ $t('financeiro.label_descricao') }}</label>
+          <input v-model="novaDespesa.descricao" :placeholder="$t('financeiro.placeholder_desc')" />
         </div>
         <div style="display: flex; gap: 10px; margin-bottom: 10px">
           <div style="flex: 1">
-            <label>Valor (R$)</label>
+            <label>{{ $t('financeiro.label_valor') }}</label>
             <input
               v-model.number="novaDespesa.valor"
               type="number"
@@ -415,18 +417,18 @@ onUnmounted(() => {
             />
           </div>
           <div style="flex: 1">
-            <label>Categoria</label>
+            <label>{{ $t('financeiro.categoria') }}</label>
             <select v-model="novaDespesa.categoria">
-              <option>Aluguel</option>
-              <option>Luz/Água</option>
-              <option>Ferramentas</option>
-              <option>Materiais</option>
-              <option>Outros</option>
+              <option>{{ $t('financeiro.cat_aluguel') }}</option>
+              <option>{{ $t('financeiro.cat_luz') }}</option>
+              <option>{{ $t('financeiro.cat_ferramentas') }}</option>
+              <option>{{ $t('financeiro.cat_materiais') }}</option>
+              <option>{{ $t('financeiro.cat_outros') }}</option>
             </select>
           </div>
         </div>
         <div class="form-group">
-          <label>Data</label>
+          <label>{{ $t('financeiro.label_data') }}</label>
           <input v-model="novaDespesa.data_pagamento" type="datetime-local" />
         </div>
         <button type="button"
@@ -444,7 +446,7 @@ onUnmounted(() => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >add_circle</span
           >
-          Registar Saída
+          {{ $t('financeiro.registrar_saida') }}
         </button>
       </div>
 
@@ -453,21 +455,20 @@ onUnmounted(() => {
           class="title-section"
           style="display: flex; align-items: center; gap: 8px; margin-top: 0"
         >
-          <span class="icon-dinamico">receipt_long</span> Movimentações
-          Detalhadas
+          <span class="icon-dinamico">receipt_long</span> {{ $t('financeiro.mov_detalhadas') }}
         </h4>
         <div v-if="carregando" class="text-center p-2">
-          Processando caixa...
+          {{ $t('financeiro.processando') }}
         </div>
         <div v-else class="tabela-responsiva">
           <table class="tabela-padrao">
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Descrição</th>
-                <th align="right">Bruto</th>
-                <th align="right">Taxa</th>
-                <th align="right">Líquido</th>
+                <th>{{ $t('financeiro.col_data') }}</th>
+                <th>{{ $t('financeiro.label_descricao') }}</th>
+                <th align="right">{{ $t('financeiro.col_bruto') }}</th>
+                <th align="right">{{ $t('financeiro.col_taxa') }}</th>
+                <th align="right">{{ $t('financeiro.col_liquido') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -477,7 +478,7 @@ onUnmounted(() => {
                   class="text-center text-muted"
                   style="padding: 20px"
                 >
-                  Nenhuma movimentação encontrada.
+                  {{ $t('financeiro.vazio') }}
                 </td>
               </tr>
               <tr v-for="t in transacoesFiltradas" :key="t.id">
@@ -493,7 +494,7 @@ onUnmounted(() => {
                     class="text-muted"
                     style="font-size: 0.8rem"
                   >
-                    Categoria: {{ t.categoria }}
+                    {{ $t('financeiro.categoria') }} {{ t.categoria }}
                   </div>
                 </td>
                 <td align="right">R$ {{ (t.valor_bruto || 0).toFixed(2) }}</td>

@@ -9,9 +9,11 @@
 import { ref, onMounted, computed } from "vue";
 import { useToast } from "../composables/useToast";
 import { catalogoService } from "../services/catalogoService"; // Importação do Serviço
+import { useI18n } from "vue-i18n";
 
 const emit = defineEmits(["voltar"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const catalogo = ref([]);
 const loading = ref(false);
@@ -52,7 +54,7 @@ async function carregarCatalogo() {
   try {
     catalogo.value = await catalogoService.buscarTodos();
   } catch (error) {
-    triggerToast("Erro ao carregar catálogo: " + error.message, "error");
+    triggerToast(t('catalogo.erro_carregar') + error.message, "error");
   } finally {
     loading.value = false;
   }
@@ -130,7 +132,7 @@ const custoTotalForm = computed(() => calcularCustoTotal(form.value));
 // --- AÇÕES DE SALVAR E EXCLUIR (Via Service) ---
 async function salvarItem() {
   if (!form.value.nome)
-    return triggerToast("O nome do item é obrigatório.", "error");
+    return triggerToast(t('catalogo.erro_nome_obrig'), "error");
 
   loading.value = true;
   try {
@@ -151,13 +153,13 @@ async function salvarItem() {
     await catalogoService.salvar(dadosParaSalvar);
 
     triggerToast(
-      editandoId.value ? "Item atualizado!" : "Novo item adicionado!",
+      editandoId.value ? t('catalogo.atualizado') : t('catalogo.adicionado'),
       "success",
     );
     cancelarEdicao();
     await carregarCatalogo();
   } catch (error) {
-    triggerToast("Erro ao gravar: " + error.message, "error");
+    triggerToast(t('catalogo.erro_gravar') + error.message, "error");
   } finally {
     loading.value = false;
   }
@@ -167,10 +169,10 @@ async function excluirItem(id) {
   if (idParaExcluir.value === id) {
     try {
       await catalogoService.excluir(id);
-      triggerToast("Item removido do catálogo.", "info");
+      triggerToast(t('catalogo.removido'), "info");
       carregarCatalogo();
     } catch (error) {
-      triggerToast("Erro ao excluir: " + error.message, "error");
+      triggerToast(t('catalogo.erro_excluir') + error.message, "error");
     }
     idParaExcluir.value = null;
   } else {
@@ -206,7 +208,7 @@ function cancelarEdicao() {
 function adicionarInsumoNaReceita() {
   if (!insumoSelecionado.value || insumoQuantidade.value <= 0) {
     return triggerToast(
-      "Selecione um insumo e uma quantidade válida.",
+      t('catalogo.erro_insumo_invalido'),
       "error",
     );
   }
@@ -238,31 +240,30 @@ function removerInsumoDaReceita(insumoId) {
 // Mantivemos a exportação CSV aqui por ser uma manipulação direta do DOM/Blob
 function exportarEstoqueCSV() {
   if (catalogoFiltrado.value.length === 0) {
-    return triggerToast("Não há itens para exportar nesta categoria.", "error");
+    return triggerToast(t('catalogo.erro_exportar_vazio'), "error");
   }
 
-  let csvContent =
-    "Nome do Item;Categoria;Custo (R$);Preco de Venda (R$);Controla Estoque;Qtd Atual;Estoque Minimo;Status do Estoque\n";
+  let csvContent = t('catalogo.csv_header');
 
   catalogoFiltrado.value.forEach((item) => {
     const nome = item.nome
       ? item.nome.replace(/;/g, ",").replace(/\n/g, " ")
       : "--";
-    const tipo = item.tipo === "MaoDeObra" ? "Serviço" : item.tipo;
+    const tipo = item.tipo === "MaoDeObra" ? t('catalogo.tipo_servico') : item.tipo;
     const custoStr = calcularCustoTotal(item).toFixed(2).replace(".", ",");
     const vendaStr =
       item.tipo !== "Insumo"
         ? (Number(item.preco_padrao) || 0).toFixed(2).replace(".", ",")
         : "--";
-    const controlaEstoque = item.controla_estoque ? "Sim" : "Não";
+    const controlaEstoque = item.controla_estoque ? t('geral.sim') : t('geral.nao');
     const qtdAtual = item.controla_estoque ? item.quantidade_estoque : "--";
     const qtdMinima = item.controla_estoque ? item.estoque_minimo : "--";
     let status = "--";
     if (item.controla_estoque) {
       status =
         item.quantidade_estoque <= item.estoque_minimo
-          ? "BAIXO / ALERTA"
-          : "Normal";
+          ? t('catalogo.status_baixo')
+          : t('catalogo.status_normal');
     }
     csvContent += `${nome};${tipo};${custoStr};${vendaStr};${controlaEstoque};${qtdAtual};${qtdMinima};${status}\n`;
   });
@@ -275,12 +276,12 @@ function exportarEstoqueCSV() {
   link.href = url;
   link.setAttribute(
     "download",
-    `Relatorio_Estoque_${filtroTipo.value}_${new Date().toISOString().substring(0, 10)}.csv`,
+    `${t('catalogo.prefixo_relatorio')}${filtroTipo.value}_${new Date().toISOString().substring(0, 10)}.csv`,
   );
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  triggerToast("Relatório de estoque exportado!", "success");
+  triggerToast(t('catalogo.exportado'), "success");
 }
 
 onMounted(() => carregarCatalogo());
@@ -307,7 +308,7 @@ onMounted(() => carregarCatalogo());
         "
       >
         <span class="icon-dinamico" style="font-size: 1.8rem">local_offer</span>
-        Catálogo e Estoque
+        {{ $t('catalogo.titulo') }}
       </h2>
     </div>
 
@@ -329,7 +330,7 @@ onMounted(() => carregarCatalogo());
           <span class="icon-dinamico">
             {{ editandoId ? "edit_note" : "add_box" }}
           </span>
-          {{ editandoId ? "Editar Item" : "Novo Item no Catálogo" }}
+          {{ editandoId ? $t('catalogo.editar_item') : $t('catalogo.novo_item') }}
         </h4>
         <div
           v-if="form.tipo === 'MaoDeObra'"
@@ -350,7 +351,7 @@ onMounted(() => carregarCatalogo());
             <span class="icon-dinamico" style="font-size: 1.1rem"
               >description</span
             >
-            Dados Básicos
+            {{ $t('catalogo.aba_dados') }}
           </button>
           <button type="button"
             class="btn-tab"
@@ -367,7 +368,7 @@ onMounted(() => carregarCatalogo());
             "
           >
             <span class="icon-dinamico" style="font-size: 1.1rem">science</span>
-            Receita de Insumos
+            {{ $t('catalogo.aba_receita') }}
             <span v-if="form.insumos_consumidos.length > 0"
               >({{ form.insumos_consumidos.length }})</span
             >
@@ -380,18 +381,18 @@ onMounted(() => carregarCatalogo());
           style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px"
         >
           <div style="flex: 2; min-width: 200px">
-            <label>Nome do Serviço / Produto *</label>
+            <label>{{ $t('catalogo.label_nome') }}</label>
             <input
               v-model="form.nome"
-              placeholder="Ex: Blindagem, Encordoamento, Lixa..."
+              :placeholder="$t('catalogo.placeholder_nome')"
             />
           </div>
           <div style="flex: 1; min-width: 150px">
-            <label>Categoria</label>
+            <label>{{ $t('catalogo.label_categoria') }}</label>
             <select v-model="form.tipo">
-              <option value="MaoDeObra">Mão de Obra (Serviço)</option>
-              <option value="Peca">Peça (Visível p/ Cliente)</option>
-              <option value="Insumo">Insumo (Custo Oculto)</option>
+              <option value="MaoDeObra">{{ $t('catalogo.cat_servico') }}</option>
+              <option value="Peca">{{ $t('catalogo.cat_peca') }}</option>
+              <option value="Insumo">{{ $t('catalogo.cat_insumo') }}</option>
             </select>
           </div>
         </div>
@@ -400,7 +401,7 @@ onMounted(() => carregarCatalogo());
           style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px"
         >
           <div style="flex: 1; min-width: 120px">
-            <label>Custo Base (R$)</label>
+            <label>{{ $t('catalogo.label_custo') }}</label>
             <input
               v-model.number="form.custo_padrao"
               type="number"
@@ -413,11 +414,11 @@ onMounted(() => carregarCatalogo());
               class="text-danger"
               style="display: block; margin-top: 5px; font-weight: bold"
             >
-              Custo Total com Insumos: R$ {{ custoTotalForm.toFixed(2) }}
+              {{ $t('catalogo.custo_total') }} {{ custoTotalForm.toFixed(2) }}
             </small>
           </div>
           <div style="flex: 1; min-width: 120px">
-            <label>Preço de Venda (R$)</label>
+            <label>{{ $t('catalogo.label_preco') }}</label>
             <input
               v-model.number="form.preco_padrao"
               type="number"
@@ -425,7 +426,7 @@ onMounted(() => carregarCatalogo());
               :disabled="form.tipo === 'Insumo'"
             />
             <small v-if="form.tipo === 'Insumo'" class="text-muted"
-              >Insumos não têm preço de venda direto.</small
+              >{{ $t('catalogo.aviso_preco_insumo') }}</small
             >
           </div>
         </div>
@@ -451,8 +452,7 @@ onMounted(() => carregarCatalogo());
               style="width: auto; transform: scale(1.2)"
             />
             <strong style="display: flex; align-items: center; gap: 6px">
-              <span class="icon-dinamico">inventory_2</span> Controlar Estoque
-              deste item?
+              <span class="icon-dinamico">inventory_2</span> {{ $t('catalogo.controlar_estoque') }}
             </strong>
           </label>
           <div
@@ -460,7 +460,7 @@ onMounted(() => carregarCatalogo());
             style="display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap"
           >
             <div style="flex: 1">
-              <label>Qtd. Atual:</label
+              <label>{{ $t('catalogo.qtd_atual') }}</label
               ><input
                 v-model.number="form.quantidade_estoque"
                 type="number"
@@ -468,7 +468,7 @@ onMounted(() => carregarCatalogo());
               />
             </div>
             <div style="flex: 1">
-              <label>Estoque Mínimo:</label
+              <label>{{ $t('catalogo.estoque_minimo') }}</label
               ><input
                 v-model.number="form.estoque_minimo"
                 type="number"
@@ -498,7 +498,7 @@ onMounted(() => carregarCatalogo());
               gap: 8px;
             "
           >
-            <span class="icon-dinamico">science</span> Definir Receita
+            <span class="icon-dinamico">science</span> {{ $t('catalogo.definir_receita') }}
           </h4>
           <div
             style="
@@ -509,20 +509,20 @@ onMounted(() => carregarCatalogo());
             "
           >
             <div style="flex: 2; min-width: 200px">
-              <label>Selecione o Insumo:</label>
+              <label>{{ $t('catalogo.selecione_insumo') }}</label>
               <select v-model="insumoSelecionado">
-                <option :value="null">-- Escolha um insumo --</option>
+                <option :value="null">{{ $t('catalogo.placeholder_insumo') }}</option>
                 <option
                   v-for="ins in insumosDisponiveis"
                   :key="ins.id"
                   :value="ins.id"
                 >
-                  {{ ins.nome }} (Estoque: {{ ins.quantidade_estoque }})
+                  {{ ins.nome }} ({{ $t('catalogo.coluna_estoque') }}: {{ ins.quantidade_estoque }})
                 </option>
               </select>
             </div>
             <div style="flex: 1; min-width: 100px">
-              <label>Qtd:</label
+              <label>{{ $t('catalogo.qtd_insumo') }}</label
               ><input
                 type="number"
                 v-model.number="insumoQuantidade"
@@ -542,28 +542,28 @@ onMounted(() => carregarCatalogo());
                 gap: 6px;
               "
             >
-              <span class="icon-dinamico">add</span> Adicionar
+              <span class="icon-dinamico">add</span> {{ $t('catalogo.btn_adicionar') }}
             </button>
           </div>
         </div>
         <table class="tabela-padrao">
           <thead>
             <tr>
-              <th style="background: #fef3c7">Insumo</th>
-              <th style="background: #fef3c7">Quantidade</th>
-              <th style="background: #fef3c7; text-align: center">Ação</th>
+              <th style="background: #fef3c7">{{ $t('catalogo.coluna_insumo') }}</th>
+              <th style="background: #fef3c7">{{ $t('catalogo.coluna_quantidade') }}</th>
+              <th style="background: #fef3c7; text-align: center">{{ $t('catalogo.coluna_acao') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="rec in form.insumos_consumidos" :key="rec.insumo_id">
               <td style="font-weight: bold">{{ rec.nome }}</td>
-              <td>{{ rec.quantidade }} un/ml</td>
+              <td>{{ rec.quantidade }} {{ $t('catalogo.unidade') }}</td>
               <td align="center">
                 <button type="button"
                   class="btn-icon text-danger"
                   style="background: transparent"
                   @click="removerInsumoDaReceita(rec.insumo_id)"
-                  title="Remover Insumo"
+                  :title="$t('catalogo.remover_insumo')"
                 >
                   <span class="icon-dinamico">delete</span>
                 </button>
@@ -601,10 +601,10 @@ onMounted(() => carregarCatalogo());
           </span>
           {{
             loading
-              ? "A gravar..."
+              ? $t('catalogo.gravando')
               : editandoId
-                ? "Atualizar Item"
-                : "Cadastrar Item"
+                ? $t('catalogo.atualizar')
+                : $t('catalogo.cadastrar')
           }}
         </button>
         <button type="button"
@@ -619,7 +619,7 @@ onMounted(() => carregarCatalogo());
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">cancel</span> Cancelar Edição
+          <span class="icon-dinamico">cancel</span> {{ $t('catalogo.cancelar_edicao') }}
         </button>
       </div>
     </div>
@@ -643,7 +643,7 @@ onMounted(() => carregarCatalogo());
           flex: 1;
         "
       >
-        <h3 style="margin: 0; color: var(--primary)">Itens Cadastrados</h3>
+        <h3 style="margin: 0; color: var(--primary)">{{ $t('catalogo.itens_cadastrados') }}</h3>
 
         <div style="position: relative; display: flex; align-items: center">
           <span
@@ -659,7 +659,7 @@ onMounted(() => carregarCatalogo());
           >
           <input
             v-model="termoBusca"
-            placeholder="Buscar item..."
+            :placeholder="$t('catalogo.buscar')"
             style="
               padding-left: 36px;
               padding-right: 30px;
@@ -706,7 +706,7 @@ onMounted(() => carregarCatalogo());
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >file_download</span
           >
-          Exportar CSV
+          {{ $t('catalogo.exportar_csv') }}
         </button>
       </div>
       <div class="filtros-abas">
@@ -731,12 +731,12 @@ onMounted(() => carregarCatalogo());
           </span>
           {{
             t === "MaoDeObra"
-              ? "Serviços"
+              ? $t('catalogo.filtro_servicos')
               : t === "Peca"
-                ? "Peças"
+                ? $t('catalogo.filtro_pecas')
                 : t === "Insumo"
-                  ? "Insumos"
-                  : "Todos"
+                  ? $t('catalogo.filtro_insumos')
+                  : $t('geral.todos')
           }}
         </button>
       </div>
@@ -751,7 +751,7 @@ onMounted(() => carregarCatalogo());
               style="cursor: pointer; user-select: none"
             >
               <div style="display: flex; align-items: center; gap: 4px">
-                Nome do Item
+                {{ $t('catalogo.coluna_nome') }}
                 <span
                   v-if="ordenacao.campo === 'nome'"
                   class="icon-dinamico"
@@ -776,7 +776,7 @@ onMounted(() => carregarCatalogo());
               style="cursor: pointer; user-select: none"
             >
               <div style="display: flex; align-items: center; gap: 4px">
-                Tipo
+                {{ $t('catalogo.coluna_tipo') }}
                 <span
                   v-if="ordenacao.campo === 'tipo'"
                   class="icon-dinamico"
@@ -801,7 +801,7 @@ onMounted(() => carregarCatalogo());
               style="cursor: pointer; user-select: none"
             >
               <div style="display: flex; align-items: center; gap: 4px">
-                Valores
+                {{ $t('catalogo.coluna_valores') }}
                 <span
                   v-if="ordenacao.campo === 'preco'"
                   class="icon-dinamico"
@@ -833,7 +833,7 @@ onMounted(() => carregarCatalogo());
                   gap: 4px;
                 "
               >
-                Estoque
+                {{ $t('catalogo.coluna_estoque') }}
                 <span
                   v-if="ordenacao.campo === 'estoque'"
                   class="icon-dinamico"
@@ -853,7 +853,7 @@ onMounted(() => carregarCatalogo());
                 >
               </div>
             </th>
-            <th style="text-align: center">Ações</th>
+            <th style="text-align: center">{{ $t('geral.acoes') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -863,15 +863,15 @@ onMounted(() => carregarCatalogo());
             </td>
             <td data-label="Tipo">
               <span class="badge" :class="item.tipo">{{
-                item.tipo === "MaoDeObra" ? "Serviço" : item.tipo
+                item.tipo === "MaoDeObra" ? $t('catalogo.tipo_servico') : item.tipo
               }}</span>
             </td>
             <td data-label="Valores">
               <span class="text-danger" style="font-weight: bold"
-                >C: R$ {{ calcularCustoTotal(item).toFixed(2) }}</span
+                >{{ $t('catalogo.custo_abreviado') }} R$ {{ calcularCustoTotal(item).toFixed(2) }}</span
               ><br />
               <span class="text-success" v-if="item.tipo !== 'Insumo'"
-                >V: R$ {{ item.preco_padrao.toFixed(2) }}</span
+                >{{ $t('catalogo.venda_abreviado') }} R$ {{ item.preco_padrao.toFixed(2) }}</span
               >
             </td>
             <td data-label="Estoque" align="center">
@@ -902,7 +902,7 @@ onMounted(() => carregarCatalogo());
                   v-if="item.quantidade_estoque <= item.estoque_minimo"
                   class="text-danger"
                   style="font-weight: bold"
-                  >Baixo</small
+                  >{{ $t('catalogo.baixo') }}</small
                 >
               </template>
               <span v-else class="text-muted">--</span>
@@ -911,7 +911,7 @@ onMounted(() => carregarCatalogo());
               <button type="button"
                 class="btn-icon bg-light"
                 @click="iniciarEdicao(item)"
-                title="Editar"
+                :title="$t('geral.editar')"
               >
                 <span class="icon-dinamico">edit</span>
               </button>
@@ -921,14 +921,14 @@ onMounted(() => carregarCatalogo());
                 @click="excluirItem(item.id)"
                 :title="
                   idParaExcluir === item.id
-                    ? 'Clique para confirmar'
-                    : 'Excluir'
+                    ? $t('catalogo.clique_confirmar')
+                    : $t('geral.excluir')
                 "
               >
                 <span class="icon-dinamico" style="font-size: 1.1rem">
                   {{ idParaExcluir === item.id ? "check" : "delete" }}
                 </span>
-                <span v-if="idParaExcluir === item.id">Confirmar?</span>
+                <span v-if="idParaExcluir === item.id">{{ $t('catalogo.confirmar') }}</span>
               </button>
             </td>
           </tr>

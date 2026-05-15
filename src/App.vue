@@ -14,6 +14,7 @@ import { useOnboarding } from "./composables/useOnboarding";
 import { clienteService } from "./services/clienteService";
 import { adminService } from "./services/adminService";
 import { authService } from "./services/authService";
+import { useI18n } from "vue-i18n";
 
 // COMPONENTES
 import Auth from "./components/Auth.vue";
@@ -33,6 +34,7 @@ import CalendarioEntregas from "./components/CalendarioEntregas.vue";
 import ToastNotification from "./components/ToastNotification.vue";
 
 const { triggerToast } = useToast();
+const { locale } = useI18n();
 
 // ESTADOS GLOBAIS
 const session = ref(null);
@@ -100,7 +102,7 @@ async function buscarClientes() {
   try {
     clientes.value = await clienteService.buscarTodos();
   } catch (e) {
-    triggerToast("Erro ao carregar clientes", "error");
+    triggerToast(t('app.erro_carregar_clientes'), "error");
   }
 }
 
@@ -176,7 +178,7 @@ async function fazerLogout() {
     clienteParaEditar.value = null;
     mostrarClientes.value = false;
   } catch (e) {
-    triggerToast("Erro ao sair", "error");
+    triggerToast(t('app.erro_sair'), "error");
   } finally {
     aVerificarAcesso.value = false;
   }
@@ -209,6 +211,10 @@ function editarCliente(cliente) {
 function formatarLinkZap(t) {
   const n = t?.replace(/\D/g, "");
   return n?.length <= 11 ? `55${n}` : n;
+}
+
+function toggleLanguage() {
+  locale.value = locale.value === "pt-BR" ? "en" : "pt-BR";
 }
 
 onMounted(() => {
@@ -252,7 +258,7 @@ onMounted(() => {
 
     <div v-if="aVerificarAcesso" class="full-center">
       <div class="loader-simple"></div>
-      <p class="mt-1 text-muted">A preparar sua oficina...</p>
+      <p class="mt-1 text-muted">{{ $t('app.preparando') }}</p>
     </div>
 
     <Auth v-else-if="!session" />
@@ -269,8 +275,8 @@ onMounted(() => {
           "
           >waving_hand</span
         >
-        <h3>Quase lá!</h3>
-        <p>Ainda não encontramos os dados da sua oficina em nossa base.</p>
+        <h3>{{ $t('app.quase_la') }}</h3>
+        <p>{{ $t('app.sem_dados') }}</p>
         <button type="button"
           @click="fazerLogout"
           class="btn-primary"
@@ -283,7 +289,7 @@ onMounted(() => {
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">logout</span> Ir para o Login
+          <span class="icon-dinamico">logout</span> {{ $t('app.ir_login') }}
         </button>
       </div>
     </div>
@@ -307,9 +313,9 @@ onMounted(() => {
           style="vertical-align: middle; margin-right: 6px"
           >warning</span
         >
-        Modo de Teste: Faltam {{ diasTrialRestantes }} dias.
+        {{ $t('app.modo_teste', { dias: diasTrialRestantes }) }}
         <button type="button" class="btn-trial" @click="assinatura.status = 'expirado'">
-          Ver Planos
+          {{ $t('app.ver_planos') }}
         </button>
       </div>
 
@@ -340,7 +346,7 @@ onMounted(() => {
             :class="{ active: modoAtual === 'bancada' && !servicoDireto }"
           >
             <span class="icon-dinamico">home</span
-            ><span class="lbl">Início</span>
+            ><span class="lbl">{{ $t('menu.inicio') }}</span>
           </button>
           <button type="button"
             @click="modoAtual = 'calendario'"
@@ -348,11 +354,11 @@ onMounted(() => {
             :class="{ active: modoAtual === 'calendario' }"
           >
             <span class="icon-dinamico">calendar_month</span
-            ><span class="lbl">Agenda</span>
+            ><span class="lbl">{{ $t('menu.agenda') }}</span>
           </button>
           <button type="button" @click="mostrarScanner = true" class="btn-menu scan-btn">
             <span class="icon-dinamico">qr_code_scanner</span
-            ><span class="lbl">QR Scan</span>
+            ><span class="lbl">{{ $t('menu.qr_scan') }}</span>
           </button>
           <button type="button"
             @click="modoAtual = 'historico'"
@@ -360,7 +366,7 @@ onMounted(() => {
             :class="{ active: modoAtual === 'historico' }"
           >
             <span class="icon-dinamico">inventory_2</span
-            ><span class="lbl">Arquivo</span>
+            ><span class="lbl">{{ $t('menu.arquivo') }}</span>
           </button>
           <button type="button"
             id="tour-admin"
@@ -369,8 +375,14 @@ onMounted(() => {
             :class="{ active: modoAtual === 'admin' }"
           >
             <span class="icon-dinamico">settings</span
-            ><span class="lbl">Admin</span>
+            ><span class="lbl">{{ $t('menu.admin') }}</span>
           </button>
+          
+          <button type="button" @click="toggleLanguage" class="btn-menu" style="padding: 4px 8px; min-width: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;" title="Mudar Idioma">
+            <img :src="locale === 'pt-BR' ? 'https://flagcdn.com/w40/br.png' : 'https://flagcdn.com/w40/us.png'" alt="Bandeira do idioma" style="width: 24px; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);" />
+            <span class="lbl" style="font-size: 0.7rem; font-weight: bold; line-height: 1;">{{ locale === 'pt-BR' ? 'PT' : 'EN' }}</span>
+          </button>
+
           <button type="button"
             @click="fazerLogout"
             class="btn-menu text-danger btn-sair-mobile"
@@ -429,7 +441,7 @@ onMounted(() => {
               <span class="icon-dinamico" style="font-size: 1.1rem"
                 >arrow_back</span
               >
-              Bancada
+              {{ $t('app.bancada') }}
             </button>
             <InstrumentoManager
               :clienteId="clienteSelecionado.id"
@@ -449,7 +461,7 @@ onMounted(() => {
                   mostrarClientes ? "expand_less" : "group"
                 }}</span>
                 {{
-                  mostrarClientes ? "Ocultar Clientes" : "Gerenciar Clientes"
+                  mostrarClientes ? $t('app.ocultar_clientes') : $t('app.gerenciar_clientes')
                 }}
               </button>
             </div>
@@ -471,15 +483,15 @@ onMounted(() => {
                   <span class="icon-dinamico" style="vertical-align: middle"
                     >folder_open</span
                   >
-                  Lista de Clientes
+                  {{ $t('app.lista_clientes') }}
                 </h3>
                 <div class="tabela-responsiva">
                   <table class="tabela-padrao">
                     <thead>
                       <tr>
-                        <th>Nome</th>
-                        <th>Contato</th>
-                        <th align="center">Ações</th>
+                        <th>{{ $t('os.cliente') }}</th>
+                        <th>{{ $t('os.contato') }}</th>
+                        <th align="center">{{ $t('admin.acoes') }}</th>
                       </tr>
                     </thead>
                     <tbody>

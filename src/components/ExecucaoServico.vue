@@ -10,6 +10,7 @@ import { ref, computed, onMounted, nextTick } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
 import QRCode from "qrcode";
+import { useI18n } from "vue-i18n";
 
 // IMPORTAÇÃO DOS SUB-COMPONENTES
 import AbaChecklist from "./os/AbaChecklist.vue";
@@ -21,6 +22,7 @@ import { catalogoService } from "../services/catalogoService";
 const props = defineProps(["servico"]);
 const emit = defineEmits(["voltar"]);
 const { triggerToast } = useToast();
+const { t } = useI18n();
 
 const servicoLocal = ref({ ...props.servico });
 const carregandoDados = ref(true);
@@ -164,9 +166,9 @@ async function salvarDataPrevisao() {
       .eq("id", servicoLocal.value.id);
 
     if (error) throw error;
-    triggerToast("Data de previsão atualizada!", "success");
+    triggerToast(t('os.data_previsao_atualizada'), "success");
   } catch (error) {
-    triggerToast("Erro ao salvar data.", "error");
+    triggerToast(t('os.erro_salvar_data'), "error");
     console.error(error);
   }
 }
@@ -184,7 +186,7 @@ async function gerarRecibo() {
 }
 async function imprimirQRCode() {
   if (!qrCodeBase64.value)
-    return triggerToast("Aguarde a geração do QR Code...", "warning");
+    return triggerToast(t('os.aguarde_qr'), "warning");
   tipoImpressao.value = "qrcode";
   await nextTick();
   window.print();
@@ -197,7 +199,7 @@ onMounted(carregarTudo);
   <div class="execucao-container">
     <div v-if="carregandoDados" class="text-center py-5">
       <div class="loader-simple" style="margin: 0 auto"></div>
-      <p class="mt-2 text-muted">A carregar Ordem de Serviço...</p>
+      <p class="mt-2 text-muted">{{ $t('os.carregando_os') }}</p>
     </div>
 
     <div v-else>
@@ -228,7 +230,7 @@ onMounted(carregarTudo);
             "
           >
             <h2 style="margin: 0; color: var(--primary); font-size: 1.3rem">
-              O.S. #{{ servicoLocal.numero_os }}
+              {{ $t('os.numero_os') }}{{ servicoLocal.numero_os }}
             </h2>
             <span
               class="badge text-muted"
@@ -237,7 +239,7 @@ onMounted(carregarTudo);
             >
 
             <span style="font-size: 0.85rem; color: #64748b"
-              >Previsão de Entrega:</span
+              >{{ $t('os.previsao_entrega') }}</span
             >
             <div
               style="
@@ -293,7 +295,7 @@ onMounted(carregarTudo);
               <span class="icon-dinamico" style="font-size: 1.1rem"
                 >qr_code_scanner</span
               >
-              Etiqueta
+              {{ $t('os.etiqueta') }}
             </button>
             <button type="button"
               class="btn-outline"
@@ -311,7 +313,7 @@ onMounted(carregarTudo);
               <span class="icon-dinamico" style="font-size: 1.1rem"
                 >arrow_back</span
               >
-              Voltar
+              {{ $t('geral.voltar') }}
             </button>
           </div>
         </div>
@@ -332,7 +334,7 @@ onMounted(carregarTudo);
               text-transform: uppercase;
               letter-spacing: 0.5px;
             "
-            >Serviço Solicitado</span
+            >{{ $t('os.servico_solicitado') }}</span
           >
           <p
             style="
@@ -362,12 +364,12 @@ onMounted(carregarTudo);
         >
           <span class="icon-dinamico" style="font-size: 1.5rem">warning</span>
           <h3 style="margin: 0; font-size: 1.1rem">
-            ATENÇÃO: O.S. de Retrabalho / Garantia
+            {{ $t('os.atencao_retrabalho') }}
           </h3>
         </div>
         <p style="margin: 0; font-size: 0.95rem">
-          <strong>Motivo do Retorno:</strong>
-          {{ servicoLocal.motivo_retorno || "Motivo não especificado." }}
+          <strong>{{ $t('os.motivo_retorno') }}</strong>
+          {{ servicoLocal.motivo_retorno || $t('os.motivo_nao_especificado') }}
         </p>
       </div>
 
@@ -376,8 +378,7 @@ onMounted(carregarTudo);
         class="banner-aviso mb-2"
         style="background: #e2e8f0; color: #475569; border-color: #cbd5e1"
       >
-        <span class="icon-dinamico">lock</span> O.S. Concluída. A edição de
-        dados está bloqueada.
+        <span class="icon-dinamico">lock</span> {{ $t('os.os_concluida_aviso') }}
       </div>
 
       <div class="tabs-clean mb-2">
@@ -390,7 +391,7 @@ onMounted(carregarTudo);
             style="font-size: 1.1rem; vertical-align: middle"
             >fact_check</span
           >
-          Checklist
+          {{ $t('admin.checklist') }}
         </button>
         <button type="button"
           :class="{ active: abaAtual === 'diario' }"
@@ -401,7 +402,7 @@ onMounted(carregarTudo);
             style="font-size: 1.1rem; vertical-align: middle"
             >menu_book</span
           >
-          Diário
+          {{ $t('os.diario') }}
         </button>
         <button type="button"
           :class="{ active: abaAtual === 'orcamento' }"
@@ -412,7 +413,7 @@ onMounted(carregarTudo);
             style="font-size: 1.1rem; vertical-align: middle"
             >request_quote</span
           >
-          Orçamento
+          {{ $t('os.orcamento') }}
         </button>
         <button type="button"
           :class="{ active: abaAtual === 'checkout' }"
@@ -423,7 +424,7 @@ onMounted(carregarTudo);
             style="font-size: 1.1rem; vertical-align: middle"
             >point_of_sale</span
           >
-          Receber
+          {{ $t('os.receber') }}
         </button>
       </div>
 
@@ -485,7 +486,7 @@ onMounted(carregarTudo);
           <div class="print-qr-info">
             <p>
               <strong>Cliente:</strong>
-              {{ dadosCliente?.nome || "Não Registrado" }}
+              {{ dadosCliente?.nome || $t('os.nao_registrado') }}
             </p>
             <p>
               <strong>Inst:</strong> {{ dadosInstrumento?.marca }}
@@ -496,7 +497,7 @@ onMounted(carregarTudo);
               {{
                 servicoLocal.descricao_cliente
                   ? servicoLocal.descricao_cliente.slice(0, 80) + "..."
-                  : "Sem descrição"
+                  : $t('os.sem_descricao')
               }}
             </p>
           </div>
@@ -509,7 +510,7 @@ onMounted(carregarTudo);
               class="qr-code-img"
             />
             <p class="print-qr-hint text-muted">
-              Aponte o "QR Scan" do sistema para acessar
+              {{ $t('os.dica_qr') }}
             </p>
           </div>
         </div>
@@ -541,28 +542,28 @@ onMounted(carregarTudo);
             <h3 class="print-doc-title">
               {{
                 tipoImpressao === "orcamento"
-                  ? "ORÇAMENTO DE SERVIÇO"
-                  : "RECIBO DE PAGAMENTO"
+                  ? $t('os.titulo_orcamento')
+                  : $t('os.titulo_recibo')
               }}
             </h3>
             <p>
-              <strong>Cliente:</strong> {{ dadosCliente?.nome }}<br />
-              <strong>Instrumento:</strong> {{ dadosInstrumento?.marca }}<br />
-              <strong>Modelo:</strong> {{ dadosInstrumento?.modelo }}<br />
+              <strong>{{ $t('os.cliente') }}</strong> {{ dadosCliente?.nome }}<br />
+              <strong>{{ $t('os.instrumento') }}</strong> {{ dadosInstrumento?.marca }}<br />
+              <strong>{{ $t('os.modelo') }}</strong> {{ dadosInstrumento?.modelo }}<br />
             </p>
 
-            <p><strong>O.S. Nº:</strong> {{ servicoLocal.numero_os }}</p>
-            <p><strong>Data:</strong> {{ new Date().toLocaleDateString() }}</p>
+            <p><strong>{{ $t('os.os_numero') }}</strong> {{ servicoLocal.numero_os }}</p>
+            <p><strong>{{ $t('os.data') }}</strong> {{ new Date().toLocaleDateString() }}</p>
           </div>
 
           <hr class="print-divider" />
 
-          <h4 class="print-section-title">Itens da O.S.</h4>
+          <h4 class="print-section-title">{{ $t('os.itens_os') }}</h4>
           <table class="print-table">
             <thead>
               <tr>
-                <th align="left">Descrição</th>
-                <th align="right">Valor (R$)</th>
+                <th align="left">{{ $t('os.descricao') }}</th>
+                <th align="right">{{ $t('os.valor_rs') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -574,17 +575,17 @@ onMounted(carregarTudo);
           </table>
 
           <div class="print-total">
-            <strong>Total: R$ {{ totalOrcamento.toFixed(2) }}</strong>
+            <strong>{{ $t('os.total_rs') }} {{ totalOrcamento.toFixed(2) }}</strong>
           </div>
 
           <div v-if="tipoImpressao === 'recibo'" class="print-payments">
             <hr class="print-divider" />
-            <h4 class="print-section-title">Histórico de Pagamentos</h4>
+            <h4 class="print-section-title">{{ $t('os.historico_pagamentos') }}</h4>
             <table class="print-table">
               <thead>
                 <tr>
-                  <th align="left">Pgto / Data</th>
-                  <th align="right">Valor (R$)</th>
+                  <th align="left">{{ $t('os.pgto_data') }}</th>
+                  <th align="right">{{ $t('os.valor_rs') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -607,30 +608,30 @@ onMounted(carregarTudo);
                     colspan="2"
                     style="text-align: center; font-style: italic"
                   >
-                    Nenhum pagamento efetuado.
+                    {{ $t('os.nenhum_pagamento') }}
                   </td>
                 </tr>
               </tbody>
             </table>
 
             <div class="print-balances">
-              <p><strong>Total Pago:</strong> R$ {{ totalPago.toFixed(2) }}</p>
+              <p><strong>{{ $t('os.total_pago') }}</strong> {{ totalPago.toFixed(2) }}</p>
               <p>
-                <strong>Falta Receber:</strong> R$ {{ saldoDevedor.toFixed(2) }}
+                <strong>{{ $t('os.falta_receber') }}</strong> {{ saldoDevedor.toFixed(2) }}
               </p>
             </div>
           </div>
 
           <div v-if="servicoLocal.obs_fechamento || configLuthieria.termos_garantia" class="print-notes">
             <hr class="print-divider" />
-            <p><strong>Notas Importantes:</strong></p>
+            <p><strong>{{ $t('os.notas_importantes') }}</strong></p>
             <p style="white-space: pre-wrap">
               {{ servicoLocal.obs_fechamento || configLuthieria.termos_garantia }}
             </p>
           </div>
 
           <div class="print-footer">
-            <p>Obrigado pela preferência!</p>
+            <p>{{ $t('os.agradecimento') }}</p>
           </div>
         </div>
       </div>
