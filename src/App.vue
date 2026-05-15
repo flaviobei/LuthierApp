@@ -220,7 +220,13 @@ onMounted(() => {
     if (_event === 'INITIAL_SESSION' || _event === 'SIGNED_IN') {
       if (_session) {
         inicializarApp().then(() => {
-          if (
+          const resumeStep = localStorage.getItem("luthierapp_resume_tour_after_demo");
+          if (resumeStep) {
+            localStorage.removeItem("luthierapp_resume_tour_after_demo");
+            setTimeout(() => {
+              iniciarTour(parseInt(resumeStep));
+            }, 1500);
+          } else if (
             (isSuperAdmin.value || assinatura.value) &&
             !localStorage.getItem("luthierapp_onboarding_v1")
           ) {

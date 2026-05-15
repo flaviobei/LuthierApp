@@ -9,23 +9,30 @@
 
 <template>
   <div class="ajuda-container card">
-    <div class="header-ajuda">
-      <h2
-        style="
-          margin: 0;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          color: var(--primary);
-        "
-      >
-        <span class="icon-dinamico" style="font-size: 2rem">help_center</span>
-        Manual do Sistema & Ajuda
-      </h2>
-      <p class="text-muted" style="margin-top: 5px">
-        Guia rápido de como utilizar as funcionalidades do seu sistema de
-        gestão.
-      </p>
+    <div class="header-ajuda" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+      <div>
+        <h2
+          style="
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--primary);
+          "
+        >
+          <span class="icon-dinamico" style="font-size: 2rem">help_center</span>
+          Manual do Sistema & Ajuda
+        </h2>
+        <p class="text-muted" style="margin-top: 5px; margin-bottom: 0;">
+          Guia rápido de como utilizar as funcionalidades do seu sistema de
+          gestão.
+        </p>
+      </div>
+      
+      <a href="/manual_usuario.pdf" target="_blank" download="Manual_LuthierApp.pdf" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+        <span class="icon-dinamico">picture_as_pdf</span>
+        Baixar Manual (PDF)
+      </a>
     </div>
 
     <div class="conteudo-ajuda">
@@ -34,120 +41,81 @@
           <span class="icon-dinamico" style="color: var(--accent)">home</span>
           1. A Bancada de Trabalho (Início)
         </h3>
-        <p>
-          A "Bancada" é o coração da sua luthieria. Aqui você vê todas as Ordens
-          de Serviço (O.S.) que estão em andamento ou pendentes.
-        </p>
+        <p>A "Bancada" centraliza as atividades diárias. Nela você vê o Dashboard de Atividades (faturamento parado, pós-venda, alertas de estoque) e as Ordens de Serviço (O.S.) ativas.</p>
         <ul>
-          <li>
-            <strong>Clientes e Instrumentos:</strong> Ao final da página da
-            bancada, clique em "Gerenciar Clientes". Primeiro você cadastra o
-            cliente. Depois escolhe a opção "Ver Instrumentos" para vincular
-            guitarras, baixos, baterias àquele contato.
-          </li>
-          <li>
-            <strong>Criando O.S.:</strong> Na aba do instrumento do cliente,
-            você pode iniciar um serviço (O.S.). Ele aparecerá na sua bancada
-            imediatamente com o status "Fila de Espera".
-          </li>
-
-          <li>
-            <strong>Localizando uma OS com QRCode:</strong> Na aba da OS você
-            encontra o botão de QRCode. Você pode imprimir um canhoto e juntar
-            ao instrumento para facilitar a localização da OS. Para ler um
-            QRCode, clique no boão QRScan, autorize o uso da câmera e aponte
-            para o QRCode.
-          </li>
+          <li><strong>Clientes e Instrumentos:</strong> No botão "Gerenciar Clientes", você cadastra a pessoa e depois usa o botão de "Ver Instrumentos" para vincular guitarras, baixos, etc.</li>
+          <li><strong>Criando O.S.:</strong> Na aba do instrumento do cliente, inicie um serviço. Ele aparecerá na sua bancada imediatamente com o status "Fila de Espera".</li>
         </ul>
       </section>
 
       <section class="topico mb-2">
         <h3>
           <span class="icon-dinamico" style="color: var(--accent)">build</span>
-          2. Gerenciando uma O.S.
+          2. Gerenciando uma O.S. (Ordem de Serviço)
         </h3>
-        <p>
-          Ao clicar em um card de serviço na sua bancada, você abre a visão de
-          Execução daquela O.S. Ela é dividida em 4 abas práticas:
-        </p>
+        <p>Ao abrir um card de serviço na bancada, você acessa 4 abas práticas:</p>
         <ul>
-          <li>
-            <strong>Checklist:</strong> Anote como o instrumento chegou
-            (arranhões, cordas velhas, batidas). Importante para documentar
-            defeitos pré-existentes e enviar o termo em PDF ao cliente.
-          </li>
-          <li>
-            <strong>Diário:</strong> Uma espécie de bloco de notas infinito.
-            Você muda o status do projeto (Ex: "Na Bancada" -> "Secagem de
-            Verniz" -> "Pronto pra Entrega") e pode adicionar fotos para montar
-            um relatório bacana pro cliente depois.
-          </li>
-          <li>
-            <strong>Orçamento:</strong> Puxe os serviços pré-cadastrados do seu
-            catálogo ou adicione valores avulsos. Aqui se gera o PDF de
-            Orçamento.
-          </li>
-          <li>
-            <strong>Receber:</strong> O momento de registrar os pagamentos.
-            Lançou uma entrada (Sinal)? Fica salvo aqui e já entra no seu
-            faturamento do mês! Marque o serviço como Finalizado quando estiver
-            entregue!
-          </li>
+          <li><strong>Checklist:</strong> Registra as condições do instrumento na chegada e na qualidade de saída. Pode ser pré-configurado com regras padrão no Admin.</li>
+          <li><strong>Diário:</strong> Mude a fase do projeto e adicione notas ou fotos (criando um histórico da manutenção para o cliente). Defina o Prazo de Entrega aqui.</li>
+          <li><strong>Orçamento:</strong> Puxe os serviços e peças do Catálogo Rápido (o que abate do estoque) ou digite valores avulsos. Aqui se gera o PDF do Orçamento/Recibo.</li>
+          <li><strong>Receber:</strong> Registre os pagamentos parciais (sinal) ou totais. Marque a O.S. como Entregue apenas quando o instrumento já tiver saído com o cliente!</li>
         </ul>
       </section>
 
       <section class="topico mb-2">
         <h3>
-          <span class="icon-dinamico" style="color: var(--accent)"
-            >lightbulb</span
-          >
-          3. Retenção (CRM / Pós-Venda)
+          <span class="icon-dinamico" style="color: var(--accent)">qr_code_scanner</span>
+          3. QR Code, Scanner e Impressão
         </h3>
-        <p>
-          Na bancada inicial, o sistema avisará instrumentos que foram entregues
-          há mais de 6 meses. Use o botão <strong>"Chamar no Zap"</strong> para
-          enviar uma mensagem customizada oferecendo um setup preventivo.
-        </p>
+        <p>A cada O.S. criada, o sistema gera um Canhoto de Identificação com um QR Code no rodapé do orçamento. Imprima e prenda ao instrumento físico. Quando quiser encontrar rapidamente a ficha dessa O.S., basta clicar em "QR Scan" no menu superior e ler a etiqueta pela câmera.</p>
       </section>
 
       <section class="topico mb-2">
         <h3>
-          <span class="icon-dinamico" style="color: var(--accent)"
-            >calendar_month</span
-          >
-          4. Agenda e Entregas
+          <span class="icon-dinamico" style="color: var(--accent)">auto_graph</span>
+          4. Pós-Venda e Alertas da Bancada
         </h3>
-        <p>
-          Ao definir um "Prazo Estimado de Conclusão" numa O.S. (na aba Diário),
-          o serviço vai direto pro Calendário do sistema. Fique de olho na aba
-          "Agenda" para não estourar prazos.
-        </p>
-      </section>
-
-      <section class="topico mb-2">
-        <h3>
-          <span class="icon-dinamico" style="color: var(--accent)"
-            >settings</span
-          >
-          5. Menu Admin e Relatórios
-        </h3>
-        <p>Nesta área exclusiva do dono, você configura:</p>
         <ul>
-          <li>
-            <strong>Identidade e Temas:</strong> Coloque sua Logomarca, mude a
-            cor para vermelho, verde, escuro. As configurações refletem nos
-            canhotos!
-          </li>
-          <li>
-            <strong>Dashboard / Rentabilidade:</strong> Descubra seu lucro
-            líquido descontando as peças/despesas compradas e faturamento dos
-            serviços concluídos por mês.
-          </li>
-          <li>
-            <strong>Catálogo Rápido:</strong> Cadastre serviços com valor
-            tabelado (Ex: "Troca de Trastes - R$400") para chamar com apenas um
-            clique durante seus orçamentos.
-          </li>
+          <li><strong>Faturamento Parado:</strong> Exibe o valor total de serviços que já estão "Prontos para Entrega", mas ainda não foram retirados/pagos pelo cliente.</li>
+          <li><strong>Retenção (Pós-Venda):</strong> Lista instrumentos que foram entregues há mais de 6 meses. Use o botão para enviar um zap oferecendo revisão periódica preventiva.</li>
+          <li><strong>Alertas de Estoque:</strong> Avisa automaticamente quais peças ou insumos do seu catálogo caíram abaixo do Limite Mínimo de Estoque de Segurança.</li>
+        </ul>
+      </section>
+
+      <section class="topico mb-2">
+        <h3>
+          <span class="icon-dinamico" style="color: var(--accent)">inventory_2</span>
+          5. Catálogo, Estoque e Compras
+        </h3>
+        <p>Dentro da Área Admin, você tem acesso as ferramentas de gestão de materiais:</p>
+        <ul>
+          <li><strong>Catálogo Rápido:</strong> Cadastre Peças, Insumos e Serviços (Mão de Obra). Ao definir "Insumos Consumidos" dentro de um Serviço cadastrado, o sistema descontará do estoque as proporções dos insumos sempre que aquele serviço for orçado numa O.S.</li>
+          <li><strong>Lista de Compras:</strong> Bloco visual para suas <em>Wishlists</em> (Desejos) e <em>Needlists</em> (Urgências). Salve links e níveis de prioridade.</li>
+        </ul>
+      </section>
+
+      <section class="topico mb-2">
+        <h3>
+          <span class="icon-dinamico" style="color: var(--accent)">calendar_month</span>
+          6. Agenda e Histórico (Arquivo Morto)
+        </h3>
+        <ul>
+          <li><strong>Agenda (Calendário):</strong> Ao definir um Prazo no diário de uma O.S., a mesma cai direto nesse calendário interativo. Fundamental para não estourar os prazos de oficina.</li>
+          <li><strong>Arquivo / Histórico:</strong> Todos os serviços mudados para a fase "Entregue" somem da Bancada (para manter o foco limpo) e vão parar no Histórico, onde você consulta orçamentos e dados antigos para sempre.</li>
+        </ul>
+      </section>
+
+      <section class="topico mb-2">
+        <h3>
+          <span class="icon-dinamico" style="color: var(--accent)">settings</span>
+          7. Área Admin (Configurações e Relatórios)
+        </h3>
+        <p>Acesso exclusivo de gestão do proprietário da luthieria:</p>
+        <ul>
+          <li><strong>Dashboard Financeiro:</strong> Gráficos precisos do seu Lucro Líquido, Receitas Brutas e Despesas mensais.</li>
+          <li><strong>Fluxo de Caixa:</strong> Além das O.S., aqui você insere despesas manuais do local, como aluguel, luz e IPTU.</li>
+          <li><strong>Identidade e Dados da Oficina:</strong> Ajuste cor do sistema, logomarca, endereço, CNPJ e os Termos Legais de Garantia que aparecerão nos laudos impressos.</li>
+          <li><strong>Checklists Padrão:</strong> Crie e edite as perguntas padronizadas de entrada e saída, que serão adicionadas automaticamente a toda nova Ordem de Serviço criada.</li>
         </ul>
       </section>
     </div>

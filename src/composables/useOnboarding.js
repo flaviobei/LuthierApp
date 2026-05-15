@@ -4,6 +4,7 @@ import "driver.js/dist/driver.css";
 export function useOnboarding() {
   const tour = driver({
     showProgress: true,
+    allowClose: true,
     nextBtnText: "Próximo —>",
     prevBtnText: "<— Voltar",
     doneBtnText: "Concluir Tour",
@@ -13,43 +14,51 @@ export function useOnboarding() {
         popover: {
           title: "Bem-vindo!",
           description:
-            "Este é o seu novo sistema de gestão. Vamos configurá-lo?",
+            "Este é o seu novo sistema de gestão para luthieria. Para começar com o pé direito, vamos fazer algo importante na próxima etapa.",
         },
       },
       {
         element: "#tour-admin",
         popover: {
-          title: "Menu de Administração",
+          title: "Primeira Parada: Gestão",
           description:
-            "Clique aqui para configurar a sua oficina, catálogo e checklists. Bem como verificar suas transações financeiras",
+            "A forma mais fácil de entender a mágica do sistema é vê-lo com dados reais. Clique em 'Próximo' para entrarmos no painel.",
         },
         onNextClick: () => {
           document.getElementById("tour-admin")?.click();
-          setTimeout(() => tour.moveNext(), 300);
+          const interval = setInterval(() => {
+            if (document.getElementById("tour-demo")) {
+              clearInterval(interval);
+              tour.moveNext();
+            }
+          }, 200);
+          setTimeout(() => clearInterval(interval), 10000);
         },
       },
       {
-        element: "#tour-config",
+        element: "#tour-demo",
         popover: {
-          title: "Sua Identidade",
+          title: "Aba Conta Demo",
           description:
-            "Defina o seu logo, cores, tipografia e as taxas das suas máquinas aqui.",
+            "Esta é a aba de simulação. Clique em 'Próximo' para abrirmos as opções e vermos como injetar dados reais no sistema.",
+        },
+        onNextClick: () => {
+          document.getElementById("tour-demo")?.click();
+          const interval = setInterval(() => {
+            if (document.getElementById("btn-iniciar-simulacao")) {
+              clearInterval(interval);
+              tour.moveNext();
+            }
+          }, 200);
+          setTimeout(() => clearInterval(interval), 10000);
         },
       },
       {
-        element: "#tour-checklist",
+        element: "#btn-iniciar-simulacao",
         popover: {
-          title: "Checklists",
+          title: "Conta Demo (Altamente Recomendado!)",
           description:
-            "Crie as regras de inspeção que aparecerão em todas as novas O.S. Checklists são úteis para padronizar o seu trabalho.",
-        },
-      },
-      {
-        element: "#tour-catalogo",
-        popover: {
-          title: "Agilidade",
-          description:
-            "Registre seus serviços prestados, peças e insumos. Defina custos e valores cobrados.",
+            "Gere uma base de dados fictícia agora mesmo! A experiência e o entendimento do software sem dados são completamente diferentes de um banco totalmente populado. Se não quiser gerar, apenas clique em 'Próximo' para continuar o tour com o painel vazio.",
         },
         onNextClick: () => {
           document.getElementById("tour-home")?.click();
@@ -59,15 +68,49 @@ export function useOnboarding() {
       {
         element: "#tour-home",
         popover: {
-          title: "Sua Bancada",
-          description: "Volte sempre aqui para ver as atividades do dia.",
+          title: "Página Principal",
+          description:
+            "A sua Bancada de trabalho diária. Volte sempre aqui para a operação do dia a dia.",
+        },
+      },
+      {
+        element: "#tour-bancada",
+        popover: {
+          title: "Instrumentos na Bancada",
+          description:
+            "Acompanhe o progresso e o status atual de todas as suas Ordens de Serviço (O.S.) abertas.",
+        },
+      },
+      {
+        element: "#tour-faturamento-parado",
+        popover: {
+          title: "Faturamento Parado",
+          description:
+            "Controle imediato de valores pendentes de serviços prontos, que aguardam retirada ou pagamento.",
+        },
+      },
+      {
+        element: "#tour-pos-venda",
+        popover: {
+          title: "Pós-Venda (Retenção)",
+          description:
+            "Gere novos serviços! O sistema alerta quando instrumentos antigos precisam de revisão - Aparecem aqui instrumentos que não recebem serviços há mais de 6 meses.",
+        },
+      },
+      {
+        element: "#tour-alertas",
+        popover: {
+          title: "Alertas de Estoque",
+          description:
+            "Avisa automaticamente quando peças ou cordas estão acabando no seu inventário.",
         },
       },
       {
         element: "#tour-clientes",
         popover: {
-          title: "Gestão de Clientes",
-          description: "Aqui é onde você registra músicos e instrumentos.",
+          title: "Clientes",
+          description:
+            "Área para consultar ou cadastrar rapidamente músicos e os seus respectivos instrumentos.",
         },
         onNextClick: () => {
           document.getElementById("tour-clientes")?.click();
@@ -75,35 +118,11 @@ export function useOnboarding() {
         },
       },
       {
-        element: ".col-form",
+        element: "#tour-admin",
         popover: {
-          title: "Quase lá!",
+          title: "De volta ao Painel de Gestão",
           description:
-            "Aqui cadastra os seus clientes. Para finalizar, vamos conhecer uma ferramenta secreta na próxima etapa!",
-        },
-        onNextClick: () => {
-          // Tenta fechar a aba de clientes clicando no botão Voltar/Fechar
-          const botoes = Array.from(document.querySelectorAll("button"));
-          const btnFechar = botoes.find(
-            (b) =>
-              b.textContent.includes("Voltar") ||
-              b.textContent.includes("Fechar") ||
-              (b.querySelector(".icon-dinamico") &&
-                b
-                  .querySelector(".icon-dinamico")
-                  .textContent.includes("arrow_back")),
-          );
-          if (btnFechar) btnFechar.click();
-
-          setTimeout(() => tour.moveNext(), 400);
-        },
-      },
-      {
-        element: "#tour-admin", // APONTA PARA O ADMIN NOVAMENTE
-        popover: {
-          title: "De volta ao Painel",
-          description:
-            "Vamos regressar ao menu de Gestão. Clique em 'Próximo' para abrirmos esta área.",
+            "O cérebro da oficina. Agora vamos ver as outras ferramentas de administração.",
         },
         onNextClick: () => {
           document.getElementById("tour-admin")?.click();
@@ -111,27 +130,68 @@ export function useOnboarding() {
         },
       },
       {
-        element: "#tour-limpeza", // APONTA PARA A ABA LIMPEZA
+        element: "#tour-relatorios",
         popover: {
-          title: "Área de Testes",
+          title: "Relatórios",
           description:
-            "Esta é a aba de Limpeza/Demo. Clique em 'Próximo' para entrarmos nela.",
-        },
-        onNextClick: () => {
-          document.getElementById("tour-limpeza")?.click();
-          setTimeout(() => tour.moveNext(), 400);
+            "Métricas claras: Saúde financeira, produtividade, total de contas a receber e KPIs de sucesso.",
         },
       },
       {
-        element: ".admin-limpeza-container", // FOCA NA TELA INTEIRA
+        element: "#tour-catalogo",
         popover: {
-          title: "Simulação e Limpeza",
+          title: "Serviços e Estoque",
           description:
-            "Use o Gerador Demo para testar gráficos e o sistema completo com 1 clique. Quando terminar, digite 'LIMPAR' para apagar os dados falsos. Boas manutenções!",
+            "Monte o seu catálogo. Defina preços de mão de obra e administre peças físicas.",
+        },
+      },
+      {
+        element: "#tour-financeiro",
+        popover: {
+          title: "Caixa",
+          description:
+            "Controle o fluxo de dinheiro que entra e sai fora das Ordens de Serviço (despesas fixas, etc).",
+        },
+      },
+      {
+        element: "#tour-config",
+        popover: {
+          title: "Identidade Visual",
+          description:
+            "Personalize o sistema com a cor da sua marca, logotipo, taxas de cartão e muito mais.",
+        },
+      },
+      {
+        element: "#tour-checklist",
+        popover: {
+          title: "Checklists Padrão",
+          description:
+            "Crie formulários de inspeção de entrada para dar segurança técnica e visual a você e ao cliente.",
+        },
+      },
+      {
+        element: "#tour-compras",
+        popover: {
+          title: "Lista de Compras",
+          description:
+            "Bloco de notas rápido para não esquecer peças essenciais na próxima ida à loja.",
+        },
+      },
+      {
+        element: "#tour-conta",
+        popover: {
+          title: "Minha Conta",
+          description:
+            "Atualize os seus dados de perfil, email e senhas de acesso.",
         },
       },
     ],
   });
 
-  return { iniciarTour: () => tour.drive() };
+  return { 
+    iniciarTour: (stepIndex = 0) => {
+      const startAt = typeof stepIndex === 'number' ? stepIndex : 0;
+      tour.drive(startAt);
+    }
+  };
 }

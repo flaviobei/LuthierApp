@@ -55,17 +55,17 @@ async function gerarDadosDeExemplo() {
       taxa_dinheiro: 0,
       taxa_credito: 4.99,
       taxa_debito: 1.99,
-      cor_primaria: "#0F172A",
-      cor_secundaria: "#3B82F6",
-      cor_fundo: "#F8FAFC",
-      text_color: "#0F172A",
-      btn_primary_bg: "#0F172A",
+      cor_primaria: "#18181B",
+      cor_secundaria: "#E11D48",
+      cor_fundo: "#E5E7EB",
+      text_color: "#18181B",
+      btn_primary_bg: "#18181B",
       btn_primary_text: "#ffffff",
-      btn_accent_bg: "#3B82F6",
+      btn_accent_bg: "#E11D48",
       btn_accent_text: "#ffffff",
-      radius_perc: 8,
-      fonte_principal: "'Inter', sans-serif",
-      estilo_icones: "Material Symbols Outlined",
+      radius_perc: 4,
+      fonte_principal: "'Montserrat', sans-serif",
+      estilo_icones: "Material Symbols Sharp",
     };
 
     const { data: configExistente } = await supabase
@@ -477,12 +477,166 @@ async function gerarDadosDeExemplo() {
       }
     }
 
+    // ==========================================
+    // 6. FATURAMENTO PARADO E LISTA DE COMPRAS
+    // ==========================================
+    progresso.value = "A gerar faturamento parado e lista de compras...";
+
+    // O.S. Atrasada 30 dias
+    const data30 = dataAleatoria(30, 31);
+    const { data: os30 } = await supabase
+      .from("servicos")
+      .insert([
+        {
+          instrumento_id: insts[0].id,
+          numero_os: numeroOS++,
+          status: "Aprovado",
+          fase_projeto: "Pronto para Entrega",
+          tipo_os: "Padrão",
+          descricao_cliente:
+            "Retífica de trastes (Pronto, aguardando retirada há 30 dias).",
+          data_entrada: dataAleatoria(40, 45),
+          data_previsao_entrega: dataAleatoria(32, 35),
+          data_conclusao: data30,
+        },
+      ])
+      .select();
+
+    if (os30 && os30.length > 0) {
+      await supabase.from("orcamento_itens").insert([
+        {
+          servico_id: os30[0].id,
+          catalogo_id: servicosCat[3].id,
+          descricao: servicosCat[3].nome,
+          valor: servicosCat[3].preco_padrao,
+          tipo: "Mão de Obra",
+        },
+      ]);
+    }
+
+    // O.S. Atrasada 65 dias
+    const data65 = dataAleatoria(65, 66);
+    const { data: os65 } = await supabase
+      .from("servicos")
+      .insert([
+        {
+          instrumento_id: insts[1].id,
+          numero_os: numeroOS++,
+          status: "Aprovado",
+          fase_projeto: "Pronto para Entrega",
+          tipo_os: "Padrão",
+          descricao_cliente:
+            "Blindagem e Elétrica (Pronto, aguardando retirada há 65 dias).",
+          data_entrada: dataAleatoria(75, 80),
+          data_previsao_entrega: dataAleatoria(67, 70),
+          data_conclusao: data65,
+        },
+      ])
+      .select();
+
+    if (os65 && os65.length > 0) {
+      await supabase.from("orcamento_itens").insert([
+        {
+          servico_id: os65[0].id,
+          catalogo_id: servicosCat[1].id,
+          descricao: servicosCat[1].nome,
+          valor: servicosCat[1].preco_padrao,
+          tipo: "Mão de Obra",
+        },
+      ]);
+    }
+
+    // LISTA DE COMPRAS
+    await supabase.from("lista_compras").insert([
+      {
+        nome: "Tupia de Coluna  Makita",
+        foto_url:
+          "https://www.dutramaquinas.com.br/shared/img/produto/alta/248917_tupia_de_coluna_900_watts_para_pinca_de_1_4_m3601b.webp",
+        valor: 935.0,
+        link: "https://www.dutramaquinas.com.br/p/tupia-de-coluna-900-watts-para-pinca-de-1-4-m3601b-m3601b-220v",
+        tipo: "wish",
+        nivel_necessidade: 9,
+        justificativa: "Tupia queimou.",
+      },
+      {
+        nome: "Prensa de Trastes",
+        foto_url:
+          "https://i0.wp.com/www.mestreluthier.com.br/wp-content/uploads/2025/06/265.jpg",
+        valor: 722.0,
+        link: "https://www.mestreluthier.com.br/produto/prensa-de-trastes-fret-press-caul-ao-mestre-luthier",
+        tipo: "wish",
+        nivel_necessidade: 5,
+        justificativa: "Agiliza muito o trabalho de trastejamento.",
+      },
+      {
+        nome: "Lixa D'água Grão 2000 (Pacote 50)",
+        foto_url: "",
+        valor: 85.0,
+        tipo: "need",
+        nivel_necessidade: 9,
+        justificativa:
+          "Estoque quase zerado. Uso diário no polimento de verniz.",
+      },
+      {
+        nome: "Óleo de Limão Dunlop 65",
+        foto_url: "",
+        valor: 65.0,
+        tipo: "need",
+        nivel_necessidade: 10,
+        justificativa: "Acabou! Comprar urgente para as próximas regulagens.",
+      },
+    ]);
+
+    // ==========================================
+    // 8. CHECKLIST PADRÃO
+    // ==========================================
+    progresso.value = "A criar regras de inspeção de qualidade...";
+    await supabase.from("checklist_padrao").insert([
+      {
+        tipo: "Chegada",
+        item_nome: "Estado da Pintura / Verniz",
+        opcao_positiva: "✅ Intacto",
+        opcao_negativa: "❌ Com Marcas",
+      },
+      {
+        tipo: "Chegada",
+        item_nome: "Parte Elétrica Funcionando?",
+        opcao_positiva: "✅ Sim",
+        opcao_negativa: "❌ Ruídos/Falhas",
+      },
+      {
+        tipo: "Chegada",
+        item_nome: "Tarrachas e Ferragens",
+        opcao_positiva: "✅ OK",
+        opcao_negativa: "❌ Oxidadas",
+      },
+      {
+        tipo: "Saída",
+        item_nome: "Limpeza Geral e Polimento",
+        opcao_positiva: "✅ Brilhando",
+        opcao_negativa: "❌ Refazer",
+      },
+      {
+        tipo: "Saída",
+        item_nome: "Afinação Estável?",
+        opcao_positiva: "✅ Segurando",
+        opcao_negativa: "❌ Caindo",
+      },
+      {
+        tipo: "Saída",
+        item_nome: "Testado em todas as casas?",
+        opcao_positiva: "✅ Aprovado",
+        opcao_negativa: "❌ Reprovar",
+      },
+    ]);
+
     triggerToast(
       "Conta DEMO populada com SUCESSO! O ecossistema está vivo.",
       "success",
     );
 
     setTimeout(() => {
+      localStorage.setItem("luthierapp_resume_tour_after_demo", "4");
       window.location.reload(true);
     }, 2500);
   } catch (error) {
@@ -497,11 +651,13 @@ async function gerarDadosDeExemplo() {
 // --- FUNÇÃO PARA LIMPAR A CONTA ---
 async function limparDadosConta() {
   const confirmacao = confirm(
-    "ATENÇÃO: Esta ação apagará TODOS os clientes, instrumentos, serviços, financeiro e catálogo da sua oficina! Esta ação é IRREVERSÍVEL. Continuar?"
+    "ATENÇÃO: Esta ação apagará TODOS os clientes, instrumentos, serviços, financeiro e catálogo da sua oficina! Esta ação é IRREVERSÍVEL. Continuar?",
   );
   if (!confirmacao) return;
 
-  const texto = prompt("Para confirmar a exclusão, digite APAGAR TUDO em maiúsculas:");
+  const texto = prompt(
+    "Para confirmar a exclusão, digite APAGAR TUDO em maiúsculas:",
+  );
   if (texto !== "APAGAR TUDO") {
     triggerToast("Limpeza cancelada. Confirmação incorreta.", "info");
     return;
@@ -511,24 +667,28 @@ async function limparDadosConta() {
   progresso.value = "A apagar transações e orçamentos...";
 
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuário não autenticado.");
 
     // Delete in order to respect potential foreign key constraints
     await supabase.from("transacoes").delete().not("id", "is", null);
     await supabase.from("orcamento_itens").delete().not("id", "is", null);
-    
+
     progresso.value = "A apagar serviços...";
     await supabase.from("servicos").delete().not("id", "is", null);
-    
+
     progresso.value = "A apagar instrumentos...";
     await supabase.from("instrumentos").delete().not("id", "is", null);
-    
+
     progresso.value = "A apagar clientes...";
     await supabase.from("clientes").delete().not("id", "is", null);
-    
-    progresso.value = "A apagar catálogo...";
+
+    progresso.value = "A apagar configurações extras...";
     await supabase.from("catalogo").delete().not("id", "is", null);
+    await supabase.from("lista_compras").delete().not("id", "is", null);
+    await supabase.from("checklist_padrao").delete().not("id", "is", null);
 
     triggerToast("Sua conta foi completamente zerada com sucesso!", "success");
 
@@ -572,7 +732,8 @@ async function limparDadosConta() {
           Identidade Visual, 10 clientes, 20 instrumentos, catálogo com
           consumos, custos fixos e 8 meses de histórico. Use para testes de
           funcionalidade e exibição de gráficos. <br /><br />Após os testes,
-          você pode limpar a conta com o botão de limpeza abaixo para começar do zero.
+          você pode limpar a conta com o botão de limpeza abaixo para começar do
+          zero.
         </p>
         <p
           v-if="progresso"
@@ -595,17 +756,23 @@ async function limparDadosConta() {
           {{ progresso }}
         </p>
       </div>
-      <button type="button"
+      <button
+        type="button"
+        id="btn-iniciar-simulacao"
         class="btn-primary"
         style="background: var(--danger); border: none; min-height: 50px"
         @click="gerarDadosDeExemplo"
         :disabled="loading"
       >
         <span class="icon-dinamico" style="font-size: 1.5rem">{{
-          loading && progresso.includes('injetar') ? "hourglass_empty" : "rocket_launch"
+          loading && progresso.includes("injetar")
+            ? "hourglass_empty"
+            : "rocket_launch"
         }}</span>
         <span style="font-size: 1.1rem; font-weight: bold">{{
-          loading && progresso.includes('injetar') ? "A injetar..." : "Iniciar Simulação"
+          loading && progresso.includes("injetar")
+            ? "A injetar..."
+            : "Iniciar Simulação"
         }}</span>
       </button>
     </div>
@@ -626,25 +793,32 @@ async function limparDadosConta() {
             gap: 8px;
           "
         >
-          <span class="icon-dinamico">delete_sweep</span> Resetar Conta (Começar do Zero)
+          <span class="icon-dinamico">delete_sweep</span> Resetar Conta (Começar
+          do Zero)
         </h3>
         <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #7f8c8d">
-          Utilize esta opção para <strong>apagar todos os dados</strong> (clientes, ordens de serviço, financeiro e catálogo). 
-          As suas configurações de visual e logo serão mantidas. 
-          Isso é ideal para limpar a oficina após testar o sistema.
+          Utilize esta opção para
+          <strong>apagar todos os dados</strong> (clientes, ordens de serviço,
+          financeiro e catálogo). As suas configurações de visual e logo serão
+          mantidas. Isso é ideal para limpar a oficina após testar o sistema.
         </p>
       </div>
-      <button type="button"
+      <button
+        type="button"
         class="btn-primary"
         style="background: #b91c1c; border: none; min-height: 50px"
         @click="limparDadosConta"
         :disabled="loading"
       >
         <span class="icon-dinamico" style="font-size: 1.5rem">{{
-          loading && progresso.includes('apagar') ? "hourglass_empty" : "warning"
+          loading && progresso.includes("apagar")
+            ? "hourglass_empty"
+            : "warning"
         }}</span>
         <span style="font-size: 1.1rem; font-weight: bold">{{
-          loading && progresso.includes('apagar') ? "A apagar..." : "Apagar Dados"
+          loading && progresso.includes("apagar")
+            ? "A apagar..."
+            : "Apagar Dados"
         }}</span>
       </button>
     </div>

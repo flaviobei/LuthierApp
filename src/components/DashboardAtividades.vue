@@ -6,7 +6,7 @@
  * ATUALIZAÇÃO: Alerta Inteligente de Estoque.
  * ============================================================================
  */
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { abrirWhatsapp } from "../lib/whatsappUtils";
 import { useToast } from "../composables/useToast";
 import { osService } from "../services/osService";
@@ -18,6 +18,7 @@ const { triggerToast } = useToast();
 const servicosAbertos = ref([]);
 const oportunidadesPosVenda = ref([]);
 const alertasEstoque = ref([]); // Nova variável
+const faturamentoParado = ref([]);
 const loading = ref(true);
 
 // --- CARREGAMENTO ---
@@ -25,14 +26,16 @@ async function carregarDadosIniciais() {
   loading.value = true;
   try {
     // Carrega tudo ao mesmo tempo
-    const [pendencias, crm, catalogo] = await Promise.all([
+    const [pendencias, crm, catalogo, faturamentoPendentes] = await Promise.all([
       osService.buscarPendenciasDash(),
       osService.buscarOportunidadesPosVenda(),
       catalogoService.buscarTodos(),
+      osService.buscarFaturamentoParado(),
     ]);
 
     servicosAbertos.value = pendencias;
     oportunidadesPosVenda.value = crm;
+    faturamentoParado.value = faturamentoPendentes;
 
     // Filtra o catálogo para mostrar apenas os itens abaixo do mínimo!
     alertasEstoque.value = catalogo.filter(
@@ -79,6 +82,15 @@ async function adiarPosVenda(osId, dias) {
   }
 }
 
+function chamarClienteCobranca(os) {
+  const cli = os.instrumentos?.cliente;
+  if (!cli || !cli.telefone)
+    return triggerToast("Este cliente não tem telefone registado.", "error");
+
+  const msg = `Olá *${cli.nome}*! Tudo bem?\n\nO seu instrumento *${os.instrumentos.marca} ${os.instrumentos.modelo}* já está pronto para ser retirado (O.S. #${os.numero_os})!\n\nQualquer dúvida, estamos à disposição. Aguardamos a sua visita!`;
+  abrirWhatsapp(cli, msg);
+}
+
 // --- AUXILIARES DE INTERFACE ---
 function corFase(fase) {
   switch (fase) {
@@ -113,6 +125,37 @@ function formatarDataCurta(dataIso) {
   });
 }
 
+function diasAguardando(dataConclusao) {
+  if (!dataConclusao) return 0;
+  const dataRef = new Date(dataConclusao.includes("T") ? dataConclusao : dataConclusao + "T12:00:00");
+  const hoje = new Date();
+  const diffTime = hoje - dataRef;
+  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+}
+
+function getAtrasoConfig(dataConclusao) {
+  if (!dataConclusao) {
+    return { bg: '#fff', borderLeft: '1px solid var(--border)', textColor: 'var(--text-muted)', icon: 'event_busy', fontWeight: 'normal', isCritical: false };
+  }
+  
+  const dias = diasAguardando(dataConclusao);
+  
+  if (dias <= 30) {
+    // 0 a 30 dias (Acesso leve/Amarelo suave)
+    return { bg: '#fff', borderLeft: '4px solid #fcd34d', textColor: '#b45309', icon: 'schedule', fontWeight: 'normal', isCritical: false };
+  } else if (dias <= 60) {
+    // 31 a 60 dias (Atraso moderado/Laranja)
+    return { bg: '#fff7ed', borderLeft: '4px solid #f97316', textColor: '#c2410c', icon: 'assignment_late', fontWeight: 'bold', isCritical: false };
+  } else {
+    // Mais de 60 dias (Crítico/Vermelho)
+    return { bg: '#fef2f2', borderLeft: '4px solid var(--danger)', textColor: 'var(--danger)', icon: 'warning', fontWeight: 'bold', isCritical: true };
+  }
+}
+
+const totalFaturamentoParado = computed(() => {
+  return faturamentoParado.value.reduce((acc, os) => acc + os.saldoDevedor, 0);
+});
+
 onMounted(() => carregarDadosIniciais());
 </script>
 
@@ -120,6 +163,7 @@ onMounted(() => carregarDadosIniciais());
   <div class="dash-container">
     <div
       v-if="alertasEstoque.length > 0"
+      id="tour-alertas"
       class="crm-box card"
       style="border-color: var(--danger)"
     >
@@ -165,7 +209,7 @@ onMounted(() => carregarDadosIniciais());
       </div>
     </div>
 
-    <div v-if="oportunidadesPosVenda.length > 0" class="crm-box card">
+    <div v-if="oportunidadesPosVenda.length > 0" id="tour-pos-venda" class="crm-box card">
       <div class="crm-header">
         <h3
           style="
@@ -209,22 +253,9 @@ onMounted(() => carregarDadosIniciais());
 
           <div class="crm-actions-container">
             <button type="button"
-              class="btn-success"
+              class="btn-accent"
               @click="chamarClientePosVenda(opp)"
-              style="
-                flex: 1;
-                padding: 10px;
-                border-radius: 6px;
-                font-weight: bold;
-                border: none;
-                cursor: pointer;
-                background: #10b981;
-                color: white;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-              "
+              style="width: 100%; margin-bottom: 8px;"
             >
               <span class="icon-dinamico">chat</span> Chamar no Zap
             </button>
@@ -278,6 +309,84 @@ onMounted(() => carregarDadosIniciais());
       </div>
     </div>
 
+    <div v-if="faturamentoParado.length > 0" id="tour-faturamento-parado" class="crm-box card">
+      <div class="crm-header">
+        <h3
+          style="
+            margin: 0;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <span class="icon-dinamico">savings</span> Faturamento Parado
+        </h3>
+        <span class="badge-crm"
+          >R$ {{ totalFaturamentoParado.toFixed(2) }}</span
+        >
+      </div>
+      <p style="margin: 10px 0 15px 0; font-size: 0.9rem; color: #555; padding: 0 20px;">
+        Este é o valor de serviços concluídos (Prontos para Entrega) que aguardam retirada e pagamento pelo cliente.
+      </p>
+
+      <div class="crm-list">
+        <div
+          v-for="os in faturamentoParado"
+          :key="os.id"
+          class="crm-item"
+          :style="`border-left: ${getAtrasoConfig(os.data_conclusao).borderLeft}; background: ${getAtrasoConfig(os.data_conclusao).bg};`"
+        >
+          <div class="crm-info">
+            <strong :style="{ color: getAtrasoConfig(os.data_conclusao).isCritical ? 'var(--danger)' : 'var(--primary)', fontSize: '1.1rem' }">{{
+              os.instrumentos?.cliente?.nome
+            }}</strong>
+            <span style="font-weight: bold; color: var(--text-muted)"
+              >{{ os.instrumentos?.marca }}
+              {{ os.instrumentos?.modelo }} (O.S. #{{ os.numero_os }})</span
+            >
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 2px;">
+              <small style="color: var(--warning); font-weight: bold; font-size: 0.95rem"
+                >Saldo Devedor: R$ {{ os.saldoDevedor.toFixed(2) }}</small
+              >
+              <template v-if="os.data_conclusao">
+                <small :style="{ color: getAtrasoConfig(os.data_conclusao).textColor, fontWeight: getAtrasoConfig(os.data_conclusao).fontWeight }">
+                  <span class="icon-dinamico" style="font-size: 0.9rem; vertical-align: middle;">{{ getAtrasoConfig(os.data_conclusao).icon }}</span>
+                  Pronto em: {{ formatarData(os.data_conclusao) }} (há {{ diasAguardando(os.data_conclusao) }} dias)
+                </small>
+                <small v-if="getAtrasoConfig(os.data_conclusao).isCritical" style="color: var(--danger); font-weight: bold; margin-top: 4px;">
+                  ⚠️ AVISO: Ultrapassou o limite de 60 dias!
+                </small>
+              </template>
+              <template v-else>
+                <small style="color: var(--text-muted);">
+                  <span class="icon-dinamico" style="font-size: 0.9rem; vertical-align: middle;">event_busy</span>
+                  Pronto (Data de conclusão não registada)
+                </small>
+              </template>
+            </div>
+          </div>
+
+          <div class="crm-actions-container">
+            <button type="button"
+              class="btn-primary"
+              @click="$emit('abrirOS', os)"
+              style="width: 100%; margin-bottom: 8px;"
+            >
+              <span class="icon-dinamico">visibility</span> Ver O.S.
+            </button>
+            <button type="button"
+              class="btn-accent"
+              @click="chamarClienteCobranca(os)"
+              style="width: 100%;"
+            >
+              <span class="icon-dinamico">chat</span> Avisar Retirada
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div
       style="
         margin-bottom: 20px;
@@ -322,7 +431,7 @@ onMounted(() => carregarDadosIniciais());
       </p>
     </div>
 
-    <div v-else class="grid-cards">
+    <div v-else id="tour-bancada" class="grid-cards">
       <div
         v-for="os in servicosAbertos"
         :key="os.id"

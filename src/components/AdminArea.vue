@@ -89,6 +89,7 @@ onMounted(async () => {
 
       <div class="admin-tabs">
         <button type="button"
+          id="tour-relatorios"
           class="btn-tab"
           :class="{ active: abaAtual === 'relatorios' }"
           @click="abaAtual = 'relatorios'"
@@ -108,6 +109,7 @@ onMounted(async () => {
         </button>
 
         <button type="button"
+          id="tour-financeiro"
           class="btn-tab"
           :class="{ active: abaAtual === 'financeiro' }"
           @click="abaAtual = 'financeiro'"
@@ -141,6 +143,7 @@ onMounted(async () => {
         </button>
 
         <button type="button"
+          id="tour-compras"
           class="btn-tab"
           :class="{ active: abaAtual === 'compras' }"
           @click="abaAtual = 'compras'"
@@ -152,6 +155,7 @@ onMounted(async () => {
         </button>
 
         <button type="button"
+          id="tour-conta"
           class="btn-tab"
           :class="{ active: abaAtual === 'conta' }"
           @click="abaAtual = 'conta'"
@@ -163,6 +167,7 @@ onMounted(async () => {
         </button>
 
         <button type="button"
+          id="tour-demo"
           class="btn-tab text-primary"
           :class="{ active: abaAtual === 'demo' }"
           @click="abaAtual = 'demo'"
@@ -173,6 +178,7 @@ onMounted(async () => {
 
         <button type="button"
           v-if="isSuperAdmin"
+          id="tour-saas"
           class="btn-tab"
           :class="{ active: abaAtual === 'saas' }"
           @click="abaAtual = 'saas'"
@@ -190,6 +196,7 @@ onMounted(async () => {
 
         <button type="button"
           v-if="isSuperAdmin"
+          id="tour-backups"
           class="btn-tab"
           :class="{ active: abaAtual === 'backups' }"
           @click="abaAtual = 'backups'"

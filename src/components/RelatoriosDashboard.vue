@@ -10,9 +10,12 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import Chart from "chart.js/auto";
+import { osService } from "../services/osService";
 
 const transacoes = ref([]);
 const servicos = ref([]);
+const faturamentoParado = ref([]);
+const recebiveisBancada = ref({ totalRecebivel: 0, quantidade: 0 });
 const loading = ref(true);
 
 const tipoGraficoDash = ref("resumo");
@@ -44,6 +47,17 @@ async function carregarDados() {
 
   if (dadosServicos) servicos.value = dadosServicos;
 
+  try {
+    const [faturamentoP, recebiveisB] = await Promise.all([
+      osService.buscarFaturamentoParado(),
+      osService.buscarRecebiveisBancada()
+    ]);
+    faturamentoParado.value = faturamentoP;
+    recebiveisBancada.value = recebiveisB;
+  } catch (err) {
+    console.error("Erro ao buscar dados adicionais:", err);
+  }
+
   loading.value = false;
 }
 
@@ -73,6 +87,14 @@ const despesasMes = computed(() =>
 );
 
 const lucroMes = computed(() => faturamentoMes.value - despesasMes.value);
+
+const totalFaturamentoParado = computed(() => {
+  return faturamentoParado.value.reduce((acc, os) => acc + os.saldoDevedor, 0);
+});
+
+const totalReceberGlobal = computed(() => {
+  return totalFaturamentoParado.value + (recebiveisBancada.value?.totalRecebivel || 0);
+});
 
 // --- KPIs DE PRODUÇÃO ---
 
@@ -512,6 +534,29 @@ onUnmounted(() => {
           Lucro Líquido (Mês)
         </span>
         <strong class="kpi-value">R$ {{ lucroMes.toFixed(2) }}</strong>
+      </div>
+      <div class="kpi-card">
+        <span
+          class="kpi-title"
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <span class="icon-dinamico" style="font-size: 1.1rem; color: var(--info, #3b82f6)"
+            >account_balance</span
+          >
+          Total a Receber (O.S.)
+        </span>
+        <strong class="kpi-value" style="color: var(--text-main); margin-bottom: 8px;">R$ {{ totalReceberGlobal.toFixed(2) }}</strong>
+        
+        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>Na Bancada ({{ recebiveisBancada.quantidade }}):</span>
+            <strong style="color: var(--text-main)">R$ {{ (recebiveisBancada?.totalRecebivel || 0).toFixed(2) }}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>Pronto / Retirada ({{ faturamentoParado.length }}):</span>
+            <strong style="color: var(--warning)">R$ {{ totalFaturamentoParado.toFixed(2) }}</strong>
+          </div>
+        </div>
       </div>
     </div>
 

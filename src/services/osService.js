@@ -60,6 +60,86 @@ export const osService = {
     return data;
   },
 
+  /** 2.5 Busca faturamento parado (Instrumentos prontos e não pagos) */
+  async buscarFaturamentoParado() {
+    const { data, error } = await supabase
+      .from("servicos")
+      .select(`
+        id, numero_os, fase_projeto, status, data_conclusao,
+        instrumentos ( marca, modelo, cliente:clientes (nome) ),
+        orcamento_itens ( valor ),
+        transacoes ( valor_bruto, tipo ),
+        diario_servico ( fase_projeto, data_registro )
+      `)
+      .eq("fase_projeto", "Pronto para Entrega")
+      .neq("status", "Entregue"); // exclui os já entregues
+
+    if (error) throw error;
+
+    const servicosPendentes = [];
+    
+    for (const os of data) {
+      let dataPronto = os.data_conclusao;
+      
+      if (os.diario_servico && os.diario_servico.length > 0) {
+        const entry = os.diario_servico
+          .filter(d => d.fase_projeto === "Pronto para Entrega")
+          .sort((a, b) => new Date(b.data_registro) - new Date(a.data_registro))[0];
+        
+        if (entry) {
+          dataPronto = entry.data_registro;
+        }
+      }
+
+      const totalOrcamento = os.orcamento_itens?.reduce((acc, item) => acc + (Number(item.valor) || 0), 0) || 0;
+      const totalPago = os.transacoes?.filter(t => t.tipo === "Entrada").reduce((acc, t) => acc + (Number(t.valor_bruto) || 0), 0) || 0;
+      const saldoDevedor = Math.max(0, totalOrcamento - totalPago);
+      
+      if (saldoDevedor > 0) {
+        servicosPendentes.push({
+          ...os,
+          data_conclusao: dataPronto,
+          saldoDevedor,
+          totalOrcamento,
+          totalPago
+        });
+      }
+    }
+
+    return servicosPendentes;
+  },
+
+  /** 2.6 Busca recebíveis na bancada (Serviços em andamento) */
+  async buscarRecebiveisBancada() {
+    const { data, error } = await supabase
+      .from("servicos")
+      .select(`
+        id, status, fase_projeto,
+        orcamento_itens ( valor ),
+        transacoes ( valor_bruto, tipo )
+      `)
+      .neq("status", "Entregue")
+      .neq("status", "Finalizado"); // Serviços em andamento
+
+    if (error) throw error;
+
+    let totalRecebivel = 0;
+    let quantidade = 0;
+    
+    for (const os of data) {
+      const totalOrcamento = os.orcamento_itens?.reduce((acc, item) => acc + (Number(item.valor) || 0), 0) || 0;
+      const totalPago = os.transacoes?.filter(t => t.tipo === "Entrada").reduce((acc, t) => acc + (Number(t.valor_bruto) || 0), 0) || 0;
+      const saldoDevedor = Math.max(0, totalOrcamento - totalPago);
+      
+      if (saldoDevedor > 0) {
+        totalRecebivel += saldoDevedor;
+        quantidade++;
+      }
+    }
+
+    return { totalRecebivel, quantidade };
+  },
+
   /** 3. Busca histórico para o Arquivo Morto */
   async buscarHistorico() {
     // 1. Puxa os serviços finalizados
