@@ -376,10 +376,11 @@ onMounted(() => {
           </h4>
         </div>
 
-        <div class="header-buttons">
-          <button
-            type="button"
-            id="tour-home"
+        <div class="right-area" style="display: flex; align-items: center; gap: 15px;">
+          <div class="header-buttons">
+            <button
+              type="button"
+              id="tour-home"
             @click="irParaInicio"
             class="btn-menu"
             :class="{ active: modoAtual === 'bancada' && !servicoDireto }"
@@ -423,50 +424,53 @@ onMounted(() => {
             <span class="icon-dinamico">settings</span
             ><span class="lbl">{{ $t("menu.admin") }}</span>
           </button>
+          </div>
 
-          <!-- MENU DE IDIOMA CUSTOMIZADO COM BANDEIRAS REAIS -->
-          <div class="lang-selector-wrapper">
-            <!-- Overlay invisível para fechar o menu ao clicar fora -->
-            <div
-              v-if="showLangMenu"
-              class="lang-overlay"
-              @click="showLangMenu = false"
-            ></div>
+          <div class="top-actions" style="display: flex; align-items: center; gap: 8px;">
+            <!-- MENU DE IDIOMA CUSTOMIZADO COM BANDEIRAS REAIS -->
+            <div class="lang-selector-wrapper">
+              <!-- Overlay invisível para fechar o menu ao clicar fora -->
+              <div
+                v-if="showLangMenu"
+                class="lang-overlay"
+                @click="showLangMenu = false"
+              ></div>
+
+              <button
+                type="button"
+                class="btn-menu lang-btn"
+                @click="showLangMenu = !showLangMenu"
+                title="Mudar Idioma"
+              >
+                <img :src="currentFlag" alt="Idioma" class="lang-flag" />
+              </button>
+
+              <div v-if="showLangMenu" class="lang-dropdown">
+                <button
+                  v-for="l in supportedLocales"
+                  :key="l"
+                  type="button"
+                  class="lang-option"
+                  :class="{ active: locale === l }"
+                  @click="selecionarIdioma(l)"
+                >
+                  <img
+                    :src="`https://flagcdn.com/w40/${langConfig[l].flag}.png`"
+                    class="lang-flag-small"
+                  />
+                  <span>{{ langConfig[l].label }}</span>
+                </button>
+              </div>
+            </div>
 
             <button
               type="button"
-              class="btn-menu lang-btn"
-              @click="showLangMenu = !showLangMenu"
-              title="Mudar Idioma"
+              @click="fazerLogout"
+              class="btn-menu text-danger btn-sair-mobile"
             >
-              <img :src="currentFlag" alt="Idioma" class="lang-flag" />
+              <span class="icon-dinamico">logout</span>
             </button>
-
-            <div v-if="showLangMenu" class="lang-dropdown">
-              <button
-                v-for="l in supportedLocales"
-                :key="l"
-                type="button"
-                class="lang-option"
-                :class="{ active: locale === l }"
-                @click="selecionarIdioma(l)"
-              >
-                <img
-                  :src="`https://flagcdn.com/w40/${langConfig[l].flag}.png`"
-                  class="lang-flag-small"
-                />
-                <span>{{ langConfig[l].label }}</span>
-              </button>
-            </div>
           </div>
-
-          <button
-            type="button"
-            @click="fazerLogout"
-            class="btn-menu text-danger btn-sair-mobile"
-          >
-            <span class="icon-dinamico">logout</span>
-          </button>
         </div>
       </div>
 
@@ -879,22 +883,6 @@ onMounted(() => {
   .header-buttons .btn-menu .lbl {
     display: block !important;
     font-size: 0.7rem;
-  }
-
-  .lang-selector-wrapper {
-    position: static; /* Permite que o dropdown se alinhe à barra no mobile */
-    flex: 1;
-  }
-  .lang-btn {
-    border-radius: 0 !important;
-    padding: 0;
-  }
-  .lang-dropdown {
-    /* No celular, faz o menu abrir para CIMA e ficar centralizado */
-    top: auto;
-    bottom: calc(100% + 10px);
-    right: 5px;
-    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
   }
 
   .header-buttons .scan-btn {
