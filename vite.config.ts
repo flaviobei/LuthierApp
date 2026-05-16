@@ -16,7 +16,7 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: "autoUpdate", // Faz a app atualizar sozinha no telemóvel quando você mudar o código
-      includeAssets: ["favicon.ico", "apple-touch-icon.png"],
+      includeAssets: ["favicon.ico", "appstore-images/ios/180.png"],
       manifest: {
         name: "Gestão Luthieria",
         short_name: "Luthieria",
@@ -27,12 +27,12 @@ export default defineConfig({
         orientation: "portrait",
         icons: [
           {
-            src: "/android-chrome-192x192.png",
+            src: "/appstore-images/android/launchericon-192x192.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "/android-chrome-512x512.png",
+            src: "/appstore-images/android/launchericon-512x512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",
