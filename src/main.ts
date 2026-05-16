@@ -12,7 +12,7 @@ if (import.meta.env.PROD) {
     // Silencia os detalhes técnicos (stack trace) no console do browser
     originalError("[Aplicação Segura] Ocorreu um erro interno. Registrado no monitoramento.", ...args);
   };
-  
+
   // Opcional: Silenciar logs e warnings comuns também
   console.log = () => {};
   console.info = () => {};
@@ -24,3 +24,4 @@ app.use(i18n); // Registro do pacote de idiomas
 app.use(router);
 
 app.mount("#app");
+
