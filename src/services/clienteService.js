@@ -25,10 +25,14 @@ export const clienteService = {
    * Busca um cliente específico com os seus instrumentos vinculados
    */
   async buscarDetalhes(id) {
+    const user = await supabase.auth.getUser();
+    if (!user.data.user) throw new Error("Usuário não autenticado");
+
     const { data, error } = await supabase
       .from("clientes")
       .select("*, instrumentos(*)")
       .eq("id", id)
+      .eq("user_id", user.data.user.id)
       .single();
 
     if (error) throw error;
@@ -96,11 +100,15 @@ export const clienteService = {
   async atualizar(id, novosDados) {
     if (!id) throw new Error("ID do cliente ausente.");
     const payload = this.validarPayload(novosDados);
+    
+    const user = await supabase.auth.getUser();
+    if (!user.data.user) throw new Error("Usuário não autenticado");
 
     const { data, error } = await supabase
       .from("clientes")
       .update(payload)
       .eq("id", id)
+      .eq("user_id", user.data.user.id)
       .select();
 
     if (error) throw error;

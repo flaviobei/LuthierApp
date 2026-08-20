@@ -189,10 +189,14 @@ export const osService = {
 
   /** 5. Busca detalhes completos de uma O.S. específica (Scanner) */
   async buscarPorId(id) {
+    const user = await supabase.auth.getUser();
+    if (!user.data.user) throw new Error("Usuário não autenticado");
+
     const { data, error } = await supabase
       .from("servicos")
       .select("*, instrumentos(marca, modelo, clientes(nome, telefone))")
       .eq("id", id)
+      .eq("user_id", user.data.user.id)
       .single();
 
     if (error) throw error;

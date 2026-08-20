@@ -166,6 +166,12 @@ async function carregarFotosChecklist() {
 async function uploadFotoChecklist(event) {
   const arquivoOriginal = event.target.files[0];
   if (!arquivoOriginal) return;
+  
+  if (!arquivoOriginal.type.startsWith('image/')) {
+    triggerToast(t('os.checklist_erro_tipo_arquivo') || "Formato inválido. Envie apenas imagens.", "error");
+    return;
+  }
+  
   carregandoFoto.value = true;
   try {
     const arquivoComprimido = await comprimirImagem(

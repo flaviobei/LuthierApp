@@ -85,11 +85,17 @@ const faturamentoMes = computed(() =>
 
 const despesasMes = computed(() =>
   transacoesMesAtual.value
-    .filter((t) => t.tipo === "Saida")
+    .filter((t) => t.tipo === "Saida" || t.tipo === "Saída")
     .reduce((acc, t) => acc + Number(t.valor_bruto), 0),
 );
 
-const lucroMes = computed(() => faturamentoMes.value - despesasMes.value);
+const taxasMes = computed(() =>
+  transacoesMesAtual.value
+    .filter((t) => t.tipo === "Entrada")
+    .reduce((acc, t) => acc + (Number(t.taxa_taxa) || 0), 0),
+);
+
+const lucroMes = computed(() => (faturamentoMes.value - taxasMes.value) - despesasMes.value);
 
 const totalFaturamentoParado = computed(() => {
   return faturamentoParado.value.reduce((acc, os) => acc + os.saldoDevedor, 0);
@@ -244,7 +250,7 @@ const ultimos6Meses = computed(() => {
     );
     if (index !== -1) {
       if (t.tipo === "Entrada") meses[index].entrada += Number(t.valor_bruto);
-      if (t.tipo === "Saida") meses[index].saida += Number(t.valor_bruto);
+      if (t.tipo === "Saida" || t.tipo === "Saída") meses[index].saida += Number(t.valor_bruto);
     }
   });
   return meses;
@@ -285,7 +291,7 @@ const dadosTemporais = computed(() => {
         diasAgrupados[labelStr] = { ganhos: 0, gastos: 0, dateObj: d };
       if (t.tipo === "Entrada")
         diasAgrupados[labelStr].ganhos += Number(t.valor_bruto);
-      else if (t.tipo === "Saida")
+      else if (t.tipo === "Saida" || t.tipo === "Saída")
         diasAgrupados[labelStr].gastos += Number(t.valor_bruto);
     }
   });
