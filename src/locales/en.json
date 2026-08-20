@@ -251,7 +251,12 @@
     "tempo_retrabalho": "Time (Rework)",
     "na_bancada_ativas": "Workbench (Active)",
     "os_qtd": "{qtd} W.O.",
-    "taxa_retrabalho": "Rework Rate"
+    "taxa_retrabalho": "Rework Rate",
+    "todo_historico": "All History",
+    "ultimos_6_meses": "Last 6 Months",
+    "mostrar_6_meses": "Show 6 Months",
+    "carregar_tudo": "Load All",
+    "periodo_producao": "Production Period"
   },
   "servicos": {
     "erro_descricao_vazia": "Describe the client's request or problem.",

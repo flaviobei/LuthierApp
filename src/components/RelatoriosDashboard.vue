@@ -688,17 +688,19 @@ onUnmounted(() => {
       </div>
 
       <div class="producao-grid">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: bold;">
-            {{ mostrarTodoHistoricoProd ? 'Todo o Histórico' : 'Últimos 6 Meses' }}
+        <div class="card" style="margin-bottom: 0; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.85rem; color: var(--text-main); font-weight: bold; display: flex; align-items: center; gap: 6px;">
+            <span class="icon-dinamico" style="font-size: 1rem; color: var(--text-muted);">date_range</span>
+            {{ mostrarTodoHistoricoProd ? $t('dashboard.todo_historico') : $t('dashboard.ultimos_6_meses') }}
           </span>
           <button 
             type="button" 
             class="btn-outline" 
-            style="padding: 2px 8px; font-size: 0.75rem;" 
+            style="padding: 4px 10px; font-size: 0.75rem; display: flex; align-items: center; gap: 4px;" 
             @click="mostrarTodoHistoricoProd = !mostrarTodoHistoricoProd"
           >
-            {{ mostrarTodoHistoricoProd ? 'Mostrar 6 Meses' : 'Carregar Tudo' }}
+            <span class="icon-dinamico" style="font-size: 0.9rem;">{{ mostrarTodoHistoricoProd ? 'filter_alt' : 'history' }}</span>
+            {{ mostrarTodoHistoricoProd ? $t('dashboard.mostrar_6_meses') : $t('dashboard.carregar_tudo') }}
           </button>
         </div>
         <div class="card kpi-prod">

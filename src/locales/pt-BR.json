@@ -251,7 +251,12 @@
     "tempo_retrabalho": "Tempo (Retrabalho)",
     "na_bancada_ativas": "Na Bancada (Ativas)",
     "os_qtd": "{qtd} O.S.",
-    "taxa_retrabalho": "Taxa de Retrabalho"
+    "taxa_retrabalho": "Taxa de Retrabalho",
+    "todo_historico": "Todo o Histórico",
+    "ultimos_6_meses": "Últimos 6 Meses",
+    "mostrar_6_meses": "Mostrar 6 Meses",
+    "carregar_tudo": "Carregar Tudo",
+    "periodo_producao": "Período de Produção"
   },
   "servicos": {
     "erro_descricao_vazia": "Descreva o pedido ou problema do cliente.",

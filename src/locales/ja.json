@@ -251,7 +251,12 @@
     "tempo_retrabalho": "時間 (再作業)",
     "na_bancada_ativas": "作業台中 (アクティブ)",
     "os_qtd": "{qtd} O.S.",
-    "taxa_retrabalho": "再作業率"
+    "taxa_retrabalho": "再作業率",
+    "todo_historico": "All History",
+    "ultimos_6_meses": "Last 6 Months",
+    "mostrar_6_meses": "Show 6 Months",
+    "carregar_tudo": "Load All",
+    "periodo_producao": "Production Period"
   },
   "servicos": {
     "erro_descricao_vazia": "顧客の要望や問題について説明を記入してください。",

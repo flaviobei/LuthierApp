@@ -251,7 +251,12 @@
     "tempo_retrabalho": "Temps (Reprise)",
     "na_bancada_ativas": "Sur l'Établi (Actives)",
     "os_qtd": "{qtd} O.S.",
-    "taxa_retrabalho": "Taux de Reprise"
+    "taxa_retrabalho": "Taux de Reprise",
+    "todo_historico": "All History",
+    "ultimos_6_meses": "Last 6 Months",
+    "mostrar_6_meses": "Show 6 Months",
+    "carregar_tudo": "Load All",
+    "periodo_producao": "Production Period"
   },
   "servicos": {
     "erro_descricao_vazia": "Décrivez la demande ou le problème du client.",

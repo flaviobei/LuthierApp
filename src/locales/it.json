@@ -251,7 +251,12 @@
     "tempo_retrabalho": "Tempo (Rilavorazione)",
     "na_bancada_ativas": "Sul Banco (Attive)",
     "os_qtd": "{qtd} O.L.",
-    "taxa_retrabalho": "Tasso di Rilavorazione"
+    "taxa_retrabalho": "Tasso di Rilavorazione",
+    "todo_historico": "All History",
+    "ultimos_6_meses": "Last 6 Months",
+    "mostrar_6_meses": "Show 6 Months",
+    "carregar_tudo": "Load All",
+    "periodo_producao": "Production Period"
   },
   "servicos": {
     "erro_descricao_vazia": "Descrivi la richiesta o il problema del cliente.",
