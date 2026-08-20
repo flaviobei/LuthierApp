@@ -106,10 +106,25 @@ const totalReceberGlobal = computed(() => {
 });
 
 // --- KPIs DE PRODUÇÃO ---
+const mostrarTodoHistoricoProd = ref(false);
+
+const servicosParaMétricas = computed(() => {
+  if (mostrarTodoHistoricoProd.value) return servicos.value;
+  
+  const dataCorte = new Date();
+  dataCorte.setMonth(dataCorte.getMonth() - 6);
+
+  return servicos.value.filter(s => {
+    if (s.status !== "Entregue" && s.status !== "Finalizado") return true;
+    if (!s.data_conclusao) return true;
+    const dataConc = new Date(s.data_conclusao + (s.data_conclusao.includes("T") ? "" : "T12:00:00"));
+    return dataConc >= dataCorte;
+  });
+});
 
 const osEmAndamento = computed(
   () =>
-    servicos.value.filter(
+    servicosParaMétricas.value.filter(
       (s) => s.status !== "Entregue" && s.status !== "Finalizado",
     ).length,
 );
@@ -128,7 +143,7 @@ const osFinalizadasMes = computed(() => {
 
 // Tempo Médio GERAL
 const tempoMedioServico = computed(() => {
-  const concluidos = servicos.value.filter(
+  const concluidos = servicosParaMétricas.value.filter(
     (s) =>
       (s.status === "Entregue" || s.status === "Finalizado") &&
       s.data_entrada &&
@@ -157,7 +172,7 @@ const tempoMedioServico = computed(() => {
 
 // Tempo Médio RETRABALHO
 const tempoMedioRetrabalho = computed(() => {
-  const concluidos = servicos.value.filter(
+  const concluidos = servicosParaMétricas.value.filter(
     (s) =>
       (s.status === "Entregue" || s.status === "Finalizado") &&
       s.data_entrada &&
@@ -219,7 +234,7 @@ const dadosMarcas = computed(() => {
 const dadosTiposOS = computed(() => {
   let retrabalho = 0;
   let normal = 0;
-  servicos.value.forEach((s) => {
+  servicosParaMétricas.value.forEach((s) => {
     if (s.tipo_os === "Retrabalho") retrabalho++;
     else normal++;
   });
@@ -466,6 +481,10 @@ watch([tipoGraficoDash, periodoTemporal], () => {
   nextTick(() => construirGraficoDash());
 });
 
+watch(mostrarTodoHistoricoProd, () => {
+  nextTick(() => construirGraficosAvancados());
+});
+
 onMounted(async () => {
   await carregarDados();
   construirGraficoDash();
@@ -669,6 +688,19 @@ onUnmounted(() => {
       </div>
 
       <div class="producao-grid">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: bold;">
+            {{ mostrarTodoHistoricoProd ? 'Todo o Histórico' : 'Últimos 6 Meses' }}
+          </span>
+          <button 
+            type="button" 
+            class="btn-outline" 
+            style="padding: 2px 8px; font-size: 0.75rem;" 
+            @click="mostrarTodoHistoricoProd = !mostrarTodoHistoricoProd"
+          >
+            {{ mostrarTodoHistoricoProd ? 'Mostrar 6 Meses' : 'Carregar Tudo' }}
+          </button>
+        </div>
         <div class="card kpi-prod">
           <div class="icon">
             <span class="icon-dinamico" style="color: var(--primary)"
