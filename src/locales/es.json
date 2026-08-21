@@ -256,7 +256,12 @@
     "ultimos_6_meses": "Últimos 6 Meses",
     "mostrar_6_meses": "Mostrar 6 Meses",
     "carregar_tudo": "Cargar Todo",
-    "periodo_producao": "Período de Producción"
+    "periodo_producao": "Período de Producción",
+    "tres_meses": "3 Meses",
+    "todo_periodo": "Todo el Período",
+    "faturamento_periodo": "Facturación",
+    "custos_periodo": "Costos",
+    "lucro_periodo": "Beneficio Neto"
   },
   "servicos": {
     "erro_descricao_vazia": "Describa el pedido o problema del cliente.",

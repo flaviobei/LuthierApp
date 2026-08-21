@@ -64,38 +64,53 @@ async function carregarDados() {
   loading.value = false;
 }
 
-// --- KPIs GERAIS (MÊS ATUAL) ---
-const mesAtual = new Date().getMonth();
-const anoAtual = new Date().getFullYear();
-
-const transacoesMesAtual = computed(() => {
+// --- FILTROS GERAIS ---
+const transacoesFiltradas = computed(() => {
+  if (periodoGlobal.value === 9999) return transacoes.value;
+  const dataCorte = new Date();
+  dataCorte.setMonth(dataCorte.getMonth() - periodoGlobal.value);
+  const dataCorteTime = dataCorte.getTime();
+  
   return transacoes.value.filter((t) => {
-    const d = new Date(
-      t.data_pagamento + (t.data_pagamento.includes("T") ? "" : "T12:00:00"),
-    );
-    return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+    const d = new Date(t.data_pagamento + (t.data_pagamento.includes("T") ? "" : "T12:00:00")).getTime();
+    return d >= dataCorteTime;
   });
 });
 
-const faturamentoMes = computed(() =>
-  transacoesMesAtual.value
+const servicosFiltrados = computed(() => {
+  if (periodoGlobal.value === 9999) return servicos.value;
+  const dataCorte = new Date();
+  dataCorte.setMonth(dataCorte.getMonth() - periodoGlobal.value);
+  const dataCorteTime = dataCorte.getTime();
+
+  return servicos.value.filter((s) => {
+    if (s.status !== "Entregue" && s.status !== "Finalizado") return true;
+    if (!s.data_conclusao) return true;
+    const d = new Date(s.data_conclusao + (s.data_conclusao.includes("T") ? "" : "T12:00:00")).getTime();
+    return d >= dataCorteTime;
+  });
+});
+
+// --- KPIs FINANCEIROS ---
+const faturamentoPeriodo = computed(() =>
+  transacoesFiltradas.value
     .filter((t) => t.tipo === "Entrada")
     .reduce((acc, t) => acc + Number(t.valor_bruto), 0),
 );
 
-const despesasMes = computed(() =>
-  transacoesMesAtual.value
+const despesasPeriodo = computed(() =>
+  transacoesFiltradas.value
     .filter((t) => t.tipo === "Saida" || t.tipo === "Saída")
     .reduce((acc, t) => acc + Number(t.valor_bruto), 0),
 );
 
-const taxasMes = computed(() =>
-  transacoesMesAtual.value
+const taxasPeriodo = computed(() =>
+  transacoesFiltradas.value
     .filter((t) => t.tipo === "Entrada")
     .reduce((acc, t) => acc + (Number(t.taxa_taxa) || 0), 0),
 );
 
-const lucroMes = computed(() => (faturamentoMes.value - taxasMes.value) - despesasMes.value);
+const lucroPeriodo = computed(() => (faturamentoPeriodo.value - taxasPeriodo.value) - despesasPeriodo.value);
 
 const totalFaturamentoParado = computed(() => {
   return faturamentoParado.value.reduce((acc, os) => acc + os.saldoDevedor, 0);
@@ -106,44 +121,16 @@ const totalReceberGlobal = computed(() => {
 });
 
 // --- KPIs DE PRODUÇÃO ---
-const mostrarTodoHistoricoProd = ref(false);
-
-const servicosParaMétricas = computed(() => {
-  if (mostrarTodoHistoricoProd.value) return servicos.value;
-  
-  const dataCorte = new Date();
-  dataCorte.setMonth(dataCorte.getMonth() - 6);
-
-  return servicos.value.filter(s => {
-    if (s.status !== "Entregue" && s.status !== "Finalizado") return true;
-    if (!s.data_conclusao) return true;
-    const dataConc = new Date(s.data_conclusao + (s.data_conclusao.includes("T") ? "" : "T12:00:00"));
-    return dataConc >= dataCorte;
-  });
-});
-
 const osEmAndamento = computed(
   () =>
-    servicosParaMétricas.value.filter(
+    servicosFiltrados.value.filter(
       (s) => s.status !== "Entregue" && s.status !== "Finalizado",
     ).length,
 );
 
-const osFinalizadasMes = computed(() => {
-  return servicos.value.filter((s) => {
-    if (s.status !== "Entregue" && s.status !== "Finalizado") return false;
-    if (!s.data_conclusao) return false;
-
-    const d = new Date(
-      s.data_conclusao + (s.data_conclusao.includes("T") ? "" : "T12:00:00"),
-    );
-    return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
-  }).length;
-});
-
 // Tempo Médio GERAL
 const tempoMedioServico = computed(() => {
-  const concluidos = servicosParaMétricas.value.filter(
+  const concluidos = servicosFiltrados.value.filter(
     (s) =>
       (s.status === "Entregue" || s.status === "Finalizado") &&
       s.data_entrada &&
@@ -172,7 +159,7 @@ const tempoMedioServico = computed(() => {
 
 // Tempo Médio RETRABALHO
 const tempoMedioRetrabalho = computed(() => {
-  const concluidos = servicosParaMétricas.value.filter(
+  const concluidos = servicosFiltrados.value.filter(
     (s) =>
       (s.status === "Entregue" || s.status === "Finalizado") &&
       s.data_entrada &&
@@ -204,9 +191,9 @@ const tempoMedioRetrabalho = computed(() => {
 // Ranking de Marcas (Top 5 Faturamento)
 const dadosMarcas = computed(() => {
   const agregados = {};
-  transacoes.value.forEach((t) => {
+  transacoesFiltradas.value.forEach((t) => {
     if (t.tipo === "Entrada") {
-      const svc = servicos.value.find((s) => s.id === t.servico_id);
+      const svc = servicosFiltrados.value.find((s) => s.id === t.servico_id);
       let marca = svc?.instrumentos?.marca;
       if (!marca || typeof marca !== "string" || marca.trim() === "") {
         marca = t('dashboard.outras_marcas');
@@ -234,7 +221,7 @@ const dadosMarcas = computed(() => {
 const dadosTiposOS = computed(() => {
   let retrabalho = 0;
   let normal = 0;
-  servicosParaMétricas.value.forEach((s) => {
+  servicosFiltrados.value.forEach((s) => {
     if (s.tipo_os === "Retrabalho") retrabalho++;
     else normal++;
   });
@@ -273,15 +260,17 @@ const ultimos6Meses = computed(() => {
 
 const dadosTemporais = computed(() => {
   const trintaDiasAtras = new Date();
-  if (periodoTemporal.value === 9999) {
+  const diasParaReduzir = periodoGlobal.value === 3 ? 90 : (periodoGlobal.value === 6 ? 180 : 9999);
+  
+  if (diasParaReduzir === 9999) {
     trintaDiasAtras.setFullYear(trintaDiasAtras.getFullYear() - 20);
   } else {
-    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - periodoTemporal.value);
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - diasParaReduzir);
   }
   trintaDiasAtras.setHours(0, 0, 0, 0);
 
   const diasAgrupados = {};
-  const agruparPorMes = periodoTemporal.value >= 180;
+  const agruparPorMes = diasParaReduzir >= 180;
 
   transacoes.value.forEach((t) => {
     const d = new Date(
@@ -343,7 +332,7 @@ function construirGraficoDash() {
   const ctx = graficoDashRef.value.getContext("2d");
 
   if (tipoGraficoDash.value === "resumo") {
-    const dados = ultimos6Meses.value;
+    const dados = evolucaoMensal.value;
     instanceGraficoDash = new Chart(ctx, {
       type: "bar",
       data: {
@@ -371,7 +360,7 @@ function construirGraficoDash() {
     });
   } else if (tipoGraficoDash.value === "temporal") {
     const dados = dadosTemporais.value;
-    const isAgrupadoPorMes = periodoTemporal.value >= 180;
+    const isAgrupadoPorMes = periodoGlobal.value !== 3;
     instanceGraficoDash = new Chart(ctx, {
       type: "line",
       data: {
@@ -529,10 +518,10 @@ onUnmounted(() => {
             style="font-size: 1.1rem; color: var(--primary)"
             >account_balance_wallet</span
           >
-          {{ $t('dashboard.faturamento_mes') }}
+          {{ $t('dashboard.faturamento_periodo') }}
         </span>
         <strong class="kpi-value text-primary"
-          >R$ {{ faturamentoMes.toFixed(2) }}</strong
+          >R$ {{ faturamentoPeriodo.toFixed(2) }}</strong
         >
       </div>
       <div class="kpi-card">
@@ -545,10 +534,10 @@ onUnmounted(() => {
             style="font-size: 1.1rem; color: var(--danger)"
             >money_off</span
           >
-          {{ $t('dashboard.custos_mes') }}
+          {{ $t('dashboard.custos_periodo') }}
         </span>
         <strong class="kpi-value text-danger"
-          >R$ {{ despesasMes.toFixed(2) }}</strong
+          >R$ {{ despesasPeriodo.toFixed(2) }}</strong
         >
       </div>
       <div class="kpi-card highlight">
@@ -559,9 +548,9 @@ onUnmounted(() => {
           <span class="icon-dinamico" style="font-size: 1.1rem"
             >trending_up</span
           >
-          {{ $t('dashboard.lucro_liquido_mes') }}
+          {{ $t('dashboard.lucro_periodo') }}
         </span>
-        <strong class="kpi-value">R$ {{ lucroMes.toFixed(2) }}</strong>
+        <strong class="kpi-value">R$ {{ lucroPeriodo.toFixed(2) }}</strong>
       </div>
       <div class="kpi-card">
         <span

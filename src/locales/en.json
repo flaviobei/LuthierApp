@@ -256,7 +256,12 @@
     "ultimos_6_meses": "Last 6 Months",
     "mostrar_6_meses": "Show 6 Months",
     "carregar_tudo": "Load All",
-    "periodo_producao": "Production Period"
+    "periodo_producao": "Production Period",
+    "tres_meses": "3 Months",
+    "todo_periodo": "All Period",
+    "faturamento_periodo": "Revenue",
+    "custos_periodo": "Costs",
+    "lucro_periodo": "Net Profit"
   },
   "servicos": {
     "erro_descricao_vazia": "Describe the client's request or problem.",
