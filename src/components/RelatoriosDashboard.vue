@@ -13,21 +13,6 @@ import Chart from "chart.js/auto";
 import { osService } from "../services/osService";
 import { useI18n } from "vue-i18n";
 
-<script setup>
-/**
- * ============================================================================
- * @file        RelatoriosDashboard.vue
- * @description Dashboard analítico avançado. Focado em métricas de performance
- * financeira e operacional para auxílio na tomada de decisão.
- * ============================================================================
- */
-
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import { supabase } from "../lib/supabaseClient";
-import Chart from "chart.js/auto";
-import { osService } from "../services/osService";
-import { useI18n } from "vue-i18n";
-
 const transacoes = ref([]);
 const servicos = ref([]);
 const faturamentoParado = ref([]);
