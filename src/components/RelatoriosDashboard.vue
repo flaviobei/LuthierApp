@@ -20,7 +20,7 @@ const recebiveisBancada = ref({ totalRecebivel: 0, quantidade: 0 });
 const loading = ref(true);
 
 const tipoGraficoDash = ref("resumo");
-const periodoGlobal = ref(6);
+const periodoGlobal = ref(0);
 const graficoDashRef = ref(null);
 const graficoMarcasRef = ref(null);
 const graficoTiposRef = ref(null);
@@ -67,6 +67,16 @@ async function carregarDados() {
 // --- FILTROS GERAIS ---
 const transacoesFiltradas = computed(() => {
   if (periodoGlobal.value === 9999) return transacoes.value;
+  
+  if (periodoGlobal.value === 0) {
+    const mesAtual = new Date().getMonth();
+    const anoAtual = new Date().getFullYear();
+    return transacoes.value.filter((t) => {
+      const d = new Date(t.data_pagamento + (t.data_pagamento.includes("T") ? "" : "T12:00:00"));
+      return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+    });
+  }
+
   const dataCorte = new Date();
   dataCorte.setMonth(dataCorte.getMonth() - periodoGlobal.value);
   const dataCorteTime = dataCorte.getTime();
@@ -79,6 +89,18 @@ const transacoesFiltradas = computed(() => {
 
 const servicosFiltrados = computed(() => {
   if (periodoGlobal.value === 9999) return servicos.value;
+
+  if (periodoGlobal.value === 0) {
+    const mesAtual = new Date().getMonth();
+    const anoAtual = new Date().getFullYear();
+    return servicos.value.filter((s) => {
+      if (s.status !== "Entregue" && s.status !== "Finalizado") return true;
+      if (!s.data_conclusao) return true;
+      const d = new Date(s.data_conclusao + (s.data_conclusao.includes("T") ? "" : "T12:00:00"));
+      return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+    });
+  }
+
   const dataCorte = new Date();
   dataCorte.setMonth(dataCorte.getMonth() - periodoGlobal.value);
   const dataCorteTime = dataCorte.getTime();
@@ -230,7 +252,7 @@ const dadosTiposOS = computed(() => {
 
 // Evolução Mensal (Bar Chart)
 const evolucaoMensal = computed(() => {
-  const numMeses = periodoGlobal.value === 9999 ? 12 : periodoGlobal.value;
+  const numMeses = periodoGlobal.value === 9999 ? 12 : (periodoGlobal.value === 0 ? 1 : periodoGlobal.value);
   const meses = [];
   for (let i = numMeses - 1; i >= 0; i--) {
     const d = new Date();
@@ -261,7 +283,7 @@ const evolucaoMensal = computed(() => {
 
 const dadosTemporais = computed(() => {
   const trintaDiasAtras = new Date();
-  const diasParaReduzir = periodoGlobal.value === 3 ? 90 : (periodoGlobal.value === 6 ? 180 : 9999);
+  const diasParaReduzir = periodoGlobal.value === 3 ? 90 : (periodoGlobal.value === 6 ? 180 : (periodoGlobal.value === 0 ? 30 : 9999));
   
   if (diasParaReduzir === 9999) {
     trintaDiasAtras.setFullYear(trintaDiasAtras.getFullYear() - 20);
@@ -513,6 +535,9 @@ onUnmounted(() => {
         {{ $t('dashboard.periodo_producao', 'Período de Análise') }}
       </span>
       <div style="display: flex; gap: 5px;">
+        <button type="button" class="btn-tab" :class="{ active: periodoGlobal === 0 }" @click="periodoGlobal = 0" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 4px;">
+          {{ $t('dashboard.mes_atual', 'Mês Atual') }}
+        </button>
         <button type="button" class="btn-tab" :class="{ active: periodoGlobal === 3 }" @click="periodoGlobal = 3" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 4px;">
           {{ $t('dashboard.tres_meses') }}
         </button>

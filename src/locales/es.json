@@ -261,7 +261,8 @@
     "todo_periodo": "Todo el Período",
     "faturamento_periodo": "Facturación",
     "custos_periodo": "Costos",
-    "lucro_periodo": "Beneficio Neto"
+    "lucro_periodo": "Beneficio Neto",
+    "mes_atual": "Mes Actual"
   },
   "servicos": {
     "erro_descricao_vazia": "Describa el pedido o problema del cliente.",

@@ -261,7 +261,8 @@
     "todo_periodo": "All Period",
     "faturamento_periodo": "Revenue",
     "custos_periodo": "Costs",
-    "lucro_periodo": "Net Profit"
+    "lucro_periodo": "Net Profit",
+    "mes_atual": "Current Month"
   },
   "servicos": {
     "erro_descricao_vazia": "Describe the client's request or problem.",

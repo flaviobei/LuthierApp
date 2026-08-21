@@ -261,7 +261,8 @@
     "todo_periodo": "Todo o Período",
     "faturamento_periodo": "Faturamento",
     "custos_periodo": "Custos",
-    "lucro_periodo": "Lucro Líquido"
+    "lucro_periodo": "Lucro Líquido",
+    "mes_atual": "Mês Atual"
   },
   "servicos": {
     "erro_descricao_vazia": "Descreva o pedido ou problema do cliente.",
