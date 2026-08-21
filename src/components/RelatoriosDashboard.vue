@@ -20,7 +20,7 @@ const recebiveisBancada = ref({ totalRecebivel: 0, quantidade: 0 });
 const loading = ref(true);
 
 const tipoGraficoDash = ref("resumo");
-const periodoTemporal = ref(90);
+const periodoGlobal = ref(6);
 const graficoDashRef = ref(null);
 const graficoMarcasRef = ref(null);
 const graficoTiposRef = ref(null);
@@ -228,10 +228,11 @@ const dadosTiposOS = computed(() => {
   return [normal, retrabalho];
 });
 
-// Evolução 6 Meses
-const ultimos6Meses = computed(() => {
+// Evolução Mensal (Bar Chart)
+const evolucaoMensal = computed(() => {
+  const numMeses = periodoGlobal.value === 9999 ? 12 : periodoGlobal.value;
   const meses = [];
-  for (let i = 5; i >= 0; i--) {
+  for (let i = numMeses - 1; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
     meses.push({
@@ -466,12 +467,11 @@ function construirGraficosAvancados() {
   }
 }
 
-watch([tipoGraficoDash, periodoTemporal], () => {
-  nextTick(() => construirGraficoDash());
-});
-
-watch(mostrarTodoHistoricoProd, () => {
-  nextTick(() => construirGraficosAvancados());
+watch([tipoGraficoDash, periodoGlobal], () => {
+  nextTick(() => {
+    construirGraficoDash();
+    construirGraficosAvancados();
+  });
 });
 
 onMounted(async () => {
@@ -622,21 +622,7 @@ onUnmounted(() => {
             >
             {{ $t('dashboard.curva') }}
           </button>
-          <select
-            v-if="tipoGraficoDash === 'temporal'"
-            v-model="periodoTemporal"
-            style="
-              padding: 4px 8px;
-              font-size: 0.8rem;
-              border-radius: 4px;
-              border: 1px solid var(--border);
-            "
-          >
-            <option :value="90">{{ $t('dashboard.noventa_dias') }}</option>
-            <option :value="180">{{ $t('dashboard.seis_meses') }}</option>
-            <option :value="365">{{ $t('dashboard.um_ano') }}</option>
-            <option :value="9999">{{ $t('dashboard.tudo') }}</option>
-          </select>
+
         </div>
       </div>
       <div class="chart-wrapper" style="height: 250px">
@@ -677,21 +663,7 @@ onUnmounted(() => {
       </div>
 
       <div class="producao-grid">
-        <div class="card" style="margin-bottom: 0; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.85rem; color: var(--text-main); font-weight: bold; display: flex; align-items: center; gap: 6px;">
-            <span class="icon-dinamico" style="font-size: 1rem; color: var(--text-muted);">date_range</span>
-            {{ mostrarTodoHistoricoProd ? $t('dashboard.todo_historico') : $t('dashboard.ultimos_6_meses') }}
-          </span>
-          <button 
-            type="button" 
-            class="btn-outline" 
-            style="padding: 4px 10px; font-size: 0.75rem; display: flex; align-items: center; gap: 4px;" 
-            @click="mostrarTodoHistoricoProd = !mostrarTodoHistoricoProd"
-          >
-            <span class="icon-dinamico" style="font-size: 0.9rem;">{{ mostrarTodoHistoricoProd ? 'filter_alt' : 'history' }}</span>
-            {{ mostrarTodoHistoricoProd ? $t('dashboard.mostrar_6_meses') : $t('dashboard.carregar_tudo') }}
-          </button>
-        </div>
+
         <div class="card kpi-prod">
           <div class="icon">
             <span class="icon-dinamico" style="color: var(--primary)"
