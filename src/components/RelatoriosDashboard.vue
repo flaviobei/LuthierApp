@@ -507,6 +507,23 @@ onUnmounted(() => {
   </div>
 
   <div v-else class="relatorios-container">
+    <div class="card" style="padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 0;">
+      <span style="font-size: 0.9rem; color: var(--text-main); font-weight: bold; display: flex; align-items: center; gap: 6px;">
+        <span class="icon-dinamico" style="font-size: 1.2rem; color: var(--primary);">date_range</span>
+        {{ $t('dashboard.periodo_producao', 'Período de Análise') }}
+      </span>
+      <div style="display: flex; gap: 5px;">
+        <button type="button" class="btn-tab" :class="{ active: periodoGlobal === 3 }" @click="periodoGlobal = 3" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 4px;">
+          {{ $t('dashboard.tres_meses') }}
+        </button>
+        <button type="button" class="btn-tab" :class="{ active: periodoGlobal === 6 }" @click="periodoGlobal = 6" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 4px;">
+          {{ $t('dashboard.seis_meses') }}
+        </button>
+        <button type="button" class="btn-tab" :class="{ active: periodoGlobal === 9999 }" @click="periodoGlobal = 9999" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 4px;">
+          {{ $t('dashboard.todo_periodo') }}
+        </button>
+      </div>
+    </div>
     <div class="kpi-grid">
       <div class="kpi-card">
         <span
