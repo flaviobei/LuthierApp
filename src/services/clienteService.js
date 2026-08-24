@@ -136,9 +136,12 @@ export const clienteService = {
     const payload = this.validarPayload(dadosCliente);
     if (!payload.nome) throw new Error("O nome do cliente é obrigatório para criação.");
 
+    const user = await supabase.auth.getUser();
+    if (!user.data.user) throw new Error("Usuário não autenticado");
+
     const { data, error } = await supabase
       .from("clientes")
-      .insert([payload])
+      .insert([{ ...payload, user_id: user.data.user.id }])
       .select();
 
     if (error) throw error;

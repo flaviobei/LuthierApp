@@ -308,6 +308,7 @@
     "gerenciar": "Manage"
   },
   "instrumentos": {
+    "erro_cliente_invalido": "Invalid client or no access permission.",
     "foto_sucesso": "Photo attached successfully!",
     "erro_subir_foto": "Error uploading photo: ",
     "erro_marca_modelo": "Fill in the brand and model of the instrument.",

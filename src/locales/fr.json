@@ -308,6 +308,7 @@
     "gerenciar": "Gérer"
   },
   "instrumentos": {
+    "erro_cliente_invalido": "Client invalide ou sans autorisation d'accès.",
     "foto_sucesso": "Photo jointe avec succès !",
     "erro_subir_foto": "Erreur lors du téléchargement de la photo : ",
     "erro_marca_modelo": "Renseignez la marque et le modèle de l'instrument.",

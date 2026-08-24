@@ -308,6 +308,7 @@
     "gerenciar": "管理"
   },
   "instrumentos": {
+    "erro_cliente_invalido": "無効なクライアント、またはアクセス権限がありません。",
     "foto_sucesso": "写真が正常に添付されました！",
     "erro_subir_foto": "写真のアップロードエラー: ",
     "erro_marca_modelo": "楽器のブランドとモデルを入力してください。",

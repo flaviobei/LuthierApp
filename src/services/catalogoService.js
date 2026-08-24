@@ -55,7 +55,12 @@ export const catalogoService = {
       if (error) throw error;
       return data[0];
     } else {
-      const { data, error } = await query.insert([payload]).select();
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) throw new Error("Usuário não autenticado");
+
+      const { data, error } = await query
+        .insert([{ ...payload, user_id: user.data.user.id }])
+        .select();
       if (error) throw error;
       return data[0];
     }

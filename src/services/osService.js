@@ -264,6 +264,9 @@ export const osService = {
     const osOriginal = await this.buscarPorId(osOriginalId);
     if (!osOriginal) throw new Error("O.S. original não encontrada.");
 
+    const user = await supabase.auth.getUser();
+    if (!user.data.user) throw new Error("Usuário não autenticado");
+
     // Monta o "esqueleto" da nova O.S. de Retrabalho usando OS NOMES CORRETOS do seu BD
     const novaOS = {
       instrumento_id: osOriginal.instrumento_id,
@@ -274,6 +277,7 @@ export const osService = {
       tipo_os: "Retrabalho",
       os_origem_id: osOriginal.id,
       motivo_retorno: motivo,
+      user_id: user.data.user.id,
       // Se tiver outros campos que deseja copiar (ex: relatorio_tecnico), insira-os aqui, mas vazios.
     };
 

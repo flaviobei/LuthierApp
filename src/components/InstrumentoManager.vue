@@ -146,7 +146,16 @@ async function salvarInstrumento() {
     erroLocal = error;
   } else {
     // Insere novo
-    const { error } = await supabase.from("instrumentos").insert([payload]);
+    const user = await supabase.auth.getUser();
+    if (!user.data.user) {
+      triggerToast(t('instrumentos.erro_salvar') + "Usuário não autenticado", "error");
+      loading.value = false;
+      return;
+    }
+
+    const { error } = await supabase
+      .from("instrumentos")
+      .insert([{ ...payload, user_id: user.data.user.id }]);
     erroLocal = error;
   }
 
@@ -160,7 +169,10 @@ async function salvarInstrumento() {
     cancelarEdicao();
     buscarInstrumentos();
   } else {
-    triggerToast(t('instrumentos.erro_salvar') + erroLocal.message, "error");
+    const mensagemAmigavel = erroLocal.message.includes("row-level security")
+      ? t('instrumentos.erro_cliente_invalido')
+      : erroLocal.message;
+    triggerToast(t('instrumentos.erro_salvar') + mensagemAmigavel, "error");
   }
 }
 

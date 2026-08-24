@@ -308,6 +308,7 @@
     "gerenciar": "Gestionar"
   },
   "instrumentos": {
+    "erro_cliente_invalido": "Cliente no válido o sin permiso de acceso.",
     "foto_sucesso": "¡Foto adjuntada con éxito!",
     "erro_subir_foto": "Error al subir foto: ",
     "erro_marca_modelo": "Complete la marca y el modelo del instrumento.",
