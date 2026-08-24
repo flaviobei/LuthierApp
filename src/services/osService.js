@@ -7,6 +7,20 @@
 import { supabase } from "../lib/supabaseClient";
 
 export const osService = {
+  corFase(fase) {
+    switch (fase) {
+      case "Fila de Espera": return "var(--text-muted)";
+      case "Aguardando Peças": return "var(--danger)";
+      case "Secagem / Cura": return "#6f42c1";
+      case "Na Bancada": return "var(--primary)";
+      case "Testes / Setup": return "#17a2b8";
+      case "Pronto para Entrega": return "var(--success)";
+      case "Entregue": return "#28a745";
+      case "Finalizado": return "#28a745";
+      default: return "var(--warning)";
+    }
+  },
+
   /** 1. Busca pendências detalhadas para o Dashboard */
   async buscarPendenciasDash() {
     const { data, error } = await supabase
@@ -272,5 +286,31 @@ export const osService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /** 8. Busca histórico completo de O.S. de um Cliente (Perfil) */
+  async buscarServicosPorCliente(clienteId) {
+    const { data, error } = await supabase
+      .from("servicos")
+      .select(`
+        *,
+        instrumentos!inner ( cliente_id, marca, modelo ),
+        orcamento_itens ( valor ),
+        transacoes ( valor_bruto, tipo )
+      `)
+      .eq("instrumentos.cliente_id", clienteId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return data.map((os) => {
+      const totalOrcamento = os.orcamento_itens?.reduce((acc, item) => acc + (Number(item.valor) || 0), 0) || 0;
+      const totalPago = os.transacoes?.filter(t => t.tipo === "Entrada").reduce((acc, t) => acc + (Number(t.valor_bruto) || 0), 0) || 0;
+      return {
+        ...os,
+        totalOrcamento,
+        totalPago
+      };
+    });
   },
 };

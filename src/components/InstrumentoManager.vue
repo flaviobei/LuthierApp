@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
 import { comprimirImagem } from "../lib/imageUtils"; // Importamos o compressor de imagens
@@ -24,6 +24,7 @@ const loading = ref(false);
 const isEditing = ref(false);
 const editId = ref(null);
 const uploadingFoto = ref(false);
+const mostrarModalForm = ref(false);
 
 const form = ref({
   tipo: "Guitarra",
@@ -96,11 +97,13 @@ function iniciarEdicao(inst) {
     observacoes: inst.observacoes || "",
     foto_url: inst.foto_url || "",
   };
+  mostrarModalForm.value = true;
 }
 
 function cancelarEdicao() {
   isEditing.value = false;
   editId.value = null;
+  mostrarModalForm.value = false;
   form.value = {
     tipo: "Guitarra",
     marca: "",
@@ -162,24 +165,18 @@ async function salvarInstrumento() {
 }
 
 onMounted(() => buscarInstrumentos());
+
+watch(() => props.clienteId, (newId) => {
+  if (newId) buscarInstrumentos();
+});
 </script>
 
 <template>
   <div class="card">
     <div class="flex-between mb-2">
-      <h3
-        class="title-section"
-        style="
-          margin: 0;
-          border: none;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        "
-      >
-        <span class="icon-dinamico">music_note</span> {{ $t('instrumentos.titulo') }}
-        {{ clienteNome }}
-      </h3>
+        <button type="button" class="btn-primary" @click="mostrarModalForm = true; isEditing = false; form = {tipo:'Guitarra', marca:'', modelo:'', numero_serie:'', afinacao:'E Standard', observacoes:'', foto_url:''}">
+        <span class="icon-dinamico">add</span> {{ $t('instrumentos.novo_curto') }}
+      </button>
     </div>
 
     <div v-if="instrumentos.length > 0" class="lista-instrumentos mb-2">
@@ -188,70 +185,58 @@ onMounted(() => buscarInstrumentos());
         :key="inst.id"
         class="box mb-1 instrumento-card"
       >
-        <div
-          class="inst-content"
-          style="display: flex; gap: 15px; flex-wrap: wrap"
-        >
+        <div class="inst-content">
           <div v-if="inst.foto_url" class="inst-foto-mini">
             <img :src="inst.foto_url" :alt="$t('instrumentos.alt_foto')" />
           </div>
           <div v-else class="inst-foto-placeholder">
-            <span class="icon-dinamico">guitar</span>
+            <span class="icon-dinamico" style="font-size: 2.5rem;">guitar</span>
           </div>
 
-          <div class="inst-dados" style="flex: 1; min-width: 200px">
-            <strong style="font-size: 1.15rem; color: var(--primary)">
-              {{ inst.tipo }} {{ inst.marca }} {{ inst.modelo }}
+          <div class="inst-dados">
+            <strong style="font-size: 1rem; color: var(--text-main); display: block; margin-top: 10px;">
+              {{ inst.tipo }}
             </strong>
-            <div
-              style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 4px"
-            >
-              <small class="text-muted"
-                ><strong style="color: var(--text-main)">{{ $t('instrumentos.label_serie') }}</strong>
-                {{ inst.numero_serie || $t('instrumentos.nao_aplicavel') }}</small
-              >
-              <small class="text-muted"
-                ><strong style="color: var(--text-main)">{{ $t('instrumentos.label_afinacao') }}</strong>
-                {{ inst.afinacao_padrao || $t('instrumentos.afinacao_padrao') }}</small
-              >
+            <strong style="font-size: 1.1rem; color: var(--primary); display: block;">
+              {{ inst.marca }} {{ inst.modelo }}
+            </strong>
+            
+            <div style="margin-top: 8px; font-size: 0.8rem;">
+              <div v-if="inst.numero_serie" class="text-muted">
+                <strong>{{ $t('instrumentos.label_serie') }}</strong> {{ inst.numero_serie }}
+              </div>
+              <div class="text-muted">
+                <strong>{{ $t('instrumentos.label_afinacao') }}</strong> {{ inst.afinacao_padrao || 'E Standard' }}
+              </div>
             </div>
 
-            <p v-if="inst.observacoes" class="inst-obs">
-              <span class="icon-dinamico" style="font-size: 0.9rem">notes</span>
+            <p v-if="inst.observacoes" class="inst-obs text-muted" style="font-size: 0.8rem; margin-top: 8px; font-style: italic;">
+              <span class="icon-dinamico" style="font-size: 0.8rem">notes</span>
               {{
-                inst.observacoes.length > 80
-                  ? inst.observacoes.slice(0, 80) + "..."
+                inst.observacoes.length > 50
+                  ? inst.observacoes.slice(0, 50) + "..."
                   : inst.observacoes
               }}
             </p>
           </div>
         </div>
 
-        <div
-          class="inst-actions"
-          style="
-            display: flex;
-            gap: 8px;
-            margin-top: 15px;
-            border-top: 1px solid var(--border);
-            padding-top: 10px;
-          "
-        >
+        <div class="inst-actions">
           <button type="button"
             class="btn-icon bg-light"
             @click="iniciarEdicao(inst)"
             :title="$t('instrumentos.editar')"
-            style="border: 1px solid var(--border)"
+            style="border: 1px solid var(--border);"
           >
             <span class="icon-dinamico">edit</span>
           </button>
           <button type="button"
             class="btn-accent"
             @click="$emit('selecionarInstrumento', inst)"
-            style="flex: 1"
+            style="flex: 1;"
           >
             <span class="icon-dinamico" style="font-size: 1.1rem">build</span>
-            {{ $t('instrumentos.abrir_os') }}
+            {{ $t('perfil.coluna_os') }}
           </button>
         </div>
       </div>
@@ -269,130 +254,133 @@ onMounted(() => buscarInstrumentos());
       {{ $t('instrumentos.nenhum_cadastrado') }}
     </p>
 
-    <div class="box form-instrumento" :class="{ editando: isEditing }">
-      <div class="flex-between mb-2">
-        <h4
-          style="
-            margin: 0;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          "
-        >
-          <span class="icon-dinamico">{{
-            isEditing ? "edit_square" : "add_circle"
-          }}</span>
-          {{ isEditing ? $t('instrumentos.editar') : $t('instrumentos.novo') }}
-        </h4>
-        <button type="button"
-          v-if="isEditing"
-          class="btn-icon text-danger"
-          @click="cancelarEdicao"
-          :title="$t('instrumentos.cancelar_edicao')"
-        >
-          <span class="icon-dinamico">close</span>
-        </button>
-      </div>
-
-      <div class="form-grid mb-1">
-        <div class="form-group">
-          <label>{{ $t('instrumentos.label_tipo') }}</label>
-          <select v-model="form.tipo">
-            <option value="Guitarra">{{ $t('instrumentos.tipos.guitarra') }}</option>
-            <option value="Baixo">{{ $t('instrumentos.tipos.baixo') }}</option>
-            <option value="Violão">{{ $t('instrumentos.tipos.violao') }}</option>
-            <option value="Cavaco">{{ $t('instrumentos.tipos.cavaco') }}</option>
-            <option value="Viola">{{ $t('instrumentos.tipos.viola') }}</option>
-          </select>
-        </div>
-        <div class="form-group" style="flex: 2">
-          <label>{{ $t('instrumentos.label_marca') }}</label>
-          <input v-model="form.marca" :placeholder="$t('instrumentos.placeholder_marca')" />
-        </div>
-        <div class="form-group" style="flex: 2">
-          <label>{{ $t('instrumentos.label_modelo') }}</label>
-          <input v-model="form.modelo" :placeholder="$t('instrumentos.placeholder_modelo')" />
-        </div>
-      </div>
-
-      <div class="form-grid mb-1">
-        <div class="form-group" style="flex: 1">
-          <label>{{ $t('instrumentos.label_n_serie') }}</label>
-          <input v-model="form.numero_serie" :placeholder="$t('instrumentos.placeholder_opcional')" />
-        </div>
-        <div class="form-group" style="flex: 1">
-          <label>{{ $t('instrumentos.label_afinacao_padrao') }}</label>
-          <input
-            v-model="form.afinacao"
-            :placeholder="$t('instrumentos.placeholder_afinacao')"
-          />
-        </div>
-      </div>
-
-      <div class="form-group mb-1">
-        <label>{{ $t('instrumentos.label_observacoes') }}</label>
-        <textarea
-          v-model="form.observacoes"
-          rows="2"
-          :placeholder="$t('instrumentos.placeholder_observacoes')"
-        ></textarea>
-      </div>
-
-      <div class="foto-upload-area mb-2">
-        <label
-          style="
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-          "
-          >{{ $t('instrumentos.label_foto') }}</label
-        >
-
-        <div v-if="form.foto_url" class="foto-preview">
-          <img :src="form.foto_url" alt="Preview" />
-          <button type="button"
-            class="btn-icon text-danger btn-remove-foto"
-            @click="removerFoto"
-            :title="$t('instrumentos.remover_foto')"
+    <!-- MODAL DE INSTRUMENTO -->
+    <div v-if="mostrarModalForm" class="modal-overlay" @click.self="cancelarEdicao">
+      <div class="modal-content box form-instrumento" :class="{ editando: isEditing }" style="width: 100%; max-width: 500px;">
+        <div class="flex-between mb-2">
+          <h4
+            style="
+              margin: 0;
+              color: var(--primary);
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            "
           >
-            <span class="icon-dinamico">delete</span>
+            <span class="icon-dinamico">{{
+              isEditing ? "edit_square" : "add_circle"
+            }}</span>
+            {{ isEditing ? $t('instrumentos.editar') : $t('instrumentos.novo') }}
+          </h4>
+          <button type="button"
+            class="btn-icon text-danger"
+            @click="cancelarEdicao"
+            :title="$t('instrumentos.cancelar_edicao')"
+          >
+            <span class="icon-dinamico">close</span>
           </button>
         </div>
 
-        <label v-else class="btn-outline upload-btn">
-          <span class="icon-dinamico">{{
-            uploadingFoto ? "hourglass_empty" : "add_a_photo"
-          }}</span>
-          {{ uploadingFoto ? $t('instrumentos.processando') : $t('instrumentos.anexar_foto') }}
-          <input
-            type="file"
-            accept="image/*"
-            @change="uploadFotoInstrumento"
-            hidden
-            :disabled="uploadingFoto"
-          />
-        </label>
-      </div>
+        <div class="form-grid mb-1">
+          <div class="form-group">
+            <label>{{ $t('instrumentos.label_tipo') }}</label>
+            <select v-model="form.tipo">
+              <option value="Guitarra">{{ $t('instrumentos.tipos.guitarra') }}</option>
+              <option value="Baixo">{{ $t('instrumentos.tipos.baixo') }}</option>
+              <option value="Violão">{{ $t('instrumentos.tipos.violao') }}</option>
+              <option value="Cavaco">{{ $t('instrumentos.tipos.cavaco') }}</option>
+              <option value="Viola">{{ $t('instrumentos.tipos.viola') }}</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 2">
+            <label>{{ $t('instrumentos.label_marca') }}</label>
+            <input v-model="form.marca" :placeholder="$t('instrumentos.placeholder_marca')" />
+          </div>
+          <div class="form-group" style="flex: 2">
+            <label>{{ $t('instrumentos.label_modelo') }}</label>
+            <input v-model="form.modelo" :placeholder="$t('instrumentos.placeholder_modelo')" />
+          </div>
+        </div>
 
-      <button type="button"
-        class="btn-primary w-full"
-        @click="salvarInstrumento"
-        :disabled="loading || uploadingFoto"
-      >
-        <span class="icon-dinamico">{{
-          loading ? "hourglass_empty" : "save"
-        }}</span>
-        {{
-          loading
-            ? $t('instrumentos.guardando')
-            : isEditing
-              ? $t('instrumentos.salvar_alteracoes')
-              : $t('instrumentos.cadastrar')
-        }}
-      </button>
+        <div class="form-grid mb-1">
+          <div class="form-group" style="flex: 1">
+            <label>{{ $t('instrumentos.label_n_serie') }}</label>
+            <input v-model="form.numero_serie" :placeholder="$t('instrumentos.placeholder_opcional')" />
+          </div>
+          <div class="form-group" style="flex: 1">
+            <label>{{ $t('instrumentos.label_afinacao_padrao') }}</label>
+            <input
+              v-model="form.afinacao"
+              :placeholder="$t('instrumentos.placeholder_afinacao')"
+            />
+          </div>
+        </div>
+
+        <div class="form-group mb-1">
+          <label>{{ $t('instrumentos.label_observacoes') }}</label>
+          <textarea
+            v-model="form.observacoes"
+            rows="2"
+            :placeholder="$t('instrumentos.placeholder_observacoes')"
+          ></textarea>
+        </div>
+
+        <div class="foto-upload-area mb-2">
+          <label
+            style="
+              display: block;
+              margin-bottom: 8px;
+              font-weight: bold;
+              color: var(--text-muted);
+              font-size: 0.85rem;
+            "
+            >{{ $t('instrumentos.label_foto') }}</label
+          >
+
+          <div v-if="form.foto_url" class="foto-preview">
+            <img :src="form.foto_url" alt="Preview" />
+            <button type="button"
+              class="btn-icon text-danger btn-remove-foto"
+              @click="removerFoto"
+              :title="$t('instrumentos.remover_foto')"
+            >
+              <span class="icon-dinamico">delete</span>
+            </button>
+          </div>
+
+          <label v-else class="btn-outline upload-btn">
+            <span class="icon-dinamico">{{
+              uploadingFoto ? "hourglass_empty" : "add_a_photo"
+            }}</span>
+            {{ uploadingFoto ? $t('instrumentos.processando') : $t('instrumentos.anexar_foto') }}
+            <input
+              type="file"
+              accept="image/*"
+              @change="uploadFotoInstrumento"
+              hidden
+              :disabled="uploadingFoto"
+            />
+          </label>
+        </div>
+
+        <button type="button"
+          class="btn-primary w-full"
+          @click="salvarInstrumento"
+          :disabled="loading || uploadingFoto"
+          style="justify-content: center;"
+        >
+          <span class="icon-dinamico">{{
+            loading ? "hourglass_empty" : "save"
+          }}</span>
+          {{
+            loading
+              ? $t('instrumentos.guardando')
+              : isEditing
+                ? $t('instrumentos.salvar_alteracoes')
+                : $t('instrumentos.cadastrar')
+          }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -420,17 +408,67 @@ onMounted(() => buscarInstrumentos());
   min-width: 120px;
 }
 
-.instrumento-card {
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
   padding: 15px;
 }
+.modal-content {
+  background: var(--bg-card);
+  border-radius: 12px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.lista-instrumentos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 15px;
+}
+
+.instrumento-card {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.inst-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.inst-dados {
+  width: 100%;
+}
+
+.inst-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 15px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  width: 100%;
+}
+
 .inst-foto-mini,
 .inst-foto-placeholder {
-  width: 70px;
-  height: 70px;
-  border-radius: 8px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
+  margin: 0 auto;
 }
 .inst-foto-mini img {
   width: 100%;

@@ -22,6 +22,53 @@ export const clienteService = {
   },
 
   /**
+   * Busca clientes e mapeia as O.S. ativas para exibir tags na lista
+   */
+  async buscarClientesComAtividades() {
+    const { data, error } = await supabase
+      .from("clientes")
+      .select(`
+        *,
+        instrumentos (
+          id, marca, modelo,
+          servicos (id, numero_os, status, fase_projeto)
+        )
+      `)
+      .order("nome", { ascending: true })
+      .limit(1000);
+
+    if (error) throw error;
+
+    // Processa os dados para extrair apenas as O.S. ativas em uma array fácil de ler
+    return data.map(cliente => {
+      const atividades = [];
+      if (cliente.instrumentos) {
+        cliente.instrumentos.forEach(inst => {
+          if (inst.servicos) {
+            inst.servicos.forEach(os => {
+              if (os.status !== "Finalizado" && os.status !== "Entregue") {
+                atividades.push({
+                  instrumento_id: inst.id,
+                  marca: inst.marca,
+                  modelo: inst.modelo,
+                  os_id: os.id,
+                  numero_os: os.numero_os,
+                  status: os.status,
+                  fase: os.fase_projeto
+                });
+              }
+            });
+          }
+        });
+      }
+      return {
+        ...cliente,
+        atividades
+      };
+    });
+  },
+
+  /**
    * Busca um cliente específico com os seus instrumentos vinculados
    */
   async buscarDetalhes(id) {
@@ -73,6 +120,10 @@ export const clienteService = {
     
     if (dados.cpf_cnpj !== undefined) {
       payloadSeguro.cpf_cnpj = dados.cpf_cnpj ? String(dados.cpf_cnpj).substring(0, 20).trim() : null;
+    }
+
+    if (dados.observacoes !== undefined) {
+      payloadSeguro.observacoes = dados.observacoes ? String(dados.observacoes).trim() : null;
     }
 
     return payloadSeguro;

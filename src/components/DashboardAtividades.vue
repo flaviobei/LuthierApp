@@ -6,14 +6,16 @@
  * ATUALIZAÇÃO: Alerta Inteligente de Estoque.
  * ============================================================================
  */
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { abrirWhatsapp } from "../lib/whatsappUtils";
 import { useToast } from "../composables/useToast";
 import { osService } from "../services/osService";
 import { catalogoService } from "../services/catalogoService"; // Novo Serviço
+import { clienteService } from "../services/clienteService";
 import { useI18n } from "vue-i18n";
+import { supabase } from "../lib/supabaseClient";
 
-const emit = defineEmits(["abrirOS", "mudarAba"]); // Adicionado mudarAba para o botão do estoque
+const emit = defineEmits(["abrirOS", "mudarAba", "novaOSCliente"]); // Adicionado mudarAba para o botão do estoque
 const { triggerToast } = useToast();
 const { t } = useI18n();
 
@@ -22,6 +24,87 @@ const oportunidadesPosVenda = ref([]);
 const alertasEstoque = ref([]); // Nova variável
 const faturamentoParado = ref([]);
 const loading = ref(true);
+
+const filtroStatus = ref('Todos');
+
+const servicosAbertosFiltrados = computed(() => {
+  let filtrado = servicosAbertos.value;
+  if (filtroStatus.value !== 'Todos') {
+    filtrado = filtrado.filter(os => (os.fase_projeto || os.status) === filtroStatus.value);
+  }
+  
+  // Sort by priority: 1. Fila de Espera, 2. Others, 3. Pronto para Entrega
+  return [...filtrado].sort((a, b) => {
+    const faseA = a.fase_projeto || a.status;
+    const faseB = b.fase_projeto || b.status;
+    
+    const getPeso = (fase) => {
+      if (fase === 'Fila de Espera') return 1;
+      if (fase === 'Pronto para Entrega') return 3;
+      return 2;
+    };
+    
+    return getPeso(faseA) - getPeso(faseB);
+  });
+});
+
+const estadoAvisos = ref({
+  estoque: 'aberto',
+  posVenda: 'aberto',
+  faturamento: 'aberto'
+});
+const isBuscandoCliente = ref(false);
+const textoBuscaCliente = ref("");
+const resultadosBuscaCliente = ref([]);
+const loadingBuscaCliente = ref(false);
+const todosClientesLocal = ref([]);
+
+watch(isBuscandoCliente, async (val) => {
+  if (val && todosClientesLocal.value.length === 0) {
+    try {
+      todosClientesLocal.value = await clienteService.buscarTodos();
+    } catch (e) {
+      console.error("Erro carregando clientes para busca", e);
+    }
+  }
+});
+
+watch(textoBuscaCliente, (newVal) => {
+  if (newVal.length < 2) {
+    resultadosBuscaCliente.value = [];
+    return;
+  }
+  const term = newVal.toLowerCase();
+  resultadosBuscaCliente.value = todosClientesLocal.value
+    .filter(c => 
+      (c.nome && c.nome.toLowerCase().includes(term)) || 
+      (c.celular && c.celular.includes(term))
+    )
+    .slice(0, 10);
+});
+
+const avisosFechadosComItens = computed(() => {
+  const fechados = [];
+  if (estadoAvisos.value.estoque === 'fechado' && alertasEstoque.value.length > 0) fechados.push({ id: 'estoque', label: t('dashboard.alertas_estoque'), icon: 'running_with_errors', color: 'var(--danger)' });
+  if (estadoAvisos.value.posVenda === 'fechado' && oportunidadesPosVenda.value.length > 0) fechados.push({ id: 'posVenda', label: t('dashboard.retencao_clientes'), icon: 'lightbulb', color: 'var(--primary)' });
+  if (estadoAvisos.value.faturamento === 'fechado' && faturamentoParado.value.length > 0) fechados.push({ id: 'faturamento', label: t('dashboard.faturamento_parado'), icon: 'savings', color: 'var(--warning)' });
+  return fechados;
+});
+
+function toggleMinimizar(id) {
+  estadoAvisos.value[id] = estadoAvisos.value[id] === 'minimizado' ? 'aberto' : 'minimizado';
+}
+function fecharAviso(id) {
+  estadoAvisos.value[id] = 'fechado';
+}
+function reabrirAviso(id) {
+  estadoAvisos.value[id] = 'aberto';
+}
+
+watch(estadoAvisos, (novoEstado) => {
+  localStorage.setItem('luthierapp_alertas_state', JSON.stringify(novoEstado));
+}, { deep: true });
+
 
 // --- CARREGAMENTO ---
 async function carregarDadosIniciais() {
@@ -63,7 +146,7 @@ function chamarClientePosVenda(os) {
     os: os.numero_os
   });
   const ok = abrirWhatsapp(cli, msg);
-  if (ok === false) triggerToast('Cliente sem telefone registrado.', 'error');
+  if (ok === false) triggerToast(t('dashboard.sem_telefone_registrado'), 'error');
 }
 
 async function marcarComoContatado(osId) {
@@ -102,27 +185,41 @@ function chamarClienteCobranca(os) {
     os: os.numero_os
   });
   const ok = abrirWhatsapp(cli, msg);
-  if (ok === false) triggerToast('Cliente sem telefone registrado.', 'error');
+  if (ok === false) triggerToast(t('dashboard.sem_telefone_registrado'), 'error');
+}
+
+function abrirBuscaNovaOS() {
+  isBuscandoCliente.value = true;
+  // Foca o input na proxima renderizacao
+  setTimeout(() => {
+    const el = document.getElementById('inputBuscaOS');
+    if (el) el.focus();
+  }, 100);
+}
+
+function handleClienteSelecionado(cliente) {
+  isBuscandoCliente.value = false;
+  textoBuscaCliente.value = "";
+  resultadosBuscaCliente.value = [];
+  emit('novaOSCliente', cliente);
 }
 
 // --- AUXILIARES DE INTERFACE ---
+function traduzirFase(fase) {
+  if (!fase) return '';
+  const mapa = {
+    "Fila de Espera": t('dashboard.status_fila_espera'),
+    "Aguardando Peças": t('dashboard.status_aguardando_pecas'),
+    "Secagem / Cura": t('dashboard.status_secagem'),
+    "Na Bancada": t('dashboard.status_na_bancada'),
+    "Testes / Setup": t('dashboard.status_testes'),
+    "Pronto para Entrega": t('dashboard.status_pronto_entrega')
+  };
+  return mapa[fase] || fase;
+}
+
 function corFase(fase) {
-  switch (fase) {
-    case "Fila de Espera":
-      return "var(--text-muted)";
-    case "Aguardando Peças":
-      return "var(--danger)";
-    case "Secagem / Cura":
-      return "#6f42c1";
-    case "Na Bancada":
-      return "var(--primary)";
-    case "Testes / Setup":
-      return "#17a2b8";
-    case "Pronto para Entrega":
-      return "var(--success)";
-    default:
-      return "var(--warning)";
-  }
+  return osService.corFase(fase);
 }
 
 function formatarData(dataIso) {
@@ -170,34 +267,53 @@ const totalFaturamentoParado = computed(() => {
   return faturamentoParado.value.reduce((acc, os) => acc + os.saldoDevedor, 0);
 });
 
-onMounted(() => carregarDadosIniciais());
+onMounted(() => {
+  const salvo = localStorage.getItem('luthierapp_alertas_state');
+  if (salvo) {
+    try {
+      estadoAvisos.value = { ...estadoAvisos.value, ...JSON.parse(salvo) };
+    } catch(e) {}
+  }
+  carregarDadosIniciais();
+});
 </script>
 
 <template>
   <div class="dash-container">
+    <div v-if="avisosFechadosComItens.length > 0" class="card" style="margin-bottom: 25px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; background: #fdfdfd; border: 1px dashed var(--border);">
+      <span class="icon-dinamico" style="color: var(--text-muted);">notifications_paused</span>
+      <span style="font-weight: bold; color: var(--text-main); font-size: 0.95rem;">{{ $t('dashboard.avisos_ocultos') }}</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button v-for="aviso in avisosFechadosComItens" :key="aviso.id" @click="reabrirAviso(aviso.id)" class="btn-outline" style="padding: 4px 10px; font-size: 0.85rem; border-radius: 12px; display: flex; align-items: center; gap: 4px;">
+          <span class="icon-dinamico" :style="{color: aviso.color, fontSize: '1rem'}">{{ aviso.icon }}</span> {{ aviso.label }}
+        </button>
+      </div>
+    </div>
+
     <div
-      v-if="alertasEstoque.length > 0"
+      v-if="alertasEstoque.length > 0 && estadoAvisos.estoque !== 'fechado'"
       id="tour-alertas"
       class="crm-box card"
       style="border-color: var(--danger)"
     >
       <div class="crm-header" style="background: var(--danger)">
-        <h3
-          style="
-            margin: 0;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          "
-        >
-          <span class="icon-dinamico">running_with_errors</span> {{ $t('dashboard.alertas_estoque') }}
-        </h3>
-        <span class="badge-crm" style="color: var(--danger)"
-          >{{ $t('dashboard.itens_qtd', { qtd: alertasEstoque.length }) }}</span
-        >
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <h3 style="margin: 0; color: #fff; display: flex; align-items: center; gap: 8px;">
+            <span class="icon-dinamico">running_with_errors</span> {{ $t('dashboard.alertas_estoque') }}
+          </h3>
+          <span class="badge-crm" style="color: var(--danger)">{{ $t('dashboard.itens_qtd', { qtd: alertasEstoque.length }) }}</span>
+        </div>
+        <div class="crm-header-actions" style="display: flex; gap: 5px;">
+          <button type="button" class="btn-icon-header" @click="toggleMinimizar('estoque')" :title="estadoAvisos.estoque === 'minimizado' ? $t('dashboard.oculto_expandir') : $t('dashboard.oculto_minimizar')">
+            <span class="icon-dinamico">{{ estadoAvisos.estoque === 'minimizado' ? 'expand_more' : 'expand_less' }}</span>
+          </button>
+          <button type="button" class="btn-icon-header" @click="fecharAviso('estoque')" :title="$t('dashboard.oculto_fechar')">
+            <span class="icon-dinamico">close</span>
+          </button>
+        </div>
       </div>
-      <div class="crm-list" style="padding-top: 15px">
+      <div v-show="estadoAvisos.estoque === 'aberto'">
+        <div class="crm-list" style="padding-top: 15px">
         <div
           v-for="item in alertasEstoque"
           :key="item.id"
@@ -218,32 +334,34 @@ onMounted(() => carregarDadosIniciais());
               >
             </span>
           </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="oportunidadesPosVenda.length > 0" id="tour-pos-venda" class="crm-box card">
+    <div v-if="oportunidadesPosVenda.length > 0 && estadoAvisos.posVenda !== 'fechado'" id="tour-pos-venda" class="crm-box card">
       <div class="crm-header">
-        <h3
-          style="
-            margin: 0;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          "
-        >
-          <span class="icon-dinamico">lightbulb</span> {{ $t('dashboard.retencao_clientes') }}
-        </h3>
-        <span class="badge-crm"
-          >{{ $t('dashboard.pendentes_qtd', { qtd: oportunidadesPosVenda.length }) }}</span
-        >
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <h3 style="margin: 0; color: #fff; display: flex; align-items: center; gap: 8px;">
+            <span class="icon-dinamico">lightbulb</span> {{ $t('dashboard.retencao_clientes') }}
+          </h3>
+          <span class="badge-crm">{{ $t('dashboard.pendentes_qtd', { qtd: oportunidadesPosVenda.length }) }}</span>
+        </div>
+        <div class="crm-header-actions" style="display: flex; gap: 5px;">
+          <button type="button" class="btn-icon-header" @click="toggleMinimizar('posVenda')" :title="estadoAvisos.posVenda === 'minimizado' ? $t('dashboard.oculto_expandir') : $t('dashboard.oculto_minimizar')">
+            <span class="icon-dinamico">{{ estadoAvisos.posVenda === 'minimizado' ? 'expand_more' : 'expand_less' }}</span>
+          </button>
+          <button type="button" class="btn-icon-header" @click="fecharAviso('posVenda')" :title="$t('dashboard.oculto_fechar')">
+            <span class="icon-dinamico">close</span>
+          </button>
+        </div>
       </div>
-      <p style="margin: 10px 0 15px 0; font-size: 0.9rem; color: #555">
-        {{ $t('dashboard.retencao_desc') }}
-      </p>
+      <div v-show="estadoAvisos.posVenda === 'aberto'">
+        <p style="margin: 10px 0 15px 0; font-size: 0.9rem; color: #555; padding: 0 20px;">
+          {{ $t('dashboard.retencao_desc') }}
+        </p>
 
-      <div class="crm-list">
+        <div class="crm-list">
         <div
           v-for="opp in oportunidadesPosVenda"
           :key="opp.id"
@@ -290,8 +408,7 @@ onMounted(() => carregarDadosIniciais());
                 "
               >
                 <span class="icon-dinamico" style="font-size: 1rem"
-                  >schedule</span
-                >
+                  >schedule</span>
                 {{ $t('dashboard.adiar_15d') }}
               </button>
               <button type="button"
@@ -316,32 +433,34 @@ onMounted(() => carregarDadosIniciais());
               </button>
             </div>
           </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="faturamentoParado.length > 0" id="tour-faturamento-parado" class="crm-box card">
+    <div v-if="faturamentoParado.length > 0 && estadoAvisos.faturamento !== 'fechado'" id="tour-faturamento-parado" class="crm-box card">
       <div class="crm-header">
-        <h3
-          style="
-            margin: 0;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          "
-        >
-          <span class="icon-dinamico">savings</span> {{ $t('dashboard.faturamento_parado') }}
-        </h3>
-        <span class="badge-crm"
-          >R$ {{ totalFaturamentoParado.toFixed(2) }}</span
-        >
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <h3 style="margin: 0; color: #fff; display: flex; align-items: center; gap: 8px;">
+            <span class="icon-dinamico">savings</span> {{ $t('dashboard.faturamento_parado') }}
+          </h3>
+          <span class="badge-crm">R$ {{ totalFaturamentoParado.toFixed(2) }}</span>
+        </div>
+        <div class="crm-header-actions" style="display: flex; gap: 5px;">
+          <button type="button" class="btn-icon-header" @click="toggleMinimizar('faturamento')" :title="estadoAvisos.faturamento === 'minimizado' ? $t('dashboard.oculto_expandir') : $t('dashboard.oculto_minimizar')">
+            <span class="icon-dinamico">{{ estadoAvisos.faturamento === 'minimizado' ? 'expand_more' : 'expand_less' }}</span>
+          </button>
+          <button type="button" class="btn-icon-header" @click="fecharAviso('faturamento')" :title="$t('dashboard.oculto_fechar')">
+            <span class="icon-dinamico">close</span>
+          </button>
+        </div>
       </div>
-      <p style="margin: 10px 0 15px 0; font-size: 0.9rem; color: #555; padding: 0 20px;">
-        {{ $t('dashboard.faturamento_desc') }}
-      </p>
+      <div v-show="estadoAvisos.faturamento === 'aberto'">
+        <p style="margin: 10px 0 15px 0; font-size: 0.9rem; color: #555; padding: 0 20px;">
+          {{ $t('dashboard.faturamento_desc') }}
+        </p>
 
-      <div class="crm-list">
+        <div class="crm-list">
         <div
           v-for="os in faturamentoParado"
           :key="os.id"
@@ -396,6 +515,7 @@ onMounted(() => carregarDadosIniciais());
           </div>
         </div>
       </div>
+      </div>
     </div>
 
     <div
@@ -403,6 +523,11 @@ onMounted(() => carregarDadosIniciais());
         margin-bottom: 20px;
         padding-bottom: 10px;
         border-bottom: 2px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
       "
     >
       <h2
@@ -416,13 +541,74 @@ onMounted(() => carregarDadosIniciais());
       >
         <span class="icon-dinamico">handyman</span> {{ $t('dashboard.bancada_trabalho') }}
       </h2>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: nowrap;">
+        <!-- Busca Inline -->
+        <div v-if="isBuscandoCliente" style="position: relative; z-index: 10;">
+          <div style="display: flex; align-items: center; gap: 5px; background: #fff; border: 1px solid var(--primary); border-radius: 6px; padding: 2px;">
+            <span class="icon-dinamico" style="color: var(--primary); padding-left: 8px;">search</span>
+            <input 
+              id="inputBuscaOS"
+              v-model="textoBuscaCliente" 
+              type="text" 
+              class="input-padrao" 
+              :placeholder="$t('dashboard.buscar_cliente_placeholder') || 'Digite o nome ou número...'"
+              style="border: none; outline: none; background: transparent; padding: 6px 8px; width: 220px;"
+              @blur="setTimeout(() => { if (!textoBuscaCliente) isBuscandoCliente = false; }, 200)"
+            />
+            <button class="btn-icon" style="color: var(--danger)" @click="isBuscandoCliente = false; textoBuscaCliente = ''">
+              <span class="icon-dinamico">close</span>
+            </button>
+          </div>
+          
+          <div v-if="textoBuscaCliente.length >= 2" style="position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid var(--border); border-radius: 6px; margin-top: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto;">
+            <div v-if="loadingBuscaCliente" style="padding: 10px; text-align: center; color: var(--text-muted);">
+              {{ $t('dashboard.buscando') || 'Buscando...' }}
+            </div>
+            <div v-else-if="resultadosBuscaCliente.length === 0" style="padding: 10px; text-align: center; color: var(--text-muted);">
+              {{ $t('dashboard.nenhum_cliente_encontrado') || 'Nenhum encontrado.' }}
+            </div>
+            <div v-else>
+              <div 
+                v-for="cli in resultadosBuscaCliente" 
+                :key="cli.id" 
+                @click="handleClienteSelecionado(cli)"
+                style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;"
+                onmouseover="this.style.background='var(--bg-body)'"
+                onmouseout="this.style.background='white'"
+              >
+                <strong>{{ cli.nome }}</strong>
+                <span style="font-size: 0.8rem; color: var(--text-muted)">{{ cli.celular || 'Sem número' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button 
+          v-else
+          type="button" 
+          class="btn-primary" 
+          @click="abrirBuscaNovaOS"
+          style="display: flex; align-items: center; gap: 5px;"
+        >
+          <span class="icon-dinamico">add_circle</span> {{ $t('dashboard.nova_os') || 'Nova O.S.' }}
+        </button>
+
+        <select v-model="filtroStatus" class="input-padrao" style="padding: 6px 10px; height: auto; font-weight: bold;" :style="{ color: filtroStatus !== 'Todos' ? corFase(filtroStatus) : 'inherit' }">
+          <option value="Todos" style="color: initial;">{{ $t('dashboard.todos_status') }}</option>
+          <option value="Fila de Espera" :style="{ color: corFase('Fila de Espera'), fontWeight: 'bold' }">⚫ {{ $t('dashboard.status_fila_espera') }}</option>
+          <option value="Na Bancada" :style="{ color: corFase('Na Bancada'), fontWeight: 'bold' }">🔵 {{ $t('dashboard.status_na_bancada') }}</option>
+          <option value="Secagem / Cura" :style="{ color: corFase('Secagem / Cura'), fontWeight: 'bold' }">🟣 {{ $t('dashboard.status_secagem') }}</option>
+          <option value="Testes / Setup" :style="{ color: corFase('Testes / Setup'), fontWeight: 'bold' }">🟦 {{ $t('dashboard.status_testes') }}</option>
+          <option value="Aguardando Peças" :style="{ color: corFase('Aguardando Peças'), fontWeight: 'bold' }">🔴 {{ $t('dashboard.status_aguardando_pecas') }}</option>
+          <option value="Pronto para Entrega" :style="{ color: corFase('Pronto para Entrega'), fontWeight: 'bold' }">🟢 {{ $t('dashboard.status_pronto_entrega') }}</option>
+        </select>
+      </div>
     </div>
 
     <div v-if="loading" class="text-muted text-center" style="padding: 40px">
       {{ $t('dashboard.preparar_bancada') }}
     </div>
 
-    <div v-else-if="servicosAbertos.length === 0" class="card empty-state">
+    <div v-else-if="servicosAbertosFiltrados.length === 0" class="card empty-state">
       <p
         style="
           font-size: 1.1rem;
@@ -444,7 +630,7 @@ onMounted(() => carregarDadosIniciais());
 
     <div v-else id="tour-bancada" class="grid-cards">
       <div
-        v-for="os in servicosAbertos"
+        v-for="os in servicosAbertosFiltrados"
         :key="os.id"
         class="card card-os"
         @click="$emit('abrirOS', os)"
@@ -453,7 +639,9 @@ onMounted(() => carregarDadosIniciais());
           class="status-badge"
           :style="{ backgroundColor: corFase(os.fase_projeto) }"
         >
-          #{{ os.numero_os }} - {{ os.fase_projeto || os.status }}
+          <span style="font-weight: bold"
+            >#{{ os.numero_os }} - {{ traduzirFase(os.fase_projeto) || traduzirFase(os.status) }}</span
+          >
         </div>
 
         <h3 class="modelo">{{ os.instrumentos?.modelo }}</h3>
@@ -542,6 +730,21 @@ onMounted(() => carregarDadosIniciais());
   border-radius: 12px;
   font-weight: bold;
   font-size: 0.85rem;
+}
+.btn-icon-header {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: background 0.2s;
+}
+.btn-icon-header:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 .crm-list {
   padding: 0 20px 20px 20px;

@@ -11,6 +11,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useToast } from "../composables/useToast";
 import QRCode from "qrcode";
 import { useI18n } from "vue-i18n";
+import { osService } from "../services/osService";
 
 // IMPORTAÇÃO DOS SUB-COMPONENTES
 import AbaChecklist from "./os/AbaChecklist.vue";
@@ -45,6 +46,21 @@ const tipoImpressao = ref("orcamento");
 // Variáveis reativas globais partilhadas entre as abas e a área de impressão
 const itensOrcamento = ref([]);
 const pagamentosOS = ref([]);
+const formFase = ref("");
+const formStatus = ref("");
+
+function traduzirFase(fase) {
+  if (!fase) return '';
+  const mapa = {
+    "Fila de Espera": t('dashboard.status_fila_espera'),
+    "Aguardando Peças": t('dashboard.status_aguardando_pecas'),
+    "Secagem / Cura": t('dashboard.status_secagem'),
+    "Na Bancada": t('dashboard.status_na_bancada'),
+    "Testes / Setup": t('dashboard.status_testes'),
+    "Pronto para Entrega": t('dashboard.status_pronto_entrega')
+  };
+  return mapa[fase] || fase;
+}
 
 const osFinalizada = computed(
   () =>
@@ -158,6 +174,7 @@ async function marcarComoFinalizada() {
 
 // NOVA FUNÇÃO: Salvar Data de Previsão
 async function salvarDataPrevisao() {
+  salvandoData.value = true;
   try {
     const novaData = servicoLocal.value.data_previsao_entrega || null;
     const { error } = await supabase
@@ -233,9 +250,9 @@ onMounted(carregarTudo);
               {{ $t('os.numero_os') }}{{ servicoLocal.numero_os }}
             </h2>
             <span
-              class="badge text-muted"
-              style="font-size: 0.75rem; padding: 2px 8px"
-              >{{ servicoLocal.fase_projeto }}</span
+              class="badge"
+              :style="{ backgroundColor: osService.corFase(servicoLocal.fase_projeto), color: 'white', fontSize: '0.75rem', padding: '2px 8px' }"
+              >{{ traduzirFase(servicoLocal.fase_projeto) }}</span
             >
 
             <span style="font-size: 0.85rem; color: #64748b"

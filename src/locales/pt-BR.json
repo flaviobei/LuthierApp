@@ -1,6 +1,7 @@
 {
   "menu": {
     "inicio": "Início",
+    "clientes": "Clientes",
     "agenda": "Agenda",
     "qr_scan": "QR Scan",
     "arquivo": "Arquivo",
@@ -182,6 +183,25 @@
     "receber_salvar_notas": "Salvar Notas"
   },
   "dashboard": {
+    "nova_os": "Nova O.S.",
+    "buscar_cliente_nova_os": "Buscar Cliente para Nova O.S.",
+    "buscar_cliente_placeholder": "Digite o nome do cliente...",
+    "buscando": "Buscando...",
+    "nenhum_cliente_encontrado": "Nenhum cliente encontrado.",
+    "digite_2_letras": "Digite pelo menos 2 letras para buscar.",
+    "avisos_ocultos": "Avisos Ocultos:",
+    "oculto_expandir": "Expandir",
+    "oculto_minimizar": "Minimizar",
+    "oculto_fechar": "Fechar",
+    "sem_telefone_registrado": "Cliente sem telefone registrado.",
+    "status_todos": "Todos",
+    "status_fila_espera": "Fila de Espera",
+    "status_na_bancada": "Na Bancada",
+    "status_secagem": "Secagem / Cura",
+    "status_testes": "Testes / Setup",
+    "status_aguardando_pecas": "Aguardando Peças",
+    "status_pronto_entrega": "Pronto para Entrega",
+    "todos_status": "Todos os status",
     "erro_carregar": "Erro ao carregar dashboard: ",
     "erro_telefone": "Este cliente não tem telefone registrado.",
     "crm_removida": "O.S. removida da lista do CRM.",
@@ -262,7 +282,8 @@
     "faturamento_periodo": "Faturamento",
     "custos_periodo": "Custos",
     "lucro_periodo": "Lucro Líquido",
-    "mes_atual": "Mês Atual"
+    "mes_atual": "Mês Atual",
+    "todos_status": "Todos"
   },
   "servicos": {
     "erro_descricao_vazia": "Descreva o pedido ou problema do cliente.",
@@ -303,6 +324,7 @@
     "abrir_os": "Abrir Serviço (O.S.)",
     "nenhum_cadastrado": "Nenhum instrumento cadastrado para este cliente.",
     "novo": "Novo Instrumento",
+    "novo_curto": "Novo",
     "cancelar_edicao": "Cancelar Edição",
     "label_tipo": "Tipo",
     "tipos": {
@@ -347,7 +369,32 @@
     "label_cpf": "CPF/CNPJ (Opcional):",
     "guardando": "A guardar...",
     "salvar_alteracoes": "Salvar Alterações",
-    "cadastrar": "Cadastrar Cliente"
+    "cadastrar": "Cadastrar Cliente",
+    "atividades_ativas": "Atividades (O.S. Ativas)",
+    "nenhuma_atividade": "Nenhuma atividade",
+    "ver_perfil": "Ver Perfil",
+    "perfil": "Perfil",
+    "acoes": "Ações",
+    "whatsapp": "WhatsApp"
+  },
+  "perfil": {
+    "voltar_clientes": "Voltar para Clientes",
+    "total_gasto": "Total Gasto na Luthieria",
+    "os_ativas": "O.S. Ativas",
+    "total_os": "Total de O.S. (Histórico)",
+    "anotacoes_internas": "Anotações Internas",
+    "salvar_preferencias": "Salve preferências, alertas ou informações importantes deste cliente.",
+    "salvar_anotacoes": "Salvar Anotações",
+    "salvando": "Salvando...",
+    "instrumentos": "Instrumentos",
+    "historico_os": "Histórico de Serviços (O.S.)",
+    "nenhuma_os_registrada": "Nenhuma ordem de serviço registrada para este cliente.",
+    "coluna_os": "O.S.",
+    "coluna_instrumento": "Instrumento",
+    "coluna_entrada": "Entrada",
+    "coluna_status": "Status",
+    "coluna_total": "Total",
+    "coluna_pago": "Pago"
   },
   "catalogo": {
     "erro_carregar": "Erro ao carregar catálogo: ",

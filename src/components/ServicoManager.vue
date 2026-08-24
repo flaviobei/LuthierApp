@@ -16,6 +16,7 @@ import { supabase } from "../lib/supabaseClient";
 import ExecucaoServico from "./ExecucaoServico.vue";
 import { useToast } from "../composables/useToast"; // <-- 1. Importa o Toast
 import { useI18n } from "vue-i18n";
+import { osService } from "../services/osService";
 
 const props = defineProps(["instrumento"]);
 const emit = defineEmits(["voltar"]);
@@ -106,6 +107,10 @@ function formatarData(dataString) {
 }
 
 onMounted(() => buscarServicos());
+
+function corFase(fase) {
+  return osService.corFase(fase);
+}
 </script>
 
 <template>
@@ -257,14 +262,9 @@ onMounted(() => buscarServicos());
               <td>
                 <span
                   class="status-pill"
-                  :class="
-                    os.status === 'Entregue' || os.status === 'Finalizado'
-                      ? 'success'
-                      : 'warning'
-                  "
+                  :style="{ backgroundColor: corFase(os.fase_projeto || os.status), color: 'white', fontWeight: 'bold' }"
                 >
-                  {{ os.status }} </span
-                ><br />
+                  {{ os.fase_projeto || os.status }} </span><br />
                 <small
                   v-if="os.data_previsao_entrega"
                   class="text-muted"

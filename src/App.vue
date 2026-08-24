@@ -26,6 +26,8 @@ import ExecucaoServico from "./components/ExecucaoServico.vue";
 import AdminArea from "./components/AdminArea.vue";
 import HistoricoServicos from "./components/HistoricoServicos.vue";
 import Ajuda from "./components/Ajuda.vue";
+import GerenciamentoClientes from "./components/GerenciamentoClientes.vue";
+import PerfilCliente from "./components/PerfilCliente.vue";
 import Paywall from "./components/Paywall.vue";
 import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { Analytics } from "@vercel/analytics/vue";
@@ -71,6 +73,7 @@ const mostrarClientes = ref(false);
 const modoAtual = ref("bancada");
 const servicoDireto = ref(null);
 const mostrarScanner = ref(false);
+const perfilClienteSelecionado = ref(null);
 
 const configLuthieria = ref({
   nome_luthieria: "Gestão Luthieria",
@@ -134,7 +137,7 @@ async function inicializarApp() {
 
 async function buscarClientes() {
   try {
-    clientes.value = await clienteService.buscarTodos();
+    clientes.value = await clienteService.buscarClientesComAtividades();
   } catch (e) {
     triggerToast(t("app.erro_carregar_clientes"), "error");
   }
@@ -243,6 +246,14 @@ function abrirServicoPeloDashboard(os) {
 function editarCliente(cliente) {
   clienteParaEditar.value = cliente;
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function iniciarNovaOSPeloDashboard(cliente) {
+  clienteSelecionado.value = cliente;
+  instrumentoSelecionado.value = null;
+  servicoDireto.value = null;
+  clienteParaEditar.value = null;
+  modoAtual.value = "bancada";
 }
 
 function formatarLinkZap(t) {
@@ -367,11 +378,11 @@ onMounted(() => {
           <span
             v-else
             class="icon-dinamico"
-            style="font-size: 2.2rem; color: var(--primary)"
+            style="font-size: 0.8rem; color: var(--primary)"
             >music_note</span
           >
           <h4 class="logo-title">
-            {{ configLuthieria.nome_luthieria }}
+            
             <span v-if="isSuperAdmin" class="badge-master">MASTER</span>
           </h4>
         </div>
@@ -396,6 +407,16 @@ onMounted(() => {
           >
             <span class="icon-dinamico">calendar_month</span
             ><span class="lbl">{{ $t("menu.agenda") }}</span>
+          </button>
+          <button
+            type="button"
+            id="tour-clientes-menu"
+            @click="modoAtual = 'clientes'"
+            class="btn-menu"
+            :class="{ active: modoAtual === 'clientes' }"
+          >
+            <span class="icon-dinamico">group</span
+            ><span class="lbl">{{ $t("menu.clientes") || 'Clientes' }}</span>
           </button>
           <button
             type="button"
@@ -499,6 +520,20 @@ onMounted(() => {
             @voltar="irParaInicio"
           />
           <Ajuda v-else-if="modoAtual === 'ajuda'" />
+          <GerenciamentoClientes
+            v-else-if="modoAtual === 'clientes'"
+            :clientes="clientes"
+            @selecionarCliente="(c) => { perfilClienteSelecionado = c; modoAtual = 'perfil_cliente'; }"
+            @abrirOS="abrirServicoPeloDashboard"
+            @novoCliente="() => { triggerToast('Funcionalidade de Novo Cliente será implementada em breve.', 'info') }"
+          />
+          <PerfilCliente
+            v-else-if="modoAtual === 'perfil_cliente'"
+            :cliente="perfilClienteSelecionado"
+            @voltar="modoAtual = 'clientes'"
+            @clienteAtualizado="buscarClientes"
+            @selecionarInstrumento="(inst) => { instrumentoSelecionado = inst; clienteSelecionado = perfilClienteSelecionado; modoAtual = 'bancada'; }"
+          />
         </KeepAlive>
 
         <div v-show="modoAtual === 'bancada'">
@@ -533,106 +568,10 @@ onMounted(() => {
             />
           </div>
           <div v-else>
-            <DashboardAtividades @abrirOS="abrirServicoPeloDashboard" />
-            <div class="controle-clientes">
-              <button
-                type="button"
-                id="tour-clientes"
-                class="btn-toggle-clientes"
-                @click="mostrarClientes = !mostrarClientes"
-              >
-                <span class="icon-dinamico">{{
-                  mostrarClientes ? "expand_less" : "group"
-                }}</span>
-                {{
-                  mostrarClientes
-                    ? $t("app.ocultar_clientes")
-                    : $t("app.gerenciar_clientes")
-                }}
-              </button>
-            </div>
-            <div v-show="mostrarClientes" class="clientes-grid">
-              <div class="col-form card">
-                <ClienteForm
-                  :clienteEdit="clienteParaEditar"
-                  @clienteSalvo="
-                    () => {
-                      buscarClientes();
-                      clienteParaEditar = null;
-                    }
-                  "
-                  @cancelarEdicao="clienteParaEditar = null"
-                />
-              </div>
-              <div class="col-lista card">
-                <h3 class="title-section">
-                  <span class="icon-dinamico" style="vertical-align: middle"
-                    >folder_open</span
-                  >
-                  {{ $t("app.lista_clientes") }}
-                </h3>
-                <div class="tabela-responsiva">
-                  <table class="tabela-padrao">
-                    <thead>
-                      <tr>
-                        <th>{{ $t("os.cliente") }}</th>
-                        <th>{{ $t("os.contato") }}</th>
-                        <th align="center">{{ $t("admin.acoes") }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="c in clientes" :key="c.id">
-                        <td>
-                          <strong>{{ c.nome }}</strong>
-                        </td>
-                        <td>
-                          <a
-                            v-if="c.telefone"
-                            :href="
-                              'https://wa.me/' + formatarLinkZap(c.telefone)
-                            "
-                            target="_blank"
-                            class="badge-zap"
-                          >
-                            <span class="icon-dinamico" style="font-size: 1rem"
-                              >chat</span
-                            >
-                            WhatsApp
-                          </a>
-                        </td>
-                        <td align="center">
-                          <div
-                            style="
-                              display: flex;
-                              gap: 8px;
-                              justify-content: center;
-                              align-items: center;
-                            "
-                          >
-                            <button
-                              type="button"
-                              class="btn-icon"
-                              @click="editarCliente(c)"
-                              title="Editar Cliente"
-                            >
-                              <span class="icon-dinamico">edit</span>
-                            </button>
-                            <button
-                              type="button"
-                              class="btn-icon"
-                              @click="clienteSelecionado = c"
-                              title="Ver Instrumentos"
-                            >
-                              <span class="icon-dinamico">list</span>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <DashboardAtividades 
+              @abrirOS="abrirServicoPeloDashboard" 
+              @novaOSCliente="iniciarNovaOSPeloDashboard"
+            />
           </div>
         </div>
       </div>
