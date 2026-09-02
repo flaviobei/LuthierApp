@@ -190,23 +190,41 @@ async function salvarDataPrevisao() {
   }
 }
 
+// Helper para imprimir com título de arquivo (PDF) customizado
+async function imprimirComTituloCustomizado() {
+  const originalTitle = document.title;
+  
+  const clienteNome = dadosCliente.value?.nome || 'Cliente';
+  const instMarca = dadosInstrumento.value?.marca || '';
+  const instModelo = dadosInstrumento.value?.modelo || '';
+  const instrumento = `${instMarca} ${instModelo}`.trim() || 'Instrumento';
+  const numOS = servicoLocal.value?.numero_os || 'OS';
+
+  const printTitle = `${clienteNome} - ${instrumento} - #${numOS}`;
+  
+  document.title = printTitle;
+  await nextTick();
+  
+  window.print();
+  
+  // Retorna o título original após abrir o diálogo de impressão
+  document.title = originalTitle;
+}
+
 // MÉTODOS DE IMPRESSÃO
 async function imprimirOrcamento() {
   tipoImpressao.value = "orcamento";
-  await nextTick();
-  window.print();
+  await imprimirComTituloCustomizado();
 }
 async function gerarRecibo() {
   tipoImpressao.value = "recibo";
-  await nextTick();
-  window.print();
+  await imprimirComTituloCustomizado();
 }
 async function imprimirQRCode() {
   if (!qrCodeBase64.value)
     return triggerToast(t('os.aguarde_qr'), "warning");
   tipoImpressao.value = "qrcode";
-  await nextTick();
-  window.print();
+  await imprimirComTituloCustomizado();
 }
 
 onMounted(carregarTudo);
