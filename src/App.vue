@@ -525,7 +525,7 @@ onMounted(() => {
             :clientes="clientes"
             @selecionarCliente="(c) => { perfilClienteSelecionado = c; modoAtual = 'perfil_cliente'; }"
             @abrirOS="abrirServicoPeloDashboard"
-            @novoCliente="() => { triggerToast('Funcionalidade de Novo Cliente será implementada em breve.', 'info') }"
+            @novoCliente="() => { modoAtual = 'novo_cliente'; }"
           />
           <PerfilCliente
             v-else-if="modoAtual === 'perfil_cliente'"
@@ -533,6 +533,11 @@ onMounted(() => {
             @voltar="modoAtual = 'clientes'"
             @clienteAtualizado="buscarClientes"
             @selecionarInstrumento="(inst) => { instrumentoSelecionado = inst; clienteSelecionado = perfilClienteSelecionado; modoAtual = 'bancada'; }"
+          />
+          <ClienteForm
+            v-else-if="modoAtual === 'novo_cliente'"
+            @clienteSalvo="() => { buscarClientes(); modoAtual = 'clientes'; }"
+            @cancelarEdicao="modoAtual = 'clientes'"
           />
         </KeepAlive>
 
