@@ -38,6 +38,7 @@ const novaOS = ref({
   data_previsao_entrega: "",
   tolerancia_dias: 0,
   data_previsao_pecas: "",
+  is_orcamento: false,
 });
 
 async function buscarServicos() {
@@ -64,8 +65,8 @@ async function abrirOS() {
   const { error } = await supabase.from("servicos").insert([
     {
       instrumento_id: props.instrumento.id,
-      status: "Aberto",
-      fase_projeto: "Fila de Espera",
+      status: novaOS.value.is_orcamento ? "Orçamento Aguardando Aprovação" : "Aberto",
+      fase_projeto: novaOS.value.is_orcamento ? "Orçamento" : "Fila de Espera",
       descricao_cliente: novaOS.value.descricao_cliente,
       data_entrada: entradaFinal,
       data_previsao_entrega: novaOS.value.data_previsao_entrega || null,
@@ -83,6 +84,7 @@ async function abrirOS() {
       data_previsao_entrega: "",
       tolerancia_dias: 0,
       data_previsao_pecas: "",
+      is_orcamento: false,
     };
     triggerToast(t('servicos.os_aberta_sucesso'), "success"); // <-- MENSAGEM DE SUCESSO
     buscarServicos();
@@ -191,6 +193,13 @@ function corFase(fase) {
         <div class="form-group">
           <label>{{ $t('servicos.label_data_entrada') }}</label>
           <input type="datetime-local" v-model="novaOS.data_entrada" />
+        </div>
+
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+          <input type="checkbox" id="checkOrcamento" v-model="novaOS.is_orcamento" style="width: auto;" />
+          <label for="checkOrcamento" style="margin: 0; font-weight: bold; color: var(--warning); display: flex; align-items: center; gap: 4px;">
+            <span class="icon-dinamico" style="font-size: 1.2rem;">request_quote</span> Iniciar como Orçamento (Aguardando Aprovação)
+          </label>
         </div>
 
         <div

@@ -45,7 +45,7 @@ async function carregarDados() {
   const { data: dadosServicos } = await supabase
     .from("servicos")
     .select(
-      "id, status, data_entrada, data_conclusao, tipo_os, instrumentos(marca)",
+      "id, status, fase_projeto, data_entrada, data_conclusao, tipo_os, instrumentos(marca)",
     );
 
   if (dadosServicos) servicos.value = dadosServicos;
@@ -146,7 +146,8 @@ const totalReceberGlobal = computed(() => {
 const osEmAndamento = computed(
   () =>
     servicosFiltrados.value.filter(
-      (s) => s.status !== "Entregue" && s.status !== "Finalizado",
+      (s) => !["Entregue", "Finalizado", "Pausado", "Orçamento", "Cancelado", "Recusado"].includes(s.status) &&
+             !["Pausado", "Orçamento", "Cancelado"].includes(s.fase_projeto)
     ).length,
 );
 

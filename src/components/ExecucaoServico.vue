@@ -174,7 +174,6 @@ async function marcarComoFinalizada() {
 
 // NOVA FUNÇÃO: Salvar Data de Previsão
 async function salvarDataPrevisao() {
-  salvandoData.value = true;
   try {
     const novaData = servicoLocal.value.data_previsao_entrega || null;
     const { error } = await supabase
@@ -187,6 +186,146 @@ async function salvarDataPrevisao() {
   } catch (error) {
     triggerToast(t('os.erro_salvar_data'), "error");
     console.error(error);
+  }
+}
+
+// AÇÕES DE ORÇAMENTO E EXCLUSÃO
+async function aprovarOrcamento() {
+  if (!confirm(t('os.confirmar_aprovacao_orcamento', 'Confirmar aprovação do orçamento? A O.S. irá para a fila de espera e o prazo de execução começará a contar agora.'))) return;
+  try {
+    const agora = new Date().toISOString();
+    const { error } = await supabase
+      .from("servicos")
+      .update({ fase_projeto: 'Fila de Espera', status: 'Aberto', data_entrada: agora })
+      .eq("id", servicoLocal.value.id);
+    if (error) throw error;
+    servicoLocal.value.fase_projeto = 'Fila de Espera';
+    servicoLocal.value.status = 'Aberto';
+    servicoLocal.value.data_entrada = agora;
+    triggerToast(t('os.orcamento_aprovado', 'Orçamento Aprovado com sucesso!'), 'success');
+  } catch (err) {
+    triggerToast(t('os.erro_aprovar', 'Erro ao aprovar orçamento.'), 'error');
+  }
+}
+
+async function recusarOrcamento() {
+  if (!confirm(t('os.confirmar_recusa_orcamento', 'Confirmar recusa do orçamento? A O.S. será cancelada.'))) return;
+  try {
+    const { error } = await supabase
+      .from("servicos")
+      .update({ fase_projeto: 'Cancelado', status: 'Recusado' })
+      .eq("id", servicoLocal.value.id);
+    if (error) throw error;
+    servicoLocal.value.fase_projeto = 'Cancelado';
+    servicoLocal.value.status = 'Recusado';
+    triggerToast(t('os.orcamento_recusado', 'Orçamento Recusado e O.S. Cancelada.'), 'info');
+  } catch (err) {
+    triggerToast(t('os.erro_recusar', 'Erro ao recusar orçamento.'), 'error');
+  }
+}
+
+async function excluirOS() {
+  if (!confirm(t('os.confirmar_exclusao', 'ATENÇÃO: Deseja EXCLUIR PERMANENTEMENTE esta O.S.? Esta ação não pode ser desfeita.'))) return;
+  try {
+    const { error } = await supabase
+      .from("servicos")
+      .delete()
+      .eq("id", servicoLocal.value.id);
+    if (error) throw error;
+    triggerToast(t('os.os_excluida', 'O.S. excluída com sucesso!'), 'success');
+    emit('voltar');
+  } catch (err) {
+    triggerToast(t('os.erro_excluir', 'Erro ao excluir O.S.'), 'error');
+  }
+}
+
+// AÇÕES DE PAUSA E RETOMADA
+async function pausarServico() {
+  if (!confirm(t('os.confirmar_pausa', 'Deseja pausar o serviço? O tempo não será contado até ser retomado.'))) return;
+  try {
+    const agora = new Date().toISOString();
+    
+    const { error } = await supabase
+      .from("servicos")
+      .update({ fase_projeto: 'Pausado' })
+      .eq("id", servicoLocal.value.id);
+    if (error) throw error;
+    
+    await supabase.from("diario_servico").insert([{
+      servico_id: servicoLocal.value.id,
+      descricao: "Serviço Pausado pelo usuário.",
+      fase_projeto: 'Pausado',
+      data_registro: agora
+    }]);
+
+    servicoLocal.value.fase_projeto = 'Pausado';
+    triggerToast(t('os.servico_pausado', 'Serviço pausado com sucesso.'), 'info');
+  } catch (err) {
+    triggerToast(t('os.erro_pausar', 'Erro ao pausar serviço.'), 'error');
+  }
+}
+
+async function retomarServico() {
+  if (!confirm(t('os.confirmar_retomar', 'Deseja retomar o serviço? Os prazos serão estendidos com base no tempo que ficou pausado.'))) return;
+  try {
+    const agora = new Date();
+    
+    const { data: ultimoDiario } = await supabase
+      .from("diario_servico")
+      .select("data_registro")
+      .eq("servico_id", servicoLocal.value.id)
+      .eq("fase_projeto", "Pausado")
+      .order("data_registro", { ascending: false })
+      .limit(1);
+
+    let diasPausados = 0;
+    let msPausados = 0;
+    if (ultimoDiario && ultimoDiario.length > 0) {
+      const dataPausa = new Date(ultimoDiario[0].data_registro);
+      msPausados = Math.abs(agora - dataPausa);
+      diasPausados = Math.max(1, Math.ceil(msPausados / (1000 * 60 * 60 * 24)));
+    }
+
+    let novaDataEntrada = servicoLocal.value.data_entrada;
+    let novaDataPrevisao = servicoLocal.value.data_previsao_entrega;
+
+    if (msPausados > 0 && servicoLocal.value.data_entrada) {
+      const entradaObj = new Date(servicoLocal.value.data_entrada);
+      entradaObj.setTime(entradaObj.getTime() + msPausados);
+      novaDataEntrada = entradaObj.toISOString();
+    }
+    
+    if (msPausados > 0 && servicoLocal.value.data_previsao_entrega) {
+      const previsaoObj = new Date(servicoLocal.value.data_previsao_entrega);
+      previsaoObj.setTime(previsaoObj.getTime() + msPausados);
+      novaDataPrevisao = previsaoObj.toISOString().split('T')[0];
+    }
+
+    const { error } = await supabase
+      .from("servicos")
+      .update({ 
+        fase_projeto: 'Fila de Espera', 
+        data_entrada: novaDataEntrada,
+        data_previsao_entrega: novaDataPrevisao
+      })
+      .eq("id", servicoLocal.value.id);
+    
+    if (error) throw error;
+
+    await supabase.from("diario_servico").insert([{
+      servico_id: servicoLocal.value.id,
+      descricao: `Serviço Retomado. Datas estendidas em aproximadamente ${diasPausados} dia(s).`,
+      fase_projeto: 'Fila de Espera',
+      data_registro: agora.toISOString()
+    }]);
+
+    servicoLocal.value.fase_projeto = 'Fila de Espera';
+    servicoLocal.value.data_entrada = novaDataEntrada;
+    servicoLocal.value.data_previsao_entrega = novaDataPrevisao;
+    
+    triggerToast(t('os.servico_retomado', 'Serviço retomado com sucesso!'), 'success');
+  } catch (err) {
+    triggerToast(t('os.erro_retomar', 'Erro ao retomar serviço.'), 'error');
   }
 }
 
@@ -238,6 +377,26 @@ onMounted(carregarTudo);
     </div>
 
     <div v-else>
+      <div v-if="servicoLocal.fase_projeto === 'Orçamento'" class="card mb-2" style="background: #fffbeb; border: 1px solid var(--warning); padding: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="icon-dinamico" style="color: var(--warning); font-size: 2rem;">request_quote</span>
+            <div>
+              <h3 style="margin: 0; color: #b45309;">{{ $t('os.orcamento_aguardando', 'Orçamento Aguardando Aprovação') }}</h3>
+              <p style="margin: 2px 0 0 0; font-size: 0.9rem; color: #78350f;">{{ $t('os.orcamento_aguardando_desc', 'Aguarde o cliente aprovar o orçamento para iniciar o serviço.') }}</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-primary" style="background: var(--success); border-color: var(--success);" @click="aprovarOrcamento">
+              <span class="icon-dinamico">check_circle</span> {{ $t('os.btn_aprovar', 'Aprovar e Iniciar') }}
+            </button>
+            <button type="button" class="btn-outline" style="color: var(--danger); border-color: var(--danger); background: white;" @click="recusarOrcamento">
+              <span class="icon-dinamico">cancel</span> {{ $t('os.btn_recusar', 'Recusar') }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div
         class="card mb-2"
         style="
@@ -314,6 +473,46 @@ onMounted(carregarTudo);
 
           <div style="display: flex; align-items: center; gap: 8px">
             <button type="button"
+              v-if="!osFinalizada && servicoLocal.fase_projeto !== 'Pausado' && servicoLocal.fase_projeto !== 'Orçamento' && servicoLocal.status !== 'Recusado'"
+              class="btn-outline"
+              @click="pausarServico"
+              title="Pausar Serviço"
+              style="
+                padding: 4px 10px;
+                font-weight: bold;
+                font-size: 0.8rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                color: #64748b;
+                border-color: #64748b;
+                background: white;
+              "
+            >
+              <span class="icon-dinamico" style="font-size: 1.1rem">pause_circle</span>
+              Pausar
+            </button>
+            <button type="button"
+              v-if="!osFinalizada && servicoLocal.fase_projeto === 'Pausado'"
+              class="btn-outline"
+              @click="retomarServico"
+              title="Retomar Serviço"
+              style="
+                padding: 4px 10px;
+                font-weight: bold;
+                font-size: 0.8rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                color: var(--primary);
+                border-color: var(--primary);
+                background: white;
+              "
+            >
+              <span class="icon-dinamico" style="font-size: 1.1rem">play_circle</span>
+              Retomar
+            </button>
+            <button type="button"
               class="btn-outline"
               @click="imprimirQRCode"
               title="Imprimir Etiqueta"
@@ -349,6 +548,19 @@ onMounted(carregarTudo);
                 >arrow_back</span
               >
               {{ $t('geral.voltar') }}
+            </button>
+            <button type="button"
+              class="btn-outline"
+              @click="excluirOS"
+              title="Excluir O.S."
+              style="
+                padding: 4px 8px;
+                color: var(--danger);
+                border-color: var(--danger);
+                background: white;
+              "
+            >
+              <span class="icon-dinamico" style="font-size: 1.1rem">delete</span>
             </button>
           </div>
         </div>

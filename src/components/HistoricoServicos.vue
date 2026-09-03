@@ -23,6 +23,7 @@ const exportando = ref(false);
 
 const termoBusca = ref("");
 const mesFiltro = ref("");
+const mostrarRecusados = ref(false);
 const ordenacao = ref({ coluna: "data_conclusao", direcao: "desc" });
 
 // ESTADOS PARA O MODAL DE RETRABALHO
@@ -42,7 +43,9 @@ async function carregarHistorico() {
 }
 
 const servicosFiltrados = computed(() => {
-  let resultado = [...servicosEntregues.value];
+  let resultado = servicosEntregues.value.filter(os => 
+    mostrarRecusados.value ? os.status === "Recusado" : os.status !== "Recusado"
+  );
 
   if (termoBusca.value) {
     const termo = termoBusca.value.toLowerCase();
@@ -259,6 +262,17 @@ onMounted(() => carregarHistorico());
             {{ $t('historico.label_mes') }}</label
           >
           <input type="month" v-model="mesFiltro" />
+        </div>
+        <div style="flex: 1; min-width: 180px; display: flex; align-items: flex-end;">
+          <button type="button" 
+            class="btn-outline" 
+            :style="{ borderColor: mostrarRecusados ? 'var(--danger)' : 'var(--border)', color: mostrarRecusados ? 'white' : 'var(--text-main)', background: mostrarRecusados ? 'var(--danger)' : 'white' }" 
+            @click="mostrarRecusados = !mostrarRecusados"
+            style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 10px;"
+          >
+            <span class="icon-dinamico">{{ mostrarRecusados ? 'visibility_off' : 'visibility' }}</span>
+            {{ mostrarRecusados ? $t('historico.ocultar_recusados', 'Voltar ao Histórico') : $t('historico.ver_recusados', 'Ver Recusados') }}
+          </button>
         </div>
       </div>
     </div>

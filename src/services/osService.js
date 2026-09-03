@@ -10,6 +10,8 @@ export const osService = {
   corFase(fase) {
     switch (fase) {
       case "Fila de Espera": return "var(--text-muted)";
+      case "Pausado": return "#64748b"; // Azul acinzentado slate
+      case "Orçamento": return "#b45309"; // Laranja queimado
       case "Aguardando Peças": return "var(--danger)";
       case "Secagem / Cura": return "#6f42c1";
       case "Na Bancada": return "var(--primary)";
@@ -17,6 +19,8 @@ export const osService = {
       case "Pronto para Entrega": return "var(--success)";
       case "Entregue": return "#28a745";
       case "Finalizado": return "#28a745";
+      case "Cancelado": return "#94a3b8"; // Cinza
+      case "Recusado": return "#dc2626"; // Vermelho
       default: return "var(--warning)";
     }
   },
@@ -34,6 +38,8 @@ export const osService = {
       )
       .neq("status", "Entregue")
       .neq("status", "Finalizado")
+      .neq("status", "Cancelado")
+      .neq("status", "Recusado")
       .order("data_previsao_entrega", { ascending: true });
 
     if (error) throw error;
@@ -133,7 +139,11 @@ export const osService = {
         transacoes ( valor_bruto, tipo )
       `)
       .neq("status", "Entregue")
-      .neq("status", "Finalizado"); // Serviços em andamento
+      .neq("status", "Finalizado")
+      .neq("status", "Recusado")
+      .neq("fase_projeto", "Pausado")
+      .neq("fase_projeto", "Orçamento")
+      .neq("fase_projeto", "Cancelado");
 
     if (error) throw error;
 
@@ -162,7 +172,7 @@ export const osService = {
       .select(
         `*, instrumentos ( marca, modelo, cliente:clientes (id, nome, telefone, email) )`,
       )
-      .in("status", ["Entregue", "Finalizado"]);
+      .in("status", ["Entregue", "Finalizado", "Recusado"]);
 
     if (errServicos) throw errServicos;
     if (!servicos || servicos.length === 0) return [];

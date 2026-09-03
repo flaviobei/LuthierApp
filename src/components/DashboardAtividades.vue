@@ -26,6 +26,11 @@ const faturamentoParado = ref([]);
 const loading = ref(true);
 
 const filtroStatus = ref('Todos');
+const modoExibicao = ref(localStorage.getItem('luthierapp_modo_exibicao') || 'cards');
+
+watch(modoExibicao, (novoModo) => {
+  localStorage.setItem('luthierapp_modo_exibicao', novoModo);
+});
 
 const servicosAbertosFiltrados = computed(() => {
   let filtrado = servicosAbertos.value;
@@ -41,6 +46,7 @@ const servicosAbertosFiltrados = computed(() => {
     const getPeso = (fase) => {
       if (fase === 'Fila de Espera') return 1;
       if (fase === 'Pronto para Entrega') return 3;
+      if (fase === 'Pausado') return 4;
       return 2;
     };
     
@@ -592,8 +598,20 @@ onMounted(() => {
           <span class="icon-dinamico">add_circle</span> {{ $t('dashboard.nova_os') || 'Nova O.S.' }}
         </button>
 
+        <button 
+          type="button"
+          class="btn-icon" 
+          @click="modoExibicao = modoExibicao === 'cards' ? 'lista' : 'cards'"
+          :title="modoExibicao === 'cards' ? $t('dashboard.ver_lista', 'Ver em Lista') : $t('dashboard.ver_cards', 'Ver em Cards')"
+          style="color: var(--primary); border: 1px solid var(--border); padding: 6px; border-radius: 4px; background: white;"
+        >
+          <span class="icon-dinamico">{{ modoExibicao === 'cards' ? 'view_list' : 'grid_view' }}</span>
+        </button>
+
         <select v-model="filtroStatus" class="input-padrao" style="padding: 6px 10px; height: auto; font-weight: bold;" :style="{ color: filtroStatus !== 'Todos' ? corFase(filtroStatus) : 'inherit' }">
           <option value="Todos" style="color: initial;">{{ $t('dashboard.todos_status') }}</option>
+          <option value="Orçamento" :style="{ color: corFase('Orçamento'), fontWeight: 'bold' }">🟠 {{ $t('dashboard.status_orcamento', 'Orçamento') }}</option>
+          <option value="Pausado" :style="{ color: corFase('Pausado'), fontWeight: 'bold' }">⏸️ {{ $t('dashboard.status_pausado', 'Pausado') }}</option>
           <option value="Fila de Espera" :style="{ color: corFase('Fila de Espera'), fontWeight: 'bold' }">⚫ {{ $t('dashboard.status_fila_espera') }}</option>
           <option value="Na Bancada" :style="{ color: corFase('Na Bancada'), fontWeight: 'bold' }">🔵 {{ $t('dashboard.status_na_bancada') }}</option>
           <option value="Secagem / Cura" :style="{ color: corFase('Secagem / Cura'), fontWeight: 'bold' }">🟣 {{ $t('dashboard.status_secagem') }}</option>
@@ -628,11 +646,11 @@ onMounted(() => {
       </p>
     </div>
 
-    <div v-else id="tour-bancada" class="grid-cards">
+    <div v-else id="tour-bancada" :class="modoExibicao === 'cards' ? 'grid-cards' : 'list-cards'">
       <div
         v-for="os in servicosAbertosFiltrados"
         :key="os.id"
-        class="card card-os"
+        :class="['card', modoExibicao === 'cards' ? 'card-os' : 'card-os-list']"
         @click="$emit('abrirOS', os)"
       >
         <div
@@ -644,60 +662,74 @@ onMounted(() => {
           >
         </div>
 
-        <h3 class="modelo">{{ os.instrumentos?.modelo }}</h3>
-        <span class="marca">{{ os.instrumentos?.marca }}</span>
-        <div
-          class="cliente"
-          style="display: flex; align-items: center; gap: 6px"
-        >
-          <span
-            class="icon-dinamico"
-            style="font-size: 1.1rem; color: var(--text-muted)"
-            >person</span
+        <template v-if="modoExibicao === 'cards'">
+          <h3 class="modelo">{{ os.instrumentos?.modelo }}</h3>
+          <span class="marca">{{ os.instrumentos?.marca }}</span>
+          <div
+            class="cliente"
+            style="display: flex; align-items: center; gap: 6px"
           >
-          {{ os.instrumentos?.cliente?.nome }}
-        </div>
-
-        <p class="desc">
-          {{
-            os.descricao_cliente?.length > 50
-              ? os.descricao_cliente.slice(0, 50) + "..."
-              : os.descricao_cliente
-          }}
-        </p>
-
-        <div v-if="os.ultima_atualizacao" class="ultima-atualizacao">
-          <div class="atualizacao-header">
-            <small
-              >{{ $t('dashboard.ultima_anotacao', { data: formatarDataCurta(os.ultima_atualizacao.data_registro) }) }}</small
+            <span
+              class="icon-dinamico"
+              style="font-size: 1.1rem; color: var(--text-muted)"
+              >person</span
             >
+            {{ os.instrumentos?.cliente?.nome }}
           </div>
-          <div class="atualizacao-body">
-            <img
-              v-if="os.ultima_atualizacao.foto_url"
-              :src="os.ultima_atualizacao.foto_url"
-              class="miniatura-diario"
-            />
-            <p class="texto-diario">
-              {{
-                os.ultima_atualizacao.descricao.length > 55
-                  ? os.ultima_atualizacao.descricao.slice(0, 55) + "..."
-                  : os.ultima_atualizacao.descricao
-              }}
-            </p>
-          </div>
-        </div>
-        <div v-else style="flex-grow: 1"></div>
 
-        <div class="footer-card">
-          <small>{{ $t('dashboard.entrada') }} {{ formatarData(os.data_entrada) }}</small>
-          <small
-            v-if="os.data_previsao_entrega"
-            style="color: var(--danger); font-weight: bold"
-          >
-            {{ $t('dashboard.prazo') }} {{ formatarData(os.data_previsao_entrega) }}
-          </small>
-        </div>
+          <p class="desc">
+            {{
+              os.descricao_cliente?.length > 50
+                ? os.descricao_cliente.slice(0, 50) + "..."
+                : os.descricao_cliente
+            }}
+          </p>
+
+          <div v-if="os.ultima_atualizacao" class="ultima-atualizacao">
+            <div class="atualizacao-header">
+              <small
+                >{{ $t('dashboard.ultima_anotacao', { data: formatarDataCurta(os.ultima_atualizacao.data_registro) }) }}</small
+              >
+            </div>
+            <div class="atualizacao-body">
+              <img
+                v-if="os.ultima_atualizacao.foto_url"
+                :src="os.ultima_atualizacao.foto_url"
+                class="miniatura-diario"
+              />
+              <p class="texto-diario">
+                {{
+                  os.ultima_atualizacao.descricao.length > 55
+                    ? os.ultima_atualizacao.descricao.slice(0, 55) + "..."
+                    : os.ultima_atualizacao.descricao
+                }}
+              </p>
+            </div>
+          </div>
+          <div v-else style="flex-grow: 1"></div>
+
+          <div class="footer-card">
+            <small>{{ $t('dashboard.entrada') }} {{ formatarData(os.data_entrada) }}</small>
+            <small
+              v-if="os.data_previsao_entrega"
+              style="color: var(--danger); font-weight: bold"
+            >
+              {{ $t('dashboard.prazo') }} {{ formatarData(os.data_previsao_entrega) }}
+            </small>
+          </div>
+        </template>
+        
+        <template v-else>
+          <div class="list-info" style="margin-top: 18px;">
+            <div style="font-size: 1.1rem; color: var(--primary); font-weight: bold;">
+              {{ os.instrumentos?.modelo }} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal; text-transform: uppercase;">{{ os.instrumentos?.marca }}</span>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+              <span class="icon-dinamico" style="font-size: 1rem; color: var(--text-muted)">person</span>
+              {{ os.instrumentos?.cliente?.nome }}
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -779,6 +811,28 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
+}
+
+/* LISTA BANCADA */
+.list-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card-os-list {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  min-height: 70px;
+}
+.card-os-list:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  border-color: var(--accent);
 }
 .card-os {
   cursor: pointer;

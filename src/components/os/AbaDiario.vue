@@ -35,6 +35,7 @@ const fotoDiarioUpload = ref(null);
 const carregandoFotoDiario = ref(false);
 
 const fasesPermitidas = [
+  "Pausado",
   "Fila de Espera",
   "Aguardando Peças",
   "Secagem / Cura",
