@@ -474,8 +474,15 @@ async function gerarRecibo() {
 async function imprimirQRCode() {
   try {
     etiquetaImagemBase64.value = await gerarImagemEtiqueta();
-    tipoImpressao.value = "qrcode";
-    await imprimirComTituloCustomizado();
+    
+    // Força o download da imagem ao invés de abrir o diálogo de impressão do navegador
+    const a = document.createElement('a');
+    a.href = etiquetaImagemBase64.value;
+    a.download = `Etiqueta_OS_${servicoLocal.value.numero_os}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
   } catch (err) {
     console.error("Erro ao gerar imagem da etiqueta:", err);
     triggerToast(t('os.erro_gerar_etiqueta', 'Erro ao gerar etiqueta'), "error");
@@ -839,14 +846,7 @@ onMounted(carregarTudo);
         class="print-only"
         :class="'impressora-' + (configLuthieria.tipo_impressora || 'padrao')"
       >
-        <div v-if="tipoImpressao === 'qrcode'" class="print-box-qr" style="margin: 0; padding: 0;">
-          <img
-            v-if="etiquetaImagemBase64"
-            :src="etiquetaImagemBase64"
-            alt="Etiqueta O.S."
-            style="width: 100%; height: auto; display: block;"
-          />
-        </div>
+
 
         <div
           v-if="tipoImpressao === 'orcamento' || tipoImpressao === 'recibo'"
