@@ -329,6 +329,118 @@ async function retomarServico() {
   }
 }
 
+// Helper para gerar imagem em alta resolução da etiqueta via Canvas
+const etiquetaImagemBase64 = ref("");
+
+async function gerarImagemEtiqueta() {
+  const scale = 2; 
+  const width = 384 * scale; // ~58mm = 384 pixels em 203 DPI
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const pad = 10 * scale;
+
+  const fontOS = `bold ${40 * scale}px sans-serif`;
+  const fontNormal = `bold ${28 * scale}px sans-serif`;
+  const fontSmall = `bold ${22 * scale}px sans-serif`;
+
+  const qrSize = width - (pad * 2);
+  const qrDataUrl = await QRCode.toDataURL(String(servicoLocal.value.id), {
+    width: qrSize,
+    margin: 0,
+    color: { dark: "#000000", light: "#ffffff" }
+  });
+  
+  const imgQR = new Image();
+  await new Promise(resolve => {
+    imgQR.onload = resolve;
+    imgQR.src = qrDataUrl;
+  });
+
+  const instMarca = dadosInstrumento.value?.marca || '';
+  const instModelo = dadosInstrumento.value?.modelo || '';
+  const clienteNome = dadosCliente.value?.nome || 'Não Registrado';
+  const motivo = servicoLocal.value.descricao_cliente || 'Sem descrição';
+  
+  const formatDate = (dateStr) => {
+    if(!dateStr) return '--/--/----';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pt-BR');
+  };
+  const dtEntrada = formatDate(servicoLocal.value.data_entrada);
+  const dtPrev = formatDate(servicoLocal.value.data_previsao_entrega);
+
+  function getLines(context, text, maxWidth) {
+    let words = text.split(' ');
+    let lines = [];
+    let currentLine = words[0] || '';
+    for (let i = 1; i < words.length; i++) {
+        let word = words[i];
+        let width = context.measureText(currentLine + " " + word).width;
+        if (width < maxWidth) {
+            currentLine += " " + word;
+        } else {
+            lines.push(currentLine);
+            currentLine = word;
+        }
+    }
+    lines.push(currentLine);
+    return lines;
+  }
+
+  // Pre-calculate height
+  ctx.font = fontSmall;
+  const maxTextWidth = width - (pad * 2);
+  const motivoLines = getLines(ctx, `Motivo: ${motivo}`, maxTextWidth);
+
+  let totalHeight = pad;
+  totalHeight += (40 * scale) + pad; // OS
+  totalHeight += (28 * scale) + (pad/2); // Inst
+  totalHeight += (28 * scale) + (pad/2); // Cliente
+  totalHeight += (motivoLines.length * (26 * scale)) + (pad/2); // Motivo
+  totalHeight += (22 * scale) + pad; // Datas
+  totalHeight += qrSize + pad; // QR
+  totalHeight += pad; // bottom pad
+
+  canvas.width = width;
+  canvas.height = totalHeight;
+
+  // Background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, canvas.height);
+
+  // Text
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  let currentY = pad;
+
+  ctx.font = fontOS;
+  ctx.fillText(`O.S. #${servicoLocal.value.numero_os}`, width / 2, currentY);
+  currentY += (40 * scale) + pad;
+
+  ctx.font = fontNormal;
+  ctx.fillText(`${instMarca} ${instModelo}`.trim(), width / 2, currentY);
+  currentY += (28 * scale) + (pad/2);
+
+  ctx.fillText(clienteNome, width / 2, currentY);
+  currentY += (28 * scale) + (pad/2);
+
+  ctx.font = fontSmall;
+  motivoLines.forEach(line => {
+      ctx.fillText(line, width / 2, currentY);
+      currentY += (26 * scale);
+  });
+  currentY += (pad/2);
+
+  ctx.fillText(`Ent: ${dtEntrada} | Prev: ${dtPrev}`, width / 2, currentY);
+  currentY += (22 * scale) + pad;
+
+  ctx.drawImage(imgQR, pad, currentY, qrSize, qrSize);
+
+  return canvas.toDataURL('image/png');
+}
+
 // Helper para imprimir com título de arquivo (PDF) customizado
 async function imprimirComTituloCustomizado() {
   const originalTitle = document.title;
@@ -360,10 +472,14 @@ async function gerarRecibo() {
   await imprimirComTituloCustomizado();
 }
 async function imprimirQRCode() {
-  if (!qrCodeBase64.value)
-    return triggerToast(t('os.aguarde_qr'), "warning");
-  tipoImpressao.value = "qrcode";
-  await imprimirComTituloCustomizado();
+  try {
+    etiquetaImagemBase64.value = await gerarImagemEtiqueta();
+    tipoImpressao.value = "qrcode";
+    await imprimirComTituloCustomizado();
+  } catch (err) {
+    console.error("Erro ao gerar imagem da etiqueta:", err);
+    triggerToast(t('os.erro_gerar_etiqueta', 'Erro ao gerar etiqueta'), "error");
+  }
 }
 
 onMounted(carregarTudo);
@@ -723,43 +839,13 @@ onMounted(carregarTudo);
         class="print-only"
         :class="'impressora-' + (configLuthieria.tipo_impressora || 'padrao')"
       >
-        <div v-if="tipoImpressao === 'qrcode'" class="print-box-qr">
-          <h2 class="print-title">
-            {{ configLuthieria.nome_luthieria || "Luthieria" }}
-          </h2>
-          <hr class="print-divider" />
-          <h1 class="print-os-number">O.S. #{{ servicoLocal.numero_os }}</h1>
-
-          <div class="print-qr-info">
-            <p>
-              <strong>Cliente:</strong>
-              {{ dadosCliente?.nome || $t('os.nao_registrado') }}
-            </p>
-            <p>
-              <strong>Inst:</strong> {{ dadosInstrumento?.marca }}
-              {{ dadosInstrumento?.modelo }}
-            </p>
-            <p>
-              <strong>Motivo:</strong>
-              {{
-                servicoLocal.descricao_cliente
-                  ? servicoLocal.descricao_cliente.slice(0, 80) + "..."
-                  : $t('os.sem_descricao')
-              }}
-            </p>
-          </div>
-
-          <div class="print-qr-image-wrapper">
-            <img
-              v-if="qrCodeBase64"
-              :src="qrCodeBase64"
-              alt="QR Code O.S."
-              class="qr-code-img"
-            />
-            <p class="print-qr-hint text-muted">
-              {{ $t('os.dica_qr') }}
-            </p>
-          </div>
+        <div v-if="tipoImpressao === 'qrcode'" class="print-box-qr" style="margin: 0; padding: 0;">
+          <img
+            v-if="etiquetaImagemBase64"
+            :src="etiquetaImagemBase64"
+            alt="Etiqueta O.S."
+            style="width: 100%; height: auto; display: block;"
+          />
         </div>
 
         <div
